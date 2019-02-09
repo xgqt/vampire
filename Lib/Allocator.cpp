@@ -1096,6 +1096,7 @@ unsigned VAllocator::Descriptor::hash (const void* addr)
 
 #if VDEBUG
 
+ /**
 void* operator new(size_t sz) {    
   ASS_REP(VAllocator::_tolerantZone > 0,"Attempted to use global new operator, thus bypassing VAllocator!");
   // Please read: https://github.com/easychair/vampire/wiki/Attempted-to-use-global-new-operator,-thus-bypassing-VAllocator!
@@ -1151,6 +1152,7 @@ void operator delete[](void* obj) throw() {
     DEALLOC_UNKNOWN(obj,"global new[]");
   }
 }
+*/
 
 #endif
 
