@@ -401,6 +401,7 @@ void SaturationAlgorithm::onAllProcessed()
  */
 void SaturationAlgorithm::onPassiveAdded(Clause* c)
 {
+  throw;
   if (env.options->showPassive()) {
     env.beginOutput();
     env.out() << "[SA] passive: " << c->toString() << std::endl;
