@@ -123,6 +123,9 @@ public:
   virtual TermList applyToBoundQuery(TermList t)
   { return applyToQuery(t); }
 
+  virtual Literal* applyToBoundQuery(Literal* lit)
+  { return applyToQuery(lit); }
+
   /**
    * Return true if, when the substitution is applied to a query
    * term through the @b applyToBoundQuery function, the corresponding

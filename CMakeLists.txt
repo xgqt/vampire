@@ -427,6 +427,7 @@ set(VAMPIRE_INFERENCE_SOURCES
     Inferences/EquationalTautologyRemoval.cpp
     Inferences/Induction.cpp
     Inferences/InductionHelper.cpp
+    Inferences/InductionRemodulation.cpp
     Inferences/InferenceEngine.cpp
     Inferences/Instantiation.cpp
     Inferences/InterpretedEvaluation.cpp

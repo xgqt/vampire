@@ -903,6 +903,8 @@ vstring Kernel::ruleName(InferenceRule rule)
     return "instantiation";
   case InferenceRule::MODEL_NOT_FOUND:
     return "finite model not found";
+  case InferenceRule::INDUCTION_REMODULATION:
+    return "induction remodulation";
   case InferenceRule::INDUCTION_AXIOM:
     return "induction hypothesis";
   case InferenceRule::GEN_INDUCTION_AXIOM:

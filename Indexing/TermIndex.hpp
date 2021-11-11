@@ -129,6 +129,25 @@ private:
 };
 
 /**
+ * Term index for remodulation (i.e. doing the reverse of demodulation)
+ */
+class RemodulationLHSIndex
+: public TermIndex
+{
+public:
+  CLASS_NAME(RemodulationLHSIndex);
+  USE_ALLOCATOR(RemodulationLHSIndex);
+
+  RemodulationLHSIndex(TermIndexingStructure* is, Ordering& ord, const Options& opt)
+  : TermIndex(is), _ord(ord), _opt(opt) {};
+protected:
+  void handleClause(Clause* c, bool adding);
+private:
+  Ordering& _ord;
+  const Options& _opt;
+};
+
+/**
  * Term index for induction
  */
 class InductionTermIndex

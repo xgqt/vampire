@@ -93,21 +93,28 @@ public:
   void detach();
 
   ClauseIterator generateClauses(Clause* premise);
+  void setAllowed(const vset<Term*>& allowed) {
+    _allowed = allowed;
+  }
+  void clearAllowed() {
+    _allowed.clear();
+  }
 
 private:
   // The following pointers can be null if int induction is off.
   LiteralIndex* _comparisonIndex = nullptr;
   TermIndex* _inductionTermIndex = nullptr;
+  vset<Term*> _allowed;
 };
 
 class InductionClauseIterator
 {
 public:
   // all the work happens in the constructor!
-  InductionClauseIterator(Clause* premise, InductionHelper helper)
+  InductionClauseIterator(Clause* premise, InductionHelper helper, const vset<Term*>& allowed)
       : _helper(helper)
   {
-    processClause(premise);
+    processClause(premise, allowed);
   }
 
   CLASS_NAME(InductionClauseIterator);
@@ -126,8 +133,8 @@ public:
   }
 
 private:
-  void processClause(Clause* premise);
-  void processLiteral(Clause* premise, Literal* lit);
+  void processClause(Clause* premise, const vset<Term*>& allowed);
+  void processLiteral(Clause* premise, Literal* lit, const vset<Term*>& allowed);
   void processIntegerComparison(Clause* premise, Literal* lit);
 
   // Clausifies the hypothesis, resolves it against the conclusion/toResolve,

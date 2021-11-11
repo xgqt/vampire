@@ -289,10 +289,10 @@ ClauseIterator Induction::generateClauses(Clause* premise)
 {
   CALL("Induction::generateClauses");
 
-  return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex, _salg->getSplitter())));
+  return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex, _salg->getSplitter()), _allowed));
 }
 
-void InductionClauseIterator::processClause(Clause* premise)
+void InductionClauseIterator::processClause(Clause* premise, const vset<Term*>& allowed)
 {
   CALL("InductionClauseIterator::processClause");
 
@@ -300,7 +300,7 @@ void InductionClauseIterator::processClause(Clause* premise)
   // or it should be an integer constant comparison we use as a bound.
   if (InductionHelper::isInductionClause(premise)) {
     for (unsigned i=0;i<premise->length();i++) {
-      processLiteral(premise,(*premise)[i]);
+      processLiteral(premise,(*premise)[i], allowed);
     }
   }
   if (InductionHelper::isIntInductionTwoOn() && InductionHelper::isIntegerComparison(premise)) {
@@ -308,7 +308,7 @@ void InductionClauseIterator::processClause(Clause* premise)
   }
 }
 
-void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
+void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit, const vset<Term*>& allowed)
 {
   CALL("Induction::ClauseIterator::processLiteral");
 
@@ -329,6 +329,9 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
         TermList ts = it.next();
         if(!ts.term()){ continue; }
         unsigned f = ts.term()->functor(); 
+        if (!allowed.empty() && !allowed.count(ts.term())) {
+          continue;
+        }
         if(InductionHelper::isInductionTermFunctor(f)){
           if(InductionHelper::isStructInductionOn() && InductionHelper::isStructInductionFunctor(f)){
             ta_terms.insert(ts.term());
