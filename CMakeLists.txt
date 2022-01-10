@@ -424,7 +424,6 @@ set(VAMPIRE_INFERENCE_SOURCES
     Inferences/InductionRemodulation.cpp
     Inferences/InductionRemodulationSubsumption.cpp
     Inferences/InductionHelper.cpp
-    Inferences/InductionRemodulation.cpp
     Inferences/InferenceEngine.cpp
     Inferences/Instantiation.cpp
     Inferences/InterpretedEvaluation.cpp

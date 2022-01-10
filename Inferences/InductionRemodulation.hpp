@@ -66,9 +66,9 @@ inline bool canUseForRewrite(Clause* cl) {
      isFormulaTransformation(cl->inference().rule()));
 }
 
-class LiteralSubsetReplacement2 : TermTransformer {
+class SingleOccurrenceReplacement : TermTransformer {
 public:
-  LiteralSubsetReplacement2(Literal* lit, Term* o, TermList r)
+  SingleOccurrenceReplacement(Literal* lit, Term* o, TermList r)
       : _lit(lit), _o(o), _r(r) {
     _occurrences = _lit->countSubtermOccurrences(TermList(_o));
   }

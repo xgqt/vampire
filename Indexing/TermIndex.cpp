@@ -324,8 +324,7 @@ void InductionTermIndex::handleClause(Clause* c, bool adding)
           TermList tl = it.next();
           if (!tl.term()) continue;
           if (InductionHelper::isInductionTermFunctor(tl.term()->functor()) &&
-              (InductionHelper::isStructInductionFunctor(tl.term()->functor()) ||
-               InductionHelper::isIntInductionTermListInLiteral(tl, lit))) {
+              InductionHelper::isIntInductionTermListInLiteral(tl, lit)) {
             if (adding) {
               _is->insert(tl, lit, c);
             } else {
