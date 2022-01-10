@@ -21,6 +21,7 @@
 #include "Indexing/ResultSubstitution.hpp"
 
 #include "Inferences/BinaryResolution.hpp"
+#include "Inferences/InductionRemodulation.hpp"
 
 #include "Lib/DHSet.hpp"
 #include "Lib/DHMap.hpp"
@@ -289,10 +290,10 @@ ClauseIterator Induction::generateClauses(Clause* premise)
 {
   CALL("Induction::generateClauses");
 
-  return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex, _salg->getSplitter()), _allowed));
+  return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex, _salg->getSplitter()), _salg->getOrdering()));
 }
 
-void InductionClauseIterator::processClause(Clause* premise, const vset<Term*>& allowed)
+void InductionClauseIterator::processClause(Clause* premise, const Ordering& ord)
 {
   CALL("InductionClauseIterator::processClause");
 
@@ -300,7 +301,7 @@ void InductionClauseIterator::processClause(Clause* premise, const vset<Term*>& 
   // or it should be an integer constant comparison we use as a bound.
   if (InductionHelper::isInductionClause(premise)) {
     for (unsigned i=0;i<premise->length();i++) {
-      processLiteral(premise,(*premise)[i], allowed);
+      processLiteral(premise,(*premise)[i], ord);
     }
   }
   if (InductionHelper::isIntInductionTwoOn() && InductionHelper::isIntegerComparison(premise)) {
@@ -308,7 +309,7 @@ void InductionClauseIterator::processClause(Clause* premise, const vset<Term*>& 
   }
 }
 
-void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit, const vset<Term*>& allowed)
+void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit, const Ordering& ord)
 {
   CALL("Induction::ClauseIterator::processLiteral");
 
@@ -329,9 +330,6 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit, cons
         TermList ts = it.next();
         if(!ts.term()){ continue; }
         unsigned f = ts.term()->functor(); 
-        if (!allowed.empty() && !allowed.count(ts.term())) {
-          continue;
-        }
         if(InductionHelper::isInductionTermFunctor(f)){
           if(InductionHelper::isStructInductionOn() && InductionHelper::isStructInductionFunctor(f)){
             ta_terms.insert(ts.term());
@@ -373,6 +371,9 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit, cons
           Literal* ilit = generalize ? subsetReplacement.transformSubset(rule) : lit;
           ASS(ilit != nullptr);
           do {
+            if (RemodulationInfo::isRedundant(ilit, premise->getRemodulationInfo<DHSet<RemodulationInfo>>(), ord)) {
+              continue;
+            }
             if(one){
               performStructInductionOne(premise,lit,ilit,inductionTerm,rule);
             }

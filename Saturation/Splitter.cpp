@@ -16,6 +16,8 @@
 
 #include "Debug/RuntimeStatistics.hpp"
 
+#include "Inferences/InductionRemodulation.hpp"
+
 #include "Lib/DHSet.hpp"
 #include "Lib/Environment.hpp"
 #include "Lib/IntUnionFind.hpp"
@@ -1274,6 +1276,26 @@ Clause* Splitter::buildAndInsertComponentClause(SplitLevel name, unsigned size, 
     compCl->setAge(orig->age());
     compCl->inference().th_ancestors = orig->inference().th_ancestors;
     compCl->inference().all_ancestors = orig->inference().all_ancestors;
+    const auto rinfos = orig->getRemodulationInfo<DHSet<RemodulationInfo>>();
+    if (rinfos && !rinfos->isEmpty()) {
+      DHSet<RemodulationInfo>::Iterator it(*rinfos);
+      auto rinfosNew = new DHSet<RemodulationInfo>();
+      while (it.hasNext()) {
+        auto rinfo = it.next();
+        for (unsigned i = 0; i < size; i++) {
+          auto lhs = RemodulationInfo::getLHS(rinfo._eqGr, _sa->getOrdering());
+          if (lits[i]->containsSubterm(lhs)) {
+            rinfosNew->insert(rinfo);
+          }
+        }
+      }
+      if (rinfosNew->isEmpty()) {
+        delete rinfosNew;
+      } else {
+        compCl->setRemodulationInfo(rinfosNew);
+        compCl->setInductionLemma(true);
+      }
+    }
   } else {
     compCl->setAge(AGE_NOT_FILLED);
     // We don't know anything about the derivation of the clause, so we set values which are as neutral as possible.

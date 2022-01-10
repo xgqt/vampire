@@ -1245,6 +1245,19 @@ void Options::init()
             _integerInductionInterval.reliesOn(Or(_induction.is(equal(Induction::INTEGER)),_induction.is(equal(Induction::BOTH))));
             _lookup.insert(&_integerInductionInterval);
 
+            _inductionConsequenceGeneration = ChoiceOptionValue<InductionConsequenceGeneration>("induction_consequence_generation","indcg",
+                                                InductionConsequenceGeneration::OFF, {"off", "unit_only", "on"});
+            _inductionConsequenceGeneration.description = "Generate consequences (without ordering constraints) for induction goals";
+            _inductionConsequenceGeneration.tag(OptionTag::INFERENCES);
+            _inductionConsequenceGeneration.reliesOn(_induction.is(notEqual(Induction::NONE)));
+            _lookup.insert(&_inductionConsequenceGeneration);
+
+            _inductionRemodulationRedundancyCheck = BoolOptionValue("induction_remodulation_redundancy_check","indrrc",true);
+            _inductionRemodulationRedundancyCheck.description = "Try to do only non-redundant inductions";
+            _inductionRemodulationRedundancyCheck.tag(OptionTag::INFERENCES);
+            _inductionRemodulationRedundancyCheck.reliesOn(_inductionConsequenceGeneration.is(notEqual(InductionConsequenceGeneration::OFF)));
+            _lookup.insert(&_inductionRemodulationRedundancyCheck);
+
 	    _instantiation = ChoiceOptionValue<Instantiation>("instantiation","inst",Instantiation::OFF,{"off","on"});
 	    _instantiation.description = "Heuristically instantiate variables. Often wastes a lot of effort. Consider using thi instead.";
 	    _instantiation.tag(OptionTag::INFERENCES);

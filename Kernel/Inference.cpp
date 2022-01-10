@@ -728,6 +728,10 @@ vstring Kernel::ruleName(InferenceRule rule)
     return "trivial inequality removal";
   case InferenceRule::FACTORING:
     return "factoring";
+  case InferenceRule::INDUCTION_REMODULATION:
+    return "induction remodulation";
+  case InferenceRule::INDUCTION_FORWARD_REWRITING:
+    return "induction forward rewriting";
   case InferenceRule::CONSTRAINED_FACTORING:
     return "constrained factoring";
   case InferenceRule::SUBSUMPTION_RESOLUTION:
@@ -903,8 +907,6 @@ vstring Kernel::ruleName(InferenceRule rule)
     return "instantiation";
   case InferenceRule::MODEL_NOT_FOUND:
     return "finite model not found";
-  case InferenceRule::INDUCTION_REMODULATION:
-    return "induction remodulation";
   case InferenceRule::INDUCTION_AXIOM:
     return "induction hypothesis";
   case InferenceRule::GEN_INDUCTION_AXIOM:

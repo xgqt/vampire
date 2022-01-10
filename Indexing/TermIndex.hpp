@@ -128,9 +128,23 @@ private:
   const Options& _opt;
 };
 
+class RemodulationSubtermIndex
+: public TermIndex
+{
+public:
+  CLASS_NAME(RemodulationSubtermIndex);
+  USE_ALLOCATOR(RemodulationSubtermIndex);
+
+  RemodulationSubtermIndex(TermIndexingStructure* is)
+  : TermIndex(is) {}
+
+protected:
+  void handleClause(Clause* c, bool adding);
+};
+
 /**
- * Term index for remodulation (i.e. doing the reverse of demodulation)
- */
++ * Term index for remodulation (i.e. doing the reverse of demodulation)
++ */
 class RemodulationLHSIndex
 : public TermIndex
 {
@@ -138,13 +152,30 @@ public:
   CLASS_NAME(RemodulationLHSIndex);
   USE_ALLOCATOR(RemodulationLHSIndex);
 
-  RemodulationLHSIndex(TermIndexingStructure* is, Ordering& ord, const Options& opt)
-  : TermIndex(is), _ord(ord), _opt(opt) {};
+  RemodulationLHSIndex(TermIndexingStructure* is, Ordering& ord)
+  : TermIndex(is), _ord(ord) {};
 protected:
   void handleClause(Clause* c, bool adding);
 private:
   Ordering& _ord;
-  const Options& _opt;
+};
+
+/**
+ * Term index for general rewriting
+ */
+class RewritingLHSIndex
+: public TermIndex
+{
+public:
+  CLASS_NAME(RewritingLHSIndex);
+  USE_ALLOCATOR(RewritingLHSIndex);
+
+  RewritingLHSIndex(TermIndexingStructure* is, Ordering& ord)
+  : TermIndex(is), _ord(ord) {}
+protected:
+  void handleClause(Clause* c, bool adding);
+private:
+  Ordering& _ord;
 };
 
 /**

@@ -248,6 +248,11 @@ public:
     BOTH
   };
 
+  enum class InductionConsequenceGeneration : unsigned {
+    OFF,
+    UNIT_ONLY,
+    ON,
+  };
 
   enum class PredicateSineLevels : unsigned int {
     NO,   // no means 1) the reverse of "on", 2) use with caution, it is predicted to be the worse value
@@ -2188,6 +2193,8 @@ public:
   bool inductionOnComplexTerms() const {return _inductionOnComplexTerms.actualValue;}
   bool integerInductionDefaultBound() const { return _integerInductionDefaultBound.actualValue; }
   IntegerInductionInterval integerInductionInterval() const { return _integerInductionInterval.actualValue; }
+  InductionConsequenceGeneration inductionConsequenceGeneration() const { return _inductionConsequenceGeneration.actualValue; }
+  bool inductionRemodulationRedundancyCheck() const { return _inductionRemodulationRedundancyCheck.actualValue; }
 
   float instGenBigRestartRatio() const { return _instGenBigRestartRatio.actualValue; }
   bool instGenPassiveReactivation() const { return _instGenPassiveReactivation.actualValue; }
@@ -2486,6 +2493,8 @@ private:
   BoolOptionValue _inductionOnComplexTerms;
   BoolOptionValue _integerInductionDefaultBound;
   ChoiceOptionValue<IntegerInductionInterval> _integerInductionInterval;
+  ChoiceOptionValue<InductionConsequenceGeneration> _inductionConsequenceGeneration;
+  BoolOptionValue _inductionRemodulationRedundancyCheck;
 
   StringOptionValue _latexOutput;
   BoolOptionValue _latexUseDefaultSymbols;

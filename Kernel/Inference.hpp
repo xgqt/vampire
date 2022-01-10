@@ -355,6 +355,8 @@ enum class InferenceRule : unsigned char {
 
   INDUCTION_REMODULATION,
 
+  INDUCTION_FORWARD_REWRITING,
+
   INTERNAL_GENERATING_INFERNCE_LAST,
 
   /** equality proxy replacement */
