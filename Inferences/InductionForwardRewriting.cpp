@@ -31,27 +31,6 @@
 #include "InductionHelper.hpp"
 #include "InductionRemodulation.hpp"
 
-#if VDEBUG
-#include <iostream>
-using namespace std;
-#endif
-
-using namespace Inferences;
-using namespace Lib;
-using namespace Kernel;
-using namespace Saturation;
-
-struct RewritingLHSFn
-{
-  RewritingLHSFn(Ordering& ord) : _ord(ord) {};
-  VirtualIterator<pair<Literal*, TermList>> operator()(Literal* lit)
-  {
-    return pvi(pushPairIntoRightIterator(lit, EqHelper::getLHSIterator(lit, _ord)));
-  }
-private:
-  Ordering& _ord;
-};
-
 ClauseIterator InductionForwardRewriting::generateClauses(Clause *premise)
 {
   CALL("InductionForwardRewriting::generateClauses");

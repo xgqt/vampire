@@ -12,19 +12,14 @@
  * Implements class InductionRemodulation.
  */
 
-#include "Debug/RuntimeStatistics.hpp"
-
 #include "Lib/Metaiterators.hpp"
 
-#include "Kernel/EqHelper.hpp"
 #include "Kernel/SortHelper.hpp"
 #include "Kernel/TermIterators.hpp"
 
 #include "Saturation/SaturationAlgorithm.hpp"
 
 #include "Shell/Options.hpp"
-#include "Shell/Statistics.hpp"
-#include "Shell/UnificationWithAbstractionConfig.hpp"
 
 #include "InductionHelper.hpp"
 
@@ -34,9 +29,6 @@ namespace Inferences {
 
 using namespace Lib;
 using namespace Kernel;
-using namespace Indexing;
-using namespace Saturation;
-
 
 TermList SingleOccurrenceReplacement::transformSubterm(TermList trm)
 {
@@ -181,14 +173,10 @@ ClauseIterator InductionRemodulation::perform(
   //   // cout << "subst " << endl << subst->tryGetRobSubstitution()->toString() << endl;
   //   cout << "eqIsResult " << eqIsResult << endl;
 
-  // the first checks the reference and the second checks the stack
-  bool hasConstraints = !constraints.isEmpty() && !constraints->isEmpty();
-
   unsigned rwLength = rwClause->length();
   // ASS_EQ(eqClause->length(), 1);
   unsigned eqLength = eqClause->length();
-  unsigned conLength = hasConstraints ? constraints->size() : 0;
-  unsigned newLength = rwLength + (eqLength - 1) + conLength;
+  unsigned newLength = rwLength + (eqLength - 1);
 
   ClauseIterator res = ClauseIterator::getEmpty();
   if (eqLHS.isVar()) {

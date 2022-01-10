@@ -19,10 +19,6 @@
 
 namespace Inferences
 {
-using namespace Lib;
-using namespace Kernel;
-using namespace Indexing;
-using namespace Saturation;
 
 void InductionRemodulationSubsumption::attach(SaturationAlgorithm* salg)
 {

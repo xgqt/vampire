@@ -22,10 +22,6 @@
 
 namespace Inferences {
 
-using namespace Kernel;
-using namespace Shell;
-using namespace Indexing;
-
 class InductionForwardRewriting
   : public GeneratingInferenceEngine
   {
