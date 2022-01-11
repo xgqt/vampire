@@ -259,8 +259,12 @@ ClauseIterator InductionRemodulation::perform(
       // since we only rewrite one occurrence of rwTerm, the case
       // we are looking for is when one side is tgtTermS and the
       // other is unchanged
+      static const bool indGen = env.options->inductionGen();
       if (!shouldCheckRedundancy ||
-        (tgtTermS!=*tgtLit->nthArgument(0) && tgtTermS!=*tgtLit->nthArgument(1)))
+        (tgtTermS!=*tgtLit->nthArgument(0) && tgtTermS!=*tgtLit->nthArgument(1) &&
+         // in non-generalized case we check that the rewritten
+         // term is not contained anymore in the new literal
+         (indGen || !tgtLit->containsSubterm(rwTerm))))
       {
         RemodulationInfo rinfo;
         rinfo._eq = eqLit;
@@ -269,7 +273,6 @@ ClauseIterator InductionRemodulation::perform(
         rinfos->insert(rinfo);
       }
       // TODO: if -av=off, we should check also that the rest of rwClause is greater than the eqClause
-      // TODO: check in non-generalized case that
 
       if (rinfos->isEmpty()) {
         delete rinfos;
