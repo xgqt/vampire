@@ -290,10 +290,10 @@ ClauseIterator Induction::generateClauses(Clause* premise)
 {
   CALL("Induction::generateClauses");
 
-  return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex, _salg->getSplitter()), _salg->getOrdering()));
+  return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex, _salg->getSplitter()), _salg));
 }
 
-void InductionClauseIterator::processClause(Clause* premise, const Ordering& ord)
+void InductionClauseIterator::processClause(Clause* premise)
 {
   CALL("InductionClauseIterator::processClause");
 
@@ -301,7 +301,7 @@ void InductionClauseIterator::processClause(Clause* premise, const Ordering& ord
   // or it should be an integer constant comparison we use as a bound.
   if (InductionHelper::isInductionClause(premise)) {
     for (unsigned i=0;i<premise->length();i++) {
-      processLiteral(premise,(*premise)[i], ord);
+      processLiteral(premise,(*premise)[i]);
     }
   }
   if (InductionHelper::isIntInductionTwoOn() && InductionHelper::isIntegerComparison(premise)) {
@@ -309,7 +309,7 @@ void InductionClauseIterator::processClause(Clause* premise, const Ordering& ord
   }
 }
 
-void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit, const Ordering& ord)
+void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
 {
   CALL("Induction::ClauseIterator::processLiteral");
 
@@ -376,7 +376,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit, cons
           Literal* ilit = generalize ? subsetReplacement.transformSubset(rule) : lit;
           ASS(ilit != nullptr);
           do {
-            if (RemodulationInfo::isRedundant(ilit, premise->getRemodulationInfo<DHSet<RemodulationInfo>>(), ord)) {
+            if (_salg->getRemodulationManager()->isRedundant(ilit, premise->getRemodulationInfo<DHSet<RemodulationInfo>>())) {
               continue;
             }
             if(one){

@@ -2195,6 +2195,7 @@ public:
   bool integerInductionDefaultBound() const { return _integerInductionDefaultBound.actualValue; }
   IntegerInductionInterval integerInductionInterval() const { return _integerInductionInterval.actualValue; }
   InductionConsequenceGeneration inductionConsequenceGeneration() const { return _inductionConsequenceGeneration.actualValue; }
+  Lib::vvector<int> inductionConsequenceGenerationRatio() const;
   bool inductionRemodulationRedundancyCheck() const { return _inductionRemodulationRedundancyCheck.actualValue; }
 
   float instGenBigRestartRatio() const { return _instGenBigRestartRatio.actualValue; }
@@ -2496,6 +2497,7 @@ private:
   BoolOptionValue _integerInductionDefaultBound;
   ChoiceOptionValue<IntegerInductionInterval> _integerInductionInterval;
   ChoiceOptionValue<InductionConsequenceGeneration> _inductionConsequenceGeneration;
+  StringOptionValue _inductionConsequenceGenerationRatio;
   BoolOptionValue _inductionRemodulationRedundancyCheck;
 
   StringOptionValue _latexOutput;

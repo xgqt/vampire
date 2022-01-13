@@ -530,7 +530,7 @@ float PositiveLiteralMultiSplitPassiveClauseContainer::evaluateFeatureEstimate(u
 }
 
 InductionPassiveClauseContainer::InductionPassiveClauseContainer(bool isOutermost, const Shell::Options &opt, Lib::vstring name, Lib::vvector<std::unique_ptr<PassiveClauseContainer>> queues) :
-PredicateSplitPassiveClauseContainer(isOutermost, opt, name, std::move(queues), { 0.0, numeric_limits<float>::max() }, {2, 1}, true) {}
+PredicateSplitPassiveClauseContainer(isOutermost, opt, name, std::move(queues), { 0.0, numeric_limits<float>::max() }, opt.inductionConsequenceGenerationRatio(), true) {}
 
 float InductionPassiveClauseContainer::evaluateFeature(Clause* cl) const
 {

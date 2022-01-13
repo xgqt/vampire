@@ -158,9 +158,10 @@ struct RemodulationInfo {
   Literal* _eq;
   Literal* _eqGr;
   vset<pair<Literal*,Literal*>> _rest;
+  Clause* _cl;
 
   bool operator==(const RemodulationInfo& other) const {
-    return _eq == other._eq && _eqGr == other._eqGr && _rest == other._rest;
+    return _eq == other._eq && _eqGr == other._eqGr && _rest == other._rest && _cl == other._cl;
   }
   bool operator!=(const RemodulationInfo& other) const {
     return !operator==(other);
@@ -193,8 +194,23 @@ struct RemodulationInfo {
     ASS(!lhsIt.hasNext());
     return lhs;
   }
+};
 
-  static bool isRedundant(Literal* l, const DHSet<RemodulationInfo>* rinfos, const Ordering& ord) {
+struct RemodulationManager {
+  CLASS_NAME(RemodulationManager);
+  USE_ALLOCATOR(RemodulationManager);
+
+  void onActiveAdded(Clause* c)
+  {
+    _active.insert(c);
+  }
+
+  void onActiveRemoved(Clause* c)
+  {
+    _active.erase(c);
+  }
+
+  bool isRedundant(Literal* l, const DHSet<RemodulationInfo>* rinfos) {
     if (!rinfos) {
       return false;
     }
@@ -202,6 +218,9 @@ struct RemodulationInfo {
     while (it.hasNext()) {
       auto rinfo = it.next();
       Literal* eq;
+      if (!_active.count(rinfo._cl)) {
+        continue;
+      }
       if (rinfo._rest.empty()) {
         eq = rinfo._eq;
       } else {
@@ -210,7 +229,7 @@ struct RemodulationInfo {
         // AVATAR, allow induction terms in variable positions
         eq = rinfo._eqGr;
       }
-      auto lhs = RemodulationInfo::getLHS(eq, ord);
+      auto lhs = RemodulationInfo::getLHS(eq, *_ord);
       SubtermIterator sti(l);
       while (sti.hasNext()) {
         auto t = sti.next();
@@ -222,6 +241,8 @@ struct RemodulationInfo {
     return false;
   }
 
+  vset<Clause*> _active;
+  Ordering* _ord;
 };
 
 }

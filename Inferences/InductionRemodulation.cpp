@@ -245,6 +245,7 @@ ClauseIterator InductionRemodulation::perform(
         rinfo._eq = eqLit;
         rinfo._eqGr = eqLitS;
         rinfo._rest = rest;
+        rinfo._cl = eqClause;
         rinfos->insert(rinfo);
       }
       // TODO: if -av=off, we should check also that the rest of rwClause is greater than the eqClause

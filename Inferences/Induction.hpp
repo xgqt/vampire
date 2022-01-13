@@ -104,10 +104,10 @@ class InductionClauseIterator
 {
 public:
   // all the work happens in the constructor!
-  InductionClauseIterator(Clause* premise, InductionHelper helper, const Ordering& ord)
-      : _helper(helper)
+  InductionClauseIterator(Clause* premise, InductionHelper helper, SaturationAlgorithm* salg)
+      : _helper(helper), _salg(salg)
   {
-    processClause(premise, ord);
+    processClause(premise);
   }
 
   CLASS_NAME(InductionClauseIterator);
@@ -126,8 +126,8 @@ public:
   }
 
 private:
-  void processClause(Clause* premise, const Ordering& ord);
-  void processLiteral(Clause* premise, Literal* lit, const Ordering& ord);
+  void processClause(Clause* premise);
+  void processLiteral(Clause* premise, Literal* lit);
   void processIntegerComparison(Clause* premise, Literal* lit);
 
   // Clausifies the hypothesis, resolves it against the conclusion/toResolve,
@@ -163,6 +163,7 @@ private:
 
   Stack<Clause*> _clauses;
   InductionHelper _helper;
+  SaturationAlgorithm* _salg;
 };
 
 };
