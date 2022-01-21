@@ -371,9 +371,10 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
                           env.options->structInduction() == Options::StructuralInductionKind::ALL;
         if(notDone(lit,t)){
           InferenceRule rule = InferenceRule::INDUCTION_AXIOM;
-          Term* inductionTerm = generalize ? getPlaceholderForTerm(t) : t;
+          Term* inductionTerm = getPlaceholderForTerm(t);
           Kernel::LiteralSubsetReplacement subsetReplacement(lit, t, TermList(inductionTerm));
-          Literal* ilit = generalize ? subsetReplacement.transformSubset(rule) : lit;
+          TermReplacement tr(t,TermList(inductionTerm));
+          Literal* ilit = generalize ? subsetReplacement.transformSubset(rule) : tr.transform(lit);
           ASS(ilit != nullptr);
           do {
             if (_salg->getRemodulationManager()->isRedundant(ilit, premise->getRemodulationInfo<DHSet<RemodulationInfo>>())) {
