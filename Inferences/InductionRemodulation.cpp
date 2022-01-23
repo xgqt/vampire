@@ -74,6 +74,38 @@ void InductionRemodulation::detach()
   GeneratingInferenceEngine::detach();
 }
 
+struct ReverseLHSIteratorFn {
+  ReverseLHSIteratorFn(Clause* cl) : _cl(cl) {}
+  VirtualIterator<pair<Literal*, TermList>> operator()(pair<Literal*, TermList> arg)
+  {
+    CALL("ReverseLHSIteratorFn()");
+    auto rhs = EqHelper::getOtherEqualitySide(arg.first, arg.second);
+    if (!litHasAllVarsOfClause(arg.first, _cl) ||
+        !termHasAllVarsOfClause(rhs, _cl)) {
+      return VirtualIterator<pair<Literal*, TermList>>::getEmpty();
+    }
+    if (env.options->inductionRemodulationRedundancyCheck()) {
+      NonVariableIterator stit(arg.second.term());
+      bool found = false;
+      while (stit.hasNext()) {
+        auto st = stit.next();
+        if (InductionHelper::isInductionTermFunctor(st.term()->functor()) &&
+          (InductionHelper::isStructInductionFunctor(st.term()->functor()) ||
+           InductionHelper::isIntInductionTermListInLiteral(st, arg.first))) {
+            found = true;
+            break;
+        }
+      }
+      if (!found) {
+        return VirtualIterator<pair<Literal*, TermList>>::getEmpty();
+      }
+    }
+    return pvi(getSingletonIterator(make_pair(arg.first,rhs)));
+  }
+private:
+  Clause* _cl;
+};
+
 ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
 {
   CALL("InductionRemodulation::generateClauses");
@@ -105,14 +137,7 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
   {
     auto itb1 = premise->getLiteralIterator();
     auto itb2 = getMapAndFlattenIterator(itb1,EqHelper::LHSIteratorFn(_salg->getOrdering()));
-    auto itb3 = getMapAndFlattenIterator(itb2, [premise](pair<Literal*, TermList> arg) {
-      auto rhs = EqHelper::getOtherEqualitySide(arg.first, arg.second);
-      if (!litHasAllVarsOfClause(arg.first, premise) ||
-          !termHasAllVarsOfClause(rhs, premise)) {
-        return VirtualIterator<pair<Literal*, TermList>>::getEmpty();
-      }
-      return pvi(getSingletonIterator(make_pair(arg.first,rhs)));
-    });
+    auto itb3 = getMapAndFlattenIterator(itb2,ReverseLHSIteratorFn(premise));
     auto itb4 = getMapAndFlattenIterator(itb3, [this](pair<Literal*, TermList> arg) {
       return pvi( pushPairIntoRightIterator(arg, _termIndex->getInstances(arg.second, true)) );
     });
@@ -257,6 +282,7 @@ ClauseIterator InductionRemodulation::perform(
       }
     }
     newCl->markInductionLemma();
+    env.statistics->inductionRemodulation++;
     res = pvi(getConcatenatedIterator(res, getSingletonIterator(newCl)));
   }
 

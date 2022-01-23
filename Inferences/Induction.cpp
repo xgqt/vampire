@@ -378,6 +378,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
           ASS(ilit != nullptr);
           do {
             if (_salg->getRemodulationManager()->isRedundant(ilit, premise->getRemodulationInfo<DHSet<RemodulationInfo>>())) {
+              env.statistics->inductionRedundant++;
               continue;
             }
             if(one){

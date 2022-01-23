@@ -133,7 +133,7 @@ public:
     ASS(InductionHelper::isInductionLiteral((*premise)[0]));
     ClauseIterator clIt = _induction->generateClauses(premise);
     clIt = pvi(getConcatenatedIterator(clIt, _inductionRemodulation->generateClauses(premise)));
-    clIt = pvi(getConcatenatedIterator(clIt, _rewriting->generateClauses(premise)));
+    // clIt = pvi(getConcatenatedIterator(clIt, _rewriting->generateClauses(premise)));
     return ClauseGenerationResult {
       .clauses          = clIt,
       .premiseRedundant = false,

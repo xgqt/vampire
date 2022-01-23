@@ -220,6 +220,22 @@ void RemodulationLHSIndex::handleClause(Clause* c, bool adding)
       if (!termHasAllVarsOfClause(rhs, c)) {
         continue;
       }
+      if (env.options->inductionRemodulationRedundancyCheck()) {
+        NonVariableIterator stit(lhs.term());
+        bool found = false;
+        while (stit.hasNext()) {
+          auto st = stit.next();
+          if (InductionHelper::isInductionTermFunctor(st.term()->functor()) &&
+            (InductionHelper::isStructInductionFunctor(st.term()->functor()) ||
+            InductionHelper::isIntInductionTermListInLiteral(st, lit))) {
+              found = true;
+              break;
+          }
+        }
+        if (!found) {
+          continue;
+        }
+      }
       if (adding) {
         _is->insert(rhs, lit, c);
       }
