@@ -66,6 +66,22 @@ inline bool canUseForRewrite(Clause* cl) {
      isFormulaTransformation(cl->inference().rule()));
 }
 
+inline bool hasTermToInductOn(Term* t, Literal* l) {
+  static const bool intInd = InductionHelper::isIntInductionOn();
+  static const bool structInd = InductionHelper::isStructInductionOn();
+  NonVariableIterator stit(t);
+  while (stit.hasNext()) {
+    auto st = stit.next();
+    if (InductionHelper::isInductionTermFunctor(st.term()->functor()) &&
+      ((structInd && InductionHelper::isStructInductionFunctor(st.term()->functor())) ||
+       (intInd && InductionHelper::isIntInductionTermListInLiteral(st, l))))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 class SingleOccurrenceReplacement : TermTransformer {
 public:
   SingleOccurrenceReplacement(Literal* lit, Term* o, TermList r)

@@ -84,21 +84,8 @@ struct ReverseLHSIteratorFn {
         !termHasAllVarsOfClause(rhs, _cl)) {
       return VirtualIterator<pair<Literal*, TermList>>::getEmpty();
     }
-    if (env.options->inductionRemodulationRedundancyCheck()) {
-      NonVariableIterator stit(arg.second.term());
-      bool found = false;
-      while (stit.hasNext()) {
-        auto st = stit.next();
-        if (InductionHelper::isInductionTermFunctor(st.term()->functor()) &&
-          (InductionHelper::isStructInductionFunctor(st.term()->functor()) ||
-           InductionHelper::isIntInductionTermListInLiteral(st, arg.first))) {
-            found = true;
-            break;
-        }
-      }
-      if (!found) {
-        return VirtualIterator<pair<Literal*, TermList>>::getEmpty();
-      }
+    if (env.options->inductionRemodulationRedundancyCheck() && !hasTermToInductOn(arg.second.term(), arg.first)) {
+      return VirtualIterator<pair<Literal*, TermList>>::getEmpty();
     }
     return pvi(getSingletonIterator(make_pair(arg.first,rhs)));
   }
