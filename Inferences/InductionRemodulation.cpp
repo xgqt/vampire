@@ -150,7 +150,6 @@ ClauseIterator InductionRemodulation::perform(
     ResultSubstitutionSP subst, bool eqIsResult, UnificationConstraintStackSP constraints)
 {
   CALL("InductionRemodulation::perform");
-  ASS(env.options->inductionGen());
   // we want the rwClause and eqClause to be active
   // ASS(rwClause->store()==Clause::ACTIVE);
   ASS(eqClause->store()==Clause::ACTIVE);
@@ -268,7 +267,7 @@ ClauseIterator InductionRemodulation::perform(
         newCl->setRemodulationInfo(rinfos);
       }
     }
-    newCl->markInductionLemma();
+    newCl->setInductionPhase(2);
     env.statistics->inductionRemodulation++;
     res = pvi(getConcatenatedIterator(res, getSingletonIterator(newCl)));
   }

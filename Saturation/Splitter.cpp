@@ -16,8 +16,6 @@
 
 #include "Debug/RuntimeStatistics.hpp"
 
-#include "Inferences/InductionRemodulation.hpp"
-
 #include "Lib/DHSet.hpp"
 #include "Lib/Environment.hpp"
 #include "Lib/IntUnionFind.hpp"
@@ -46,6 +44,8 @@
 #include "SAT/Z3Interfacing.hpp"
 
 #include "DP/ShortConflictMetaDP.hpp"
+
+#include "Inferences/InductionRemodulation.hpp"
 
 #include "SaturationAlgorithm.hpp"
 
@@ -1293,8 +1293,8 @@ Clause* Splitter::buildAndInsertComponentClause(SplitLevel name, unsigned size, 
         delete rinfosNew;
       } else {
         compCl->setRemodulationInfo(rinfosNew);
-        compCl->markInductionLemma();
       }
+      compCl->setInductionPhase(compCl->getInductionPhase());
     }
   } else {
     compCl->setAge(AGE_NOT_FILLED);

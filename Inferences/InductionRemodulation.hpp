@@ -20,7 +20,6 @@
 #include "Indexing/TermIndex.hpp"
 
 #include "InferenceEngine.hpp"
-#include "Induction.hpp"
 #include "InductionHelper.hpp"
 #include "InductionForwardRewriting.hpp"
 #include "InductionRemodulationSubsumption.hpp"
@@ -28,6 +27,7 @@
 
 #include "Kernel/EqHelper.hpp"
 #include "Kernel/Matcher.hpp"
+#include "Kernel/TermTransformer.hpp"
 
 #include "Lib/SharedSet.hpp"
 
@@ -135,8 +135,8 @@ public:
   CLASS_NAME(InductionSGIWrapper);
   USE_ALLOCATOR(InductionSGIWrapper);
 
-  InductionSGIWrapper(Induction* induction, InductionRemodulation* inductionRemodulation,
-      SimplifyingGeneratingInference* generator, InductionForwardRewriting* rewriting)
+  InductionSGIWrapper(GeneratingInferenceEngine* induction, GeneratingInferenceEngine* inductionRemodulation,
+      SimplifyingGeneratingInference* generator, GeneratingInferenceEngine* rewriting)
     : _induction(induction), _inductionRemodulation(inductionRemodulation), _generator(generator),
       _rewriting(rewriting) {}
 
@@ -149,7 +149,7 @@ public:
     ASS(InductionHelper::isInductionLiteral((*premise)[0]));
     ClauseIterator clIt = _induction->generateClauses(premise);
     clIt = pvi(getConcatenatedIterator(clIt, _inductionRemodulation->generateClauses(premise)));
-    // clIt = pvi(getConcatenatedIterator(clIt, _rewriting->generateClauses(premise)));
+    clIt = pvi(getConcatenatedIterator(clIt, _rewriting->generateClauses(premise)));
     return ClauseGenerationResult {
       .clauses          = clIt,
       .premiseRedundant = false,
@@ -164,10 +164,10 @@ public:
     _generator->detach();
   }
 private:
-  Induction* _induction;
-  InductionRemodulation* _inductionRemodulation;
+  GeneratingInferenceEngine* _induction;
+  GeneratingInferenceEngine* _inductionRemodulation;
   ScopedPtr<SimplifyingGeneratingInference> _generator;
-  InductionForwardRewriting* _rewriting;
+  GeneratingInferenceEngine* _rewriting;
 };
 
 struct RemodulationInfo {
