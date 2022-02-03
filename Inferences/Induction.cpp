@@ -36,6 +36,7 @@
 #include "Kernel/FormulaUnit.hpp"
 #include "Kernel/Inference.hpp"
 #include "Kernel/InterpretedLiteralEvaluator.hpp"
+#include "Kernel/Problem.hpp"
 #include "Kernel/RobSubstitution.hpp"
 #include "Kernel/Signature.hpp"
 #include "Kernel/OperatorType.hpp"
@@ -291,6 +292,116 @@ ClauseIterator Induction::generateClauses(Clause* premise)
   CALL("Induction::generateClauses");
 
   return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex, _salg->getSplitter()), _salg));
+}
+
+Formula* applyTermReplacementOnNegationOfClauses(const vset<Clause*>& cls, TermReplacement tr) {
+  auto disjuncts = FormulaList::empty();
+  for (const auto& cl : cls) {
+    auto conjuncts = FormulaList::empty();
+    for (unsigned i = 0; i < cl->length(); i++) {
+      FormulaList::push(new AtomicFormula(tr.transform(Literal::complementaryLiteral((*cl)[i]))), conjuncts);
+    }
+    FormulaList::push(JunctionFormula::generalJunction(Connective::AND, conjuncts), disjuncts);
+  }
+  return JunctionFormula::generalJunction(Connective::OR, disjuncts);
+}
+
+void Induction::preprocess(Problem& prb) {
+  vmap<Term*, vset<Clause*>> inductionTerms;
+  UnitList::Iterator uit(prb.units());
+  while(uit.hasNext()) {
+    Unit* u = uit.next();
+    ASS(u->isClause());
+    Clause* cl=static_cast<Clause*>(u);
+
+    if (cl->isGround()) {
+      for (unsigned i = 0; i < cl->length(); i++) {
+        auto lit = (*cl)[i];
+        SubtermIterator it(lit);
+        while(it.hasNext()){
+          TermList ts = it.next();
+          if(!ts.isTerm()){ continue; }
+          auto t = ts.term();
+          unsigned f = t->functor();
+          if (InductionHelper::isInductionTermFunctor(f) && InductionHelper::isStructInductionOn() && InductionHelper::isStructInductionFunctor(f)) {
+            auto iit = inductionTerms.find(t);
+            if (iit == inductionTerms.end()) {
+              iit = inductionTerms.insert(make_pair(t, vset<Clause*>())).first;
+            }
+            iit->second.insert(cl);
+          }
+        }
+      }
+    }
+  }
+  for (const auto& kv : inductionTerms) {
+    auto t = kv.first;
+    if (kv.second.size() <= 1) {
+      unsigned numlit = 0;
+      auto cl = *kv.second.begin();
+      for (unsigned i = 0; i < cl->length(); i++) {
+        auto lit = (*cl)[i];
+        if (lit->containsSubterm(TermList(t))) {
+          numlit++;
+        }
+      }
+      if (numlit <= 1) {
+        continue;
+      }
+    }
+    TermAlgebra* ta = env.signature->getTermAlgebraOfSort(env.signature->getFunction(t->functor())->fnType()->result());
+    TermList ta_sort = ta->sort();
+
+    unsigned var = 0;
+    auto formulas = FormulaList::empty();
+    for(unsigned i=0;i<ta->nConstructors();i++){
+      TermAlgebraConstructor* con = ta->constructor(i);
+      unsigned arity = con->arity();
+
+      Stack<TermList> argTerms;
+      Stack<TermList> ta_vars;
+      for(unsigned i=0;i<arity;i++){
+        TermList x(var,false);
+        var++;
+        if(con->argSort(i) == ta_sort){
+          ta_vars.push(x);
+        }
+        argTerms.push(x);
+      }
+      TermReplacement tr(t,TermList(Term::create(con->functor(),(unsigned)argTerms.size(), argTerms.begin())));
+      Formula* right = applyTermReplacementOnNegationOfClauses(kv.second, tr);
+      Formula* left = 0;
+      FormulaList* args = FormulaList::empty();
+      Stack<TermList>::Iterator tvit(ta_vars);
+      while(tvit.hasNext()){
+        TermReplacement tr(t,tvit.next());
+        FormulaList::push(applyTermReplacementOnNegationOfClauses(kv.second, tr), args);
+      }
+      left = JunctionFormula::generalJunction(Connective::AND, args);
+      FormulaList::push(Formula::quantify(new BinaryFormula(Connective::IMP, left, right)), formulas);
+    }
+    ASS_G(FormulaList::length(formulas), 0);
+
+    TermReplacement tr(t,TermList(var, false));
+    var++;
+    auto conclusion = Formula::quantify(applyTermReplacementOnNegationOfClauses(kv.second, tr));
+    Formula* indPremise = new BinaryFormula(Connective::IMP,
+      JunctionFormula::generalJunction(Connective::AND,formulas),
+      conclusion);
+
+    NewCNF cnf(0);
+    cnf.setForInduction();
+    Stack<Clause*> clauses;
+    Inference inf = NonspecificInference0(UnitInputType::AXIOM,InferenceRule::INDUCTION_AXIOM_PREPROCESS);
+    inf.setInductionDepth(1);
+    FormulaUnit* fu = new FormulaUnit(indPremise,inf);
+    cnf.clausify(NNF::ennf(fu), clauses);
+    auto nu = UnitList::empty();
+    while (!clauses.isEmpty()) {
+      UnitList::push(clauses.pop(), nu);
+    }
+    prb.addUnits(nu);
+  }
 }
 
 void InductionClauseIterator::processClause(Clause* premise)

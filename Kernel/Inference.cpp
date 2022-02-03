@@ -909,6 +909,8 @@ vstring Kernel::ruleName(InferenceRule rule)
     return "finite model not found";
   case InferenceRule::INDUCTION_AXIOM:
     return "induction hypothesis";
+  case InferenceRule::INDUCTION_AXIOM_PREPROCESS:
+    return "induction hypothesis preprocessing";
   case InferenceRule::GEN_INDUCTION_AXIOM:
     return "generalized induction hypothesis";
   case InferenceRule::ARITHMETIC_SUBTERM_GENERALIZATION:

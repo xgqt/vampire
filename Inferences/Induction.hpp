@@ -94,6 +94,8 @@ public:
 
   ClauseIterator generateClauses(Clause* premise);
 
+  static void preprocess(Problem& prb);
+
 private:
   // The following pointers can be null if int induction is off.
   LiteralIndex* _comparisonIndex = nullptr;
@@ -154,6 +156,7 @@ private:
   void performIntInduction(Clause* premise, Literal* origLit, Literal* lit, Term* t, InferenceRule rule, bool increasing, const TermQueryResult& bound1, TermQueryResult* optionalBound2);
 
   void performStructInductionOne(Clause* premise, Literal* origLit, Literal* lit, Term* t, const Set<Term*>& skolems, InferenceRule rule);
+  void performStructInductionOne(Term* t, InferenceRule rule);
   void performStructInductionTwo(Clause* premise, Literal* origLit, Literal* lit, Term* t, InferenceRule rule);
   void performStructInductionThree(Clause* premise, Literal* origLit, Literal* lit, Term* t, InferenceRule rule);
 

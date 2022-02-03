@@ -1271,6 +1271,13 @@ void Options::init()
             _inductionRemodulationRedundancyCheck.reliesOn(_inductionConsequenceGeneration.is(notEqual(InductionConsequenceGeneration::OFF)));
             _lookup.insert(&_inductionRemodulationRedundancyCheck);
 
+            _inductDuringPreprocess = BoolOptionValue("induction_during_preprocess","inddp",false);
+            _inductDuringPreprocess.description = "Induct on all clauses after clausification that contain certain induction terms, somewhat "
+                                                  "preserving the input structure of the problem";
+            _inductDuringPreprocess.tag(OptionTag::INFERENCES);
+            _inductDuringPreprocess.reliesOn(_induction.is(notEqual(Induction::NONE)));
+            _lookup.insert(&_inductDuringPreprocess);
+
 	    _instantiation = ChoiceOptionValue<Instantiation>("instantiation","inst",Instantiation::OFF,{"off","on"});
 	    _instantiation.description = "Heuristically instantiate variables. Often wastes a lot of effort. Consider using thi instead.";
 	    _instantiation.tag(OptionTag::INFERENCES);

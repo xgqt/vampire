@@ -53,6 +53,7 @@
 #include "TheoryFlattening.hpp"
 #include "BlockedClauseElimination.hpp"
 #include "TrivialPredicateRemover.hpp"
+#include "Inferences/Induction.hpp"
 
 #include "UIHelper.hpp"
 #include "Lib/List.hpp"
@@ -405,6 +406,10 @@ void Preprocess::preprocess(Problem& prb)
 
      BlockedClauseElimination bce;
      bce.apply(prb);
+   }
+
+   if (_options.inductDuringPreprocess()) {
+     Inferences::Induction::preprocess(prb);
    }
 
    if (env.options->showPreprocessing()) {
