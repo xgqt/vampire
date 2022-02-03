@@ -557,6 +557,10 @@ void InductionClauseIterator::generalizeAndPerformIntInduction(Clause* premise, 
   List<pair<Literal*, InferenceRule>>::RefIterator it(indLits);
   while (it.hasNext()) {
     auto& litAndRule = it.next();
+    if (_salg->getRemodulationManager()->isRedundant(litAndRule.first, premise->getRemodulationInfo<DHSet<RemodulationInfo>>())) {
+      env.statistics->inductionRedundant++;
+      continue;
+    }
     ASS(litAndRule.first != nullptr);
     performIntInduction(premise, origLit, litAndRule.first, indTerm, litAndRule.second, increasing, bound1, optionalBound2);
   }
