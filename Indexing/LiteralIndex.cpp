@@ -84,6 +84,9 @@ void LiteralIndex::handleLiteral(Literal* lit, Clause* cl, bool add)
 void GeneratingLiteralIndex::handleClause(Clause* c, bool adding)
 {
   CALL("GeneratingLiteralIndex::handleClause");
+  if (c->isInductionLemma()) {
+    return;
+  }
 
   TimeCounter tc(TC_BINARY_RESOLUTION_INDEX_MAINTENANCE);
 
@@ -96,6 +99,9 @@ void GeneratingLiteralIndex::handleClause(Clause* c, bool adding)
 void SimplifyingLiteralIndex::handleClause(Clause* c, bool adding)
 {
   CALL("SimplifyingLiteralIndex::handleClause");
+  if (c->isInductionLemma()) {
+    return;
+  }
 
   TimeCounter tc(TC_BACKWARD_SUBSUMPTION_INDEX_MAINTENANCE);
 
@@ -110,7 +116,7 @@ void FwSubsSimplifyingLiteralIndex::handleClause(Clause* c, bool adding)
 {
   CALL("FwSubsSimplifyingLiteralIndex::handleClause");
 
-  if (c->length() < 2) {
+  if (c->length() < 2 || c->isInductionLemma()) {
     return;
   }
 
@@ -124,7 +130,7 @@ void FSDLiteralIndex::handleClause(Clause* c, bool adding)
 {
   CALL("FSDLiteralIndex::handleClause");
 
-  if (c->length() < 2) {
+  if (c->length() < 2 || c->isInductionLemma()) {
     return;
   }
 
@@ -160,6 +166,9 @@ void FSDLiteralIndex::handleClause(Clause* c, bool adding)
 void UnitClauseLiteralIndex::handleClause(Clause* c, bool adding)
 {
   CALL("UnitClauseLiteralIndex::handleClause");
+  if (c->isInductionLemma()) {
+    return;
+  }
 
   if(c->length()==1) {
     TimeCounter tc(TC_SIMPLIFYING_UNIT_LITERAL_INDEX_MAINTENANCE);
@@ -173,7 +182,7 @@ void NonUnitClauseLiteralIndex::handleClause(Clause* c, bool adding)
   CALL("NonUnitClauseLiteralIndex::handleClause");
 
   unsigned clen=c->length();
-  if(clen<2) {
+  if(clen<2 || c->isInductionLemma()) {
     return;
   }
   TimeCounter tc(TC_NON_UNIT_LITERAL_INDEX_MAINTENANCE);
@@ -235,7 +244,7 @@ void RewriteRuleIndex::handleClause(Clause* c, bool adding)
 {
   CALL("RewriteRuleIndex::handleClause");
 
-  if(c->length()!=2) {
+  if(c->length()!=2 || c->isInductionLemma()) {
     return;
   }
 
@@ -298,6 +307,9 @@ void RewriteRuleIndex::handleClause(Clause* c, bool adding)
 void RewriteRuleIndex::handleEquivalence(Clause* c, Literal* cgr, Clause* d, Literal* dgr, bool adding)
 {
   CALL("RewriteRuleIndex::handleEquivalence");
+  if (c->isInductionLemma() || d->isInductionLemma()) {
+    return;
+  }
 
   Literal* csm = (cgr==(*c)[0]) ? (*c)[1] : (*c)[0];
   Literal* dsm = (dgr==(*d)[0]) ? (*d)[1] : (*d)[0];
@@ -392,6 +404,9 @@ void DismatchingLiteralIndex::handleClause(Clause* c, bool adding)
   CALL("DismatchingLiteralIndex::handleClause");
 
   //TODO add time counter for dismatching
+  if (c->isInductionLemma()) {
+    return;
+  }
 
   unsigned clen=c->length();
   for(unsigned i=0; i<clen; i++) {
@@ -408,6 +423,10 @@ void DismatchingLiteralIndex::addLiteral(Literal* l)
 void UnitIntegerComparisonLiteralIndex::handleClause(Clause* c, bool adding)
 {
   CALL("UnitIntegerComparisonLiteralIndex::handleClause");
+
+  if (c->isInductionLemma()) {
+    return;
+  }
 
   TimeCounter tc(TC_UNIT_INTEGER_COMPARISON_INDEX_MAINTENANCE);
   
