@@ -132,6 +132,8 @@ public:
   unsigned inductionForwardRewriting;
   unsigned inductionRemodulation;
   unsigned inductionRedundant;
+  unsigned crossInductionElimination;
+  unsigned smallerSideSuperposition;
   unsigned maxInductionDepth;
   unsigned induction;
   unsigned inductionInProof;

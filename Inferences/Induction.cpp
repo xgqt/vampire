@@ -455,6 +455,16 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
           }
         }
       }
+      // cout << "lit " << *lit << endl;
+      // unsigned static cnt = 0;
+      if (_salg->getRemodulationManager()->isConflicting(lit)) {
+        // cout << "conflict" << endl;
+        // cnt++;
+        // if (cnt % 100 == 0) {
+        //   cout << "conflict " << cnt << endl;
+        // }
+        return;
+      }
 
       Set<Term*>::Iterator citer1(int_terms);
       while(citer1.hasNext()){
@@ -635,6 +645,15 @@ void InductionClauseIterator::produceClauses(Clause* premise, Literal* origLit, 
   inf.setInductionDepth(premise->inference().inductionDepth()+1);
   FormulaUnit* fu = new FormulaUnit(hypothesis,inf);
   cnf.clausify(NNF::ennf(fu), hyp_clauses);
+  vset<unsigned> oldSkolems;
+  vset<unsigned> newSkolems;
+  NonVariableIterator nvi(origLit);
+  while (nvi.hasNext()) {
+    auto f = nvi.next().term()->functor();
+    if (env.signature->getFunction(f)->inductionSkolem()) {
+      oldSkolems.insert(f);
+    }
+  }
 
   // Now, when possible, perform resolution against all literals from toResolve, which contain:
   // 1. the original literal,
@@ -645,6 +664,18 @@ void InductionClauseIterator::produceClauses(Clause* premise, Literal* origLit, 
   Stack<Clause*>::Iterator cit(hyp_clauses);
   while(cit.hasNext()){
     Clause* c = cit.next();
+    for (unsigned i = 0; i < c->length(); i++) {
+      auto lit = (*c)[i];
+      NonVariableIterator nvi(lit);
+      while (nvi.hasNext()) {
+        auto f = nvi.next().term()->functor();
+        if (env.signature->getFunction(f)->inductionSkolem()) {
+          if (!oldSkolems.count(f)) {
+            newSkolems.insert(f);
+          }
+        }
+      }
+    }
     bool resolved = false;
     List<pair<Literal*, SLQueryResult>>::RefIterator resIt(toResolve);
     while (resIt.hasNext()) {
@@ -662,6 +693,7 @@ void InductionClauseIterator::produceClauses(Clause* premise, Literal* origLit, 
     }
     _clauses.push(c);
   }
+  ALWAYS(_salg->getRemodulationManager()->add(oldSkolems, newSkolems));
   env.statistics->induction++;
   if (rule == InferenceRule::GEN_INDUCTION_AXIOM ||
       rule == InferenceRule::INT_INF_UP_GEN_INDUCTION_AXIOM ||
@@ -816,33 +848,37 @@ void InductionClauseIterator::performIntInduction(Clause* premise, Literal* orig
                    ,0))),
                    Formula::quantify(new BinaryFormula(Connective::IMP,FyInterval,Ly)));
   
-  // Create pairs of Literal* and SLQueryResult for resolving L[y] and Y>=b (or Y<=b or Y>b or Y<b)
-  static ScopedPtr<RobSubstitution> subst(new RobSubstitution());
-  // When producing clauses, 'y' should be unified with 'term'
-  subst->unify(TermList(term), 0, y, 1);
-  ResultSubstitutionSP resultSubst = ResultSubstitution::fromSubstitution(subst.ptr(), 1, 0);
-  List<pair<Literal*, SLQueryResult>>* toResolve = new List<pair<Literal*, SLQueryResult>>(
-      make_pair(Ly->literal(), SLQueryResult(origLit, premise, resultSubst)));
+  auto toResolve = List<pair<Literal*, SLQueryResult>>::empty();
   // Also resolve the hypothesis with comparisons with bound(s) (if the bound(s) are present/not default).
   if (!isDefaultBound) {
     // After resolving L[y], 'y' will be already substituted by 'term'.
     // Therefore, the second (and third) substitution(s) is/are empty.
     static ResultSubstitutionSP identity = ResultSubstitutionSP(new IdentitySubstitution());
-    toResolve = List<pair<Literal*, SLQueryResult>>::cons(make_pair(
-          Literal::complementaryLiteral(bound1.literal),
-          SLQueryResult(bound1.literal, bound1.clause, identity)),
-        toResolve);
+    List<pair<Literal*, SLQueryResult>>::push(make_pair(
+        Literal::complementaryLiteral(bound1.literal),
+        SLQueryResult(bound1.literal, bound1.clause, identity)),
+      toResolve);
     // If there is also a second bound, add that to the list as well.
     if (hasBound2) {
-      toResolve = List<pair<Literal*, SLQueryResult>>::cons(make_pair(
-            Literal::complementaryLiteral(optionalBound2->literal),
-            SLQueryResult(optionalBound2->literal, optionalBound2->clause, identity)),
-          toResolve);
+      List<pair<Literal*, SLQueryResult>>::push(make_pair(
+          Literal::complementaryLiteral(optionalBound2->literal),
+          SLQueryResult(optionalBound2->literal, optionalBound2->clause, identity)),
+        toResolve);
     }
   }
+
+  // Create pairs of Literal* and SLQueryResult for resolving L[y] and Y>=b (or Y<=b or Y>b or Y<b)
+  static RobSubstitution subst;
+  // When producing clauses, 'y' should be unified with 'term'
+  ALWAYS(subst.unify(TermList(term), 0, y, 1));
+  ResultSubstitutionSP resultSubst = ResultSubstitution::fromSubstitution(&subst, 1, 0);
+  List<pair<Literal*, SLQueryResult>>::push(make_pair(
+      Ly->literal(),
+      SLQueryResult(origLit, premise, resultSubst)),
+    toResolve);
   produceClauses(premise, lit, hyp, rule, toResolve);
   List<pair<Literal*, SLQueryResult>>::destroy(toResolve);
-  subst->reset();
+  subst.reset();
 }
 
 /**
@@ -974,7 +1010,7 @@ void InductionClauseIterator::performStructInductionOne(Clause* premise, Literal
   ASS_G(FormulaList::length(formulas), 0);
   Formula* indPremise = FormulaList::length(formulas) > 1 ? new JunctionFormula(Connective::AND,formulas)
                                                           : formulas->head();
-  TermReplacement cr(term,TermList(var,false));
+  TermReplacement cr(term,TermList(var++,false));
   Literal* conclusion = cr.transform(clit);
   Set<Term*>::Iterator oit(occurringSkolems);
   while (oit.hasNext()) {

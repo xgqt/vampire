@@ -494,12 +494,16 @@ Clause* Superposition::performSuperposition(
       if(Ordering::isGorGEorE(ordering.getEqualityArgumentOrder(rwLitS))) {
         if (!shouldRewriteSmallerSide || !termHasAllVarsOfClause(*rwLit->nthArgument(1), rwClause)) {
           return 0;
+        } else {
+          env.statistics->smallerSideSuperposition++;
         }
       }
     } else if(!arg1.containsSubterm(rwTermS)) {
       if(Ordering::isGorGEorE(Ordering::reverse(ordering.getEqualityArgumentOrder(rwLitS)))) {
         if (!shouldRewriteSmallerSide || !termHasAllVarsOfClause(*rwLit->nthArgument(0), rwClause)) {
           return 0;
+        } else {
+          env.statistics->smallerSideSuperposition++;
         }
       }
     }

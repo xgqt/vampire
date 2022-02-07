@@ -15,6 +15,7 @@
 #include "Lib/Metaiterators.hpp"
 
 #include "Kernel/SortHelper.hpp"
+#include "Kernel/SubstHelper.hpp"
 #include "Kernel/TermIterators.hpp"
 
 #include "Saturation/SaturationAlgorithm.hpp"
@@ -189,6 +190,16 @@ ClauseIterator InductionRemodulation::perform(
   bool shouldCheckRedundancy = rwLit->isEquality() &&
     ((rwTerm==*rwLit->nthArgument(0) && !rwLit->nthArgument(1)->containsSubterm(tgtTermS)) ||
      (rwTerm==*rwLit->nthArgument(1) && !rwLit->nthArgument(0)->containsSubterm(tgtTermS)));
+
+  auto checkLit = EqHelper::replace(rwLit, rwTerm, tgtTermS);
+  // unsigned static cnt = 0;
+  if (_salg->getRemodulationManager()->isConflicting(checkLit)) {
+    // cnt++;
+    // if (cnt % 100 == 0){
+    //   cout << "rem cnt " << cnt << endl;
+    // }
+    return res;
+  }
 
   SingleOccurrenceReplacement sor(rwLit, rwTerm.term(), tgtTermS);
   Literal* tgtLit = nullptr;

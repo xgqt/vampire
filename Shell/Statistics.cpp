@@ -72,9 +72,11 @@ Statistics::Statistics()
     theoryInstSimpTautologies(0),
     theoryInstSimpLostSolution(0),
     theoryInstSimpEmptySubstitution(0),
-    inductionRemodulation(0),
     inductionForwardRewriting(0),
+    inductionRemodulation(0),
     inductionRedundant(0),
+    crossInductionElimination(0),
+    smallerSideSuperposition(0),
     maxInductionDepth(0),
     induction(0),
     inductionInProof(0),
@@ -398,6 +400,8 @@ void Statistics::print(ostream& out)
   COND_OUT("InductionRemodulation", inductionRemodulation);
   COND_OUT("InductionForwardRewriting", inductionForwardRewriting);
   COND_OUT("InductionRedundant", inductionRedundant);
+  COND_OUT("CrossInductionElimination", crossInductionElimination);
+  COND_OUT("SmallerSideSuperposition", smallerSideSuperposition);
   COND_OUT("Induction",induction);
   COND_OUT("MaxInductionDepth",maxInductionDepth);
   COND_OUT("InductionStepsInProof",inductionInProof);

@@ -303,6 +303,7 @@ VINF_OBJ=Inferences/BackwardDemodulation.o\
          Inferences/InductionRemodulation.o\
          Inferences/InductionRemodulationSubsumption.o\
          Inferences/InductionForwardRewriting.o\
+         Inferences/CrossInductionElimination.o\
          Inferences/URResolution.o\
          Inferences/CNFOnTheFly.o\
          Inferences/CasesSimp.o\
@@ -358,6 +359,7 @@ VS_OBJ = Shell/AnswerExtractor.o\
          Shell/GeneralSplitting.o\
          Shell/GoalGuessing.o\
          Shell/Grounding.o\
+         Shell/InductionSignatureTree.o\
          Shell/InequalitySplitting.o\
          Shell/InterpolantMinimizer.o\
          Shell/InterpolantMinimizerNew.o\

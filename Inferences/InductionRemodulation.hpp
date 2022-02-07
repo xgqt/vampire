@@ -31,6 +31,8 @@
 
 #include "Lib/SharedSet.hpp"
 
+#include "Shell/InductionSignatureTree.hpp"
+
 namespace Inferences
 {
 
@@ -257,8 +259,25 @@ struct RemodulationManager {
     return false;
   }
 
+  bool isConflicting(Literal* lit) const {
+    NonVariableIterator nvi(lit);
+    vset<unsigned> sks;
+    while (nvi.hasNext()) {
+      auto f = nvi.next().term()->functor();
+      if (env.signature->getFunction(f)->inductionSkolem()) {
+        sks.insert(f);
+      }
+    }
+    return _sigTree.isConflicting(sks);
+  }
+
+  bool add(vset<unsigned> olds, const vset<unsigned>& news) {
+    return _sigTree.add(olds, news);
+  }
+
   vset<Clause*> _active;
   Ordering* _ord;
+  InductionSignatureTree _sigTree;
 };
 
 }
