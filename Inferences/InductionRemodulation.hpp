@@ -268,6 +268,9 @@ struct RemodulationManager {
         sks.insert(f);
       }
     }
+    if (sks.size() <= 1) {
+      return false;
+    }
     return _sigTree.isConflicting(sks);
   }
 

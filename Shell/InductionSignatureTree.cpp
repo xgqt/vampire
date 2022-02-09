@@ -17,6 +17,8 @@
 #include "Kernel/Signature.hpp"
 #include "Lib/Environment.hpp"
 
+#define LOGGING 0
+
 namespace Shell
 {
 
@@ -50,7 +52,9 @@ InductionSignatureTree::~InductionSignatureTree() {
 
 bool InductionSignatureTree::add(vset<unsigned> olds, const vset<unsigned>& news) {
   Node* curr = &_root;
-  // cout << "add: starting with " << setToString(olds) << ", " << setToString(news) << endl;
+#if LOGGING
+  cout << "add: starting with " << setToString(olds) << ", " << setToString(news) << endl;
+#endif
   while (curr) {
     Node* next = nullptr;
     for (auto it = curr->children.begin(); it != curr->children.end(); it++) {
@@ -74,7 +78,9 @@ bool InductionSignatureTree::add(vset<unsigned> olds, const vset<unsigned>& news
       set_difference(olds.begin(), olds.end(), (*it)->data.begin(), (*it)->data.end(),
         inserter(diff, diff.begin()));
       olds = diff;
-      // cout << "remaining " << setToString(olds) << endl;
+#if LOGGING
+      cout << "remaining " << setToString(olds) << endl;
+#endif
       next = *it;
       for (const auto& n : news) {
         (*it)->all.insert(n);
@@ -88,13 +94,18 @@ bool InductionSignatureTree::add(vset<unsigned> olds, const vset<unsigned>& news
       next = new Node();
       next->data = news;
       next->all = news;
-      // cout << "new node " << setToString(next->data) << endl;
+#if LOGGING
+      cout << "new node " << setToString(next->data) << endl;
+#endif
       curr->children.push_back(next);
       curr = nullptr;
       break;
     }
     curr = next;
   }
+#if LOGGING
+  cout << endl;
+#endif
   return true;
 }
 
@@ -103,7 +114,9 @@ bool InductionSignatureTree::isConflicting(vset<unsigned> s) const {
     return false;
   }
   const Node* curr = &_root;
-  // cout << "isConflicting: starting with " << setToString(s) << endl;
+#if LOGGING
+  cout << "isConflicting: starting with " << setToString(s) << endl;
+#endif
   while (curr) {
     Node* next = nullptr;
     for (auto it = curr->children.begin(); it != curr->children.end(); it++) {
@@ -111,31 +124,24 @@ bool InductionSignatureTree::isConflicting(vset<unsigned> s) const {
       if (!(*it)->all.count(*s.begin())) {
         continue;
       }
-#if VDEBUG
-      for (const auto& e : s) {
-        ASS((*it)->all.count(e));
-      }
-      // check that there is no intersection with other children
-      for (auto it2 = it+1; it2 != curr->children.end(); it2++) {
-        vset<unsigned> temp;
-        set_intersection((*it2)->all.begin(), (*it2)->all.end(),
-          s.begin(), s.end(), inserter(temp, temp.begin()));
-        ASS(temp.empty());
-      }
-#endif
       vset<unsigned> diff;
       set_difference(s.begin(), s.end(), (*it)->data.begin(), (*it)->data.end(),
         inserter(diff, diff.begin()));
       s = diff;
-      // cout << "remaining " << setToString(s) << endl;
+#if LOGGING
+      cout << "remaining " << setToString(s) << endl;
+#endif
       next = *it;
       break;
     }
     curr = next;
   }
-  // if (!s.empty()) {
-  //   cout << "conflict " << setToString(s) << endl;
-  // }
+#if LOGGING
+  if (!s.empty()) {
+    cout << "conflict " << setToString(s) << endl;
+  }
+  cout << endl;
+#endif
   return !s.empty();
 }
 
