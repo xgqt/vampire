@@ -76,6 +76,7 @@ Statistics::Statistics()
     inductionRemodulation(0),
     inductionRedundant(0),
     crossInductionElimination(0),
+    crossInductionElimination2(0),
     smallerSideSuperposition(0),
     maxInductionDepth(0),
     induction(0),
@@ -401,6 +402,7 @@ void Statistics::print(ostream& out)
   COND_OUT("InductionForwardRewriting", inductionForwardRewriting);
   COND_OUT("InductionRedundant", inductionRedundant);
   COND_OUT("CrossInductionElimination", crossInductionElimination);
+  COND_OUT("CrossInductionElimination2", crossInductionElimination2);
   COND_OUT("SmallerSideSuperposition", smallerSideSuperposition);
   COND_OUT("Induction",induction);
   COND_OUT("MaxInductionDepth",maxInductionDepth);

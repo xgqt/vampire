@@ -51,6 +51,9 @@ InductionSignatureTree::~InductionSignatureTree() {
 }
 
 bool InductionSignatureTree::add(vset<unsigned> olds, const vset<unsigned>& news) {
+  if (news.empty()) {
+    return true;
+  }
   Node* curr = &_root;
 #if LOGGING
   cout << "add: starting with " << setToString(olds) << ", " << setToString(news) << endl;
@@ -65,6 +68,9 @@ bool InductionSignatureTree::add(vset<unsigned> olds, const vset<unsigned>& news
 #if VDEBUG
       for (const auto& o : olds) {
         ASS((*it)->all.count(o));
+      }
+      for (const auto& n : news) {
+        ASS(!(*it)->all.count(n));
       }
       // check that there is no intersection with other children
       for (auto it2 = it+1; it2 != curr->children.end(); it2++) {
@@ -110,7 +116,7 @@ bool InductionSignatureTree::add(vset<unsigned> olds, const vset<unsigned>& news
 }
 
 bool InductionSignatureTree::isConflicting(vset<unsigned> s) const {
-  if (s.empty()) {
+  if (s.size() <= 1) {
     return false;
   }
   const Node* curr = &_root;

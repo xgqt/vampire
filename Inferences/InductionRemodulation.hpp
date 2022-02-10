@@ -260,6 +260,8 @@ struct RemodulationManager {
   }
 
   bool isConflicting(Literal* lit) const {
+    // return false;
+    TimeCounter tc(TC_RAND_OPT);
     NonVariableIterator nvi(lit);
     vset<unsigned> sks;
     while (nvi.hasNext()) {
@@ -268,13 +270,12 @@ struct RemodulationManager {
         sks.insert(f);
       }
     }
-    if (sks.size() <= 1) {
-      return false;
-    }
     return _sigTree.isConflicting(sks);
   }
 
   bool add(vset<unsigned> olds, const vset<unsigned>& news) {
+    // return true;
+    TimeCounter tc(TC_INDUCTION_TERM_INDEX_MAINTENANCE);
     return _sigTree.add(olds, news);
   }
 

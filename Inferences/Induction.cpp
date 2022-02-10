@@ -64,23 +64,31 @@ using namespace Lib;
 
 namespace {
 
-void getSkolems(DHSet<Term*>& skolems, Literal* lit) {
-  SubtermIterator it(lit);
+void getSkolems(vset<Term*>& skolems, Literal* lit, bool indSkolems) {
+  NonVariableIterator it(lit);
   while (it.hasNext()) {
     TermList ts = it.next();
     if (!ts.isTerm()) { continue; }
     unsigned f = ts.term()->functor();
     if (env.signature->getFunction(f)->skolem()) {
-      skolems.insert(ts.term());
+      if (!indSkolems || env.signature->getFunction(f)->inductionSkolem()) {
+        skolems.insert(ts.term());
+      }
     }
   }
 }
 
-Literal* replaceTermsWithVariables(const DHSet<Term*>& terms, Literal* lit, unsigned& var) {
-  DHSet<Term*>::Iterator it(terms);
-  while (it.hasNext()) {
-    auto t = it.next();
+Literal* replaceTermsWithVariables(const vset<Term*>& terms, Literal* lit, unsigned& var) {
+  for (const auto& t : terms) {
     TermReplacement tr(t,TermList(var++,false));
+    lit = tr.transform(lit);
+  }
+  return lit;
+}
+
+Literal* replaceTermsWithVariables(const vmap<Term*, unsigned>& terms, Literal* lit) {
+  for (const auto& t : terms) {
+    TermReplacement tr(t.first,TermList(t.second,false));
     lit = tr.transform(lit);
   }
   return lit;
@@ -412,7 +420,7 @@ void Induction::preprocess(Problem& prb) {
       conclusion);
 
     NewCNF cnf(0);
-    cnf.setForInduction();
+    // cnf.setForInduction();
     Stack<Clause*> clauses;
     Inference inf = NonspecificInference0(UnitInputType::AXIOM,InferenceRule::INDUCTION_AXIOM_PREPROCESS);
     inf.setInductionDepth(1);
@@ -472,16 +480,19 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
           }
         }
       }
-      // cout << "lit " << *lit << endl;
-      // unsigned static cnt = 0;
       if (_salg->getRemodulationManager()->isConflicting(lit)) {
         // cout << "conflict" << endl;
-        // cnt++;
-        // if (cnt % 100 == 0) {
-        //   cout << "conflict " << cnt << endl;
-        // }
         return;
       }
+      // static unsigned nonf = 0;
+      // if (lit->getInductionHypothesis()) {
+      //   nonf++;
+      //   cout << *lit << endl;
+      //   if (nonf % 100 == 0) {
+      //     cout << "Non-fertilized " << nonf << endl;
+      //   }
+      //   return;
+      // }
 
       Set<Term*>::Iterator citer1(int_terms);
       while(citer1.hasNext()){
@@ -517,6 +528,14 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
           do {
             if (_salg->getRemodulationManager()->isRedundant(ilit, premise->getRemodulationInfo<DHSet<RemodulationInfo>>())) {
               env.statistics->inductionRedundant++;
+              continue;
+            }
+            static unsigned cnt = 0;
+            if ((TermList(inductionTerm) == *ilit->nthArgument(0) && !ilit->nthArgument(1)->containsSubterm(TermList(inductionTerm))) ||
+                (TermList(inductionTerm) == *ilit->nthArgument(1) && !ilit->nthArgument(0)->containsSubterm(TermList(inductionTerm)))) {
+              if (cnt++ % 100 == 0) {
+                cout << "skipped " << cnt << endl;
+              }
               continue;
             }
             if(one){
@@ -647,23 +666,17 @@ void InductionClauseIterator::performIntInductionOnEligibleLiterals(Term* origTe
 
 void InductionClauseIterator::produceClauses(Clause* premise, Literal* origLit, Formula* hypothesis, InferenceRule rule, const pair<Literal*, SLQueryResult>& conclusion)
 {
-  CALL("InductionClauseIterator::produceClauses");
+  CALL("InductionClauseIterator::produceClauses/1");
   const List<pair<Literal*, SLQueryResult>> toResolve(conclusion);
   produceClauses(premise, origLit, hypothesis, rule, &toResolve);
 }
 
-void InductionClauseIterator::produceClauses(Clause* premise, Literal* origLit, Formula* hypothesis, InferenceRule rule, const List<pair<Literal*, SLQueryResult>>* toResolve)
+void InductionClauseIterator::produceClauses(Clause* premise, Literal* origLit, const vvector<pair<FormulaUnit*,bool>>& fus, Formula* f, InferenceRule rule, const pair<Literal*, SLQueryResult>& conclusion)
 {
-  CALL("InductionClauseIterator::produceClauses");
-  NewCNF cnf(0);
-  cnf.setForInduction();
-  Stack<Clause*> hyp_clauses;
-  Inference inf = NonspecificInference0(UnitInputType::AXIOM,rule);
-  inf.setInductionDepth(premise->inference().inductionDepth()+1);
-  FormulaUnit* fu = new FormulaUnit(hypothesis,inf);
-  cnf.clausify(NNF::ennf(fu), hyp_clauses);
-  vset<unsigned> oldSkolems;
+  CALL("InductionClauseIterator::produceClauses/3");
+
   vset<unsigned> newSkolems;
+  vset<unsigned> oldSkolems;
   NonVariableIterator nvi(origLit);
   while (nvi.hasNext()) {
     auto f = nvi.next().term()->functor();
@@ -672,27 +685,90 @@ void InductionClauseIterator::produceClauses(Clause* premise, Literal* origLit, 
     }
   }
 
+  NewCNF cnf(0);
+  cnf.setForInduction();
+  Stack<Stack<LiteralStack>> sts;
+  cnf.clausify(fus, sts);
+  Stack<LiteralStack> csts;
+  csts.push(LiteralStack());
+
+  for (unsigned i = 0; i < sts.size(); i++) {
+    Stack<LiteralStack> newCsts;
+    newSkolems.clear();
+    auto hyps = List<Term*>::empty();
+    Literal* main = 0;
+    for (unsigned j = 0; j < sts[i].size(); j++) {
+      auto temp = csts;
+      for (unsigned k = 0; k < temp.size(); k++) {
+        for (unsigned l = 0; l < sts[i][j].size(); l++) {
+          auto lit = sts[i][j][l];
+          NonVariableIterator nvi(lit);
+          while (nvi.hasNext()) {
+            auto f = nvi.next().term()->functor();
+            if (env.signature->getFunction(f)->inductionSkolem()) {
+              newSkolems.insert(f);
+            }
+          }
+          if (lit->polarity() != origLit->polarity()) {
+            hyps->push(lit, hyps);
+          } else {
+            ASS(!main || main==lit);
+            main = lit;
+          }
+          temp[k].push(lit);
+        }
+        newCsts.push(temp[k]);
+      }
+    }
+    if (i < sts.size()-1) {
+      ASS(main);
+      main->setInductionHypotheses(hyps);
+    }
+    csts = newCsts;
+
+    vset<unsigned> inters;
+    vset<unsigned> diff;
+    set_intersection(newSkolems.begin(), newSkolems.end(), oldSkolems.begin(), oldSkolems.end(), inserter(inters, inters.begin()));
+    set_difference(newSkolems.begin(), newSkolems.end(), oldSkolems.begin(), oldSkolems.end(), inserter(diff, diff.begin()));
+    ASS(inters.empty());
+    ALWAYS(_salg->getRemodulationManager()->add(inters, diff));
+  }
+  ClauseStack cls;
+  auto fu = new FormulaUnit(f, NonspecificInference0(UnitInputType::AXIOM,rule));
+  for (const auto& st : csts) {
+    cls.push(Clause::fromStack(st, FormulaTransformation(InferenceRule::CLAUSIFY,fu)));
+  }
+
+  const List<pair<Literal*, SLQueryResult>> toResolve(conclusion);
+  resolveClauses(premise, origLit, cls, rule, &toResolve);
+}
+
+void InductionClauseIterator::produceClauses(Clause* premise, Literal* origLit, Formula* hypothesis, InferenceRule rule, const List<pair<Literal*, SLQueryResult>>* toResolve)
+{
+  CALL("InductionClauseIterator::produceClauses/2");
+  NewCNF cnf(0);
+  cnf.setForInduction();
+  Stack<Clause*> hyp_clauses;
+  Inference inf = NonspecificInference0(UnitInputType::AXIOM,rule);
+  inf.setInductionDepth(premise->inference().inductionDepth()+1);
+  FormulaUnit* fu = new FormulaUnit(hypothesis,inf);
+  cnf.clausify(NNF::ennf(fu), hyp_clauses);
+
+  resolveClauses(premise, origLit, hyp_clauses, rule, toResolve);
+}
+
+void InductionClauseIterator::resolveClauses(Clause* premise, Literal* origLit, ClauseStack& cls, InferenceRule rule, const List<pair<Literal*, SLQueryResult>>* toResolve)
+{
+  CALL("InductionClauseIterator::resolveClauses");
   // Now, when possible, perform resolution against all literals from toResolve, which contain:
   // 1. the original literal,
   // 2. the bounds on the induction term (which are in the form "term < bound", or other comparison),
   // if hyp_clauses contain the literal(s).
   // (If hyp_clauses do not contain the literal(s), the clause is a definition from clausification
   // and just keep it as it is.)
-  Stack<Clause*>::Iterator cit(hyp_clauses);
+  Stack<Clause*>::Iterator cit(cls);
   while(cit.hasNext()){
     Clause* c = cit.next();
-    for (unsigned i = 0; i < c->length(); i++) {
-      auto lit = (*c)[i];
-      NonVariableIterator nvi(lit);
-      while (nvi.hasNext()) {
-        auto f = nvi.next().term()->functor();
-        if (env.signature->getFunction(f)->inductionSkolem()) {
-          if (!oldSkolems.count(f)) {
-            newSkolems.insert(f);
-          }
-        }
-      }
-    }
     bool resolved = false;
     List<pair<Literal*, SLQueryResult>>::RefIterator resIt(toResolve);
     while (resIt.hasNext()) {
@@ -710,7 +786,6 @@ void InductionClauseIterator::produceClauses(Clause* premise, Literal* origLit, 
     }
     _clauses.push(c);
   }
-  ALWAYS(_salg->getRemodulationManager()->add(oldSkolems, newSkolems));
   env.statistics->induction++;
   if (rule == InferenceRule::GEN_INDUCTION_AXIOM ||
       rule == InferenceRule::INT_INF_UP_GEN_INDUCTION_AXIOM ||
@@ -913,11 +988,10 @@ void InductionClauseIterator::performStructInductionOne(Clause* premise, Literal
   TermList ta_sort = ta->sort();
 
   FormulaList* formulas = FormulaList::empty();
-  DHSet<Term*> skolems;
+  vvector<pair<FormulaUnit*, bool>> formulaUnits;
+  vset<Term*> skolems;
   static const bool strengthenHyp = env.options->inductionStrengthenHypothesis();
-  if (strengthenHyp) {
-    getSkolems(skolems, lit);
-  }
+  getSkolems(skolems, lit, !strengthenHyp);
 
   Literal* clit = Literal::complementaryLiteral(lit);
   unsigned var = 0;
@@ -928,78 +1002,59 @@ void InductionClauseIterator::performStructInductionOne(Clause* premise, Literal
     unsigned arity = con->arity();
     Formula* f = 0;
 
-    // non recursive get L[_]
-    if(!con->recursive()){
-      if(arity==0){
-        TermReplacement cr(term,TermList(Term::createConstant(con->functor())));
-        f = new AtomicFormula(replaceTermsWithVariables(skolems, cr.transform(clit), var));
+    Stack<TermList> argTerms;
+    Stack<TermList> ta_vars;
+    for(unsigned i=0;i<arity;i++){
+      TermList x(var,false);
+      var++;
+      if(con->argSort(i) == ta_sort){
+        ta_vars.push(x);
       }
-      else{
-        Stack<TermList> argTerms;
-        for(unsigned i=0;i<arity;i++){
-          argTerms.push(TermList(var,false));
-          var++;
-        }
-        TermReplacement cr(term,TermList(Term::create(con->functor(),(unsigned)argTerms.size(), argTerms.begin())));
-        f = new AtomicFormula(replaceTermsWithVariables(skolems, cr.transform(clit), var));
-      }
+      argTerms.push(x);
     }
-    // recursive get (L[x] => L[c(x)])
-    else{
-      ASS(arity>0);
-      Stack<TermList> argTerms;
-      Stack<TermList> ta_vars;
-      for(unsigned i=0;i<arity;i++){
-        TermList x(var,false);
-        var++;
-        if(con->argSort(i) == ta_sort){
-          ta_vars.push(x);
-        }
-        argTerms.push(x);
-      }
-      TermReplacement cr(term,TermList(Term::create(con->functor(),(unsigned)argTerms.size(), argTerms.begin())));
-      Formula* right = new AtomicFormula(replaceTermsWithVariables(skolems, cr.transform(clit), var));
-      Formula* left = 0;
-      ASS(ta_vars.size()>=1);
-      auto hypVars = VList::empty();
-      auto temp = var;
-      if(ta_vars.size()==1){
-        TermReplacement cr(term,ta_vars[0]);
-        left = new AtomicFormula(replaceTermsWithVariables(skolems, cr.transform(clit), var));
-      }
-      else{
-        FormulaList* args = FormulaList::empty();
-        Stack<TermList>::Iterator tvit(ta_vars);
-        while(tvit.hasNext()){
-          TermReplacement cr(term,tvit.next());
-          args = new FormulaList(new AtomicFormula(replaceTermsWithVariables(skolems, cr.transform(clit), var)),args);
-        }
-        left = new JunctionFormula(Connective::AND,args);
-      }
-      for (unsigned i = temp; i < var; i++) {
-        VList::push(i, hypVars);
-      }
-      if (VList::isNonEmpty(hypVars)) {
-        left = new QuantifiedFormula(Connective::FORALL, hypVars, 0, left);
-      }
-      f = new BinaryFormula(Connective::IMP,left,right);
+    TermReplacement cr(term,TermList(Term::create(con->functor(),(unsigned)argTerms.size(), argTerms.begin())));
+    vmap<Term*, unsigned> skMap;
+    for (const auto& sk : skolems) {
+      skMap.insert(make_pair(sk, var++));
     }
-
+    Formula* right = new AtomicFormula(replaceTermsWithVariables(skMap, cr.transform(clit)));
+    auto hypVars = VList::empty();
+    auto temp = var;
+    FormulaList* args = FormulaList::empty();
+    Stack<TermList>::Iterator tvit(ta_vars);
+    while(tvit.hasNext()){
+      TermReplacement cr(term,tvit.next());
+      auto newLit = cr.transform(clit);
+      newLit = strengthenHyp ? replaceTermsWithVariables(skolems, newLit, var) : replaceTermsWithVariables(skMap, newLit);
+      FormulaList::push(new AtomicFormula(newLit),args);
+    }
+    Formula* left = args ? JunctionFormula::generalJunction(Connective::AND,args) : 0;
+    for (unsigned i = temp; i < var; i++) {
+      VList::push(i, hypVars);
+    }
+    if (VList::isNonEmpty(hypVars)) {
+      ASS(left);
+      left = new QuantifiedFormula(Connective::FORALL, hypVars, 0, left);
+    }
+    f = Formula::quantify(left ? new BinaryFormula(Connective::IMP,left,right) : right);
     ASS(f);
-    formulas = new FormulaList(f,formulas);
+    FormulaList::push(f,formulas);
+    formulaUnits.push_back(make_pair(NNF::ennf(new FormulaUnit(f, NonspecificInference0(UnitInputType::AXIOM,InferenceRule::INDUCTION_AXIOM_PREPROCESS))), false));
   }
   ASS_G(FormulaList::length(formulas), 0);
   Formula* indPremise = FormulaList::length(formulas) > 1 ? new JunctionFormula(Connective::AND,formulas)
                                                           : formulas->head();
   TermReplacement cr(term,TermList(var++,false));
-  Literal* conclusion = replaceTermsWithVariables(skolems, cr.transform(clit), var);
-  Formula* hypothesis = new BinaryFormula(Connective::IMP,
-                            Formula::quantify(indPremise),
-                            Formula::quantify(new AtomicFormula(conclusion)));
+  auto conclusion = replaceTermsWithVariables(skolems, cr.transform(clit), var);
+  auto conclusionF = Formula::quantify(new AtomicFormula(conclusion));
+  Formula* hypothesis = new BinaryFormula(Connective::IMP, indPremise, conclusionF);
+  formulaUnits.push_back(make_pair(NNF::ennf(new FormulaUnit(conclusionF, NonspecificInference0(UnitInputType::AXIOM,InferenceRule::INDUCTION_AXIOM_PREPROCESS))), true));
+  cout << *hypothesis << endl;
 
   static ResultSubstitutionSP identity = ResultSubstitutionSP(new IdentitySubstitution());
   pair<Literal*, SLQueryResult> toResolve(conclusion, SLQueryResult(origLit, premise, identity));
-  produceClauses(premise, origLit, hypothesis, rule, toResolve);
+  // produceClauses(premise, origLit, hypothesis, rule, toResolve);
+  produceClauses(premise, origLit, formulaUnits, hypothesis, rule, toResolve);
 }
 
 /**

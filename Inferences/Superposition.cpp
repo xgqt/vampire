@@ -510,6 +510,8 @@ Clause* Superposition::performSuperposition(
   }
 
   Literal* tgtLitS = EqHelper::replace(rwLitS,rwTermS,tgtTermS);
+  auto eqLitS = subst->apply(eqLit, eqIsResult);
+  tgtLitS->updateInductionHypotheses(rwLit, eqLitS);
 
   static bool doSimS = getOptions().simulatenousSuperposition();
 

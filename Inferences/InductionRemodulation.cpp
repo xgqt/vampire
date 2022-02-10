@@ -191,16 +191,6 @@ ClauseIterator InductionRemodulation::perform(
     ((rwTerm==*rwLit->nthArgument(0) && !rwLit->nthArgument(1)->containsSubterm(tgtTermS)) ||
      (rwTerm==*rwLit->nthArgument(1) && !rwLit->nthArgument(0)->containsSubterm(tgtTermS)));
 
-  auto checkLit = EqHelper::replace(rwLit, rwTerm, tgtTermS);
-  // unsigned static cnt = 0;
-  if (_salg->getRemodulationManager()->isConflicting(checkLit)) {
-    // cnt++;
-    // if (cnt % 100 == 0){
-    //   cout << "rem cnt " << cnt << endl;
-    // }
-    return res;
-  }
-
   SingleOccurrenceReplacement sor(rwLit, rwTerm.term(), tgtTermS);
   Literal* tgtLit = nullptr;
   while ((tgtLit = sor.transformSubset())) {
@@ -211,6 +201,13 @@ ClauseIterator InductionRemodulation::perform(
     if(EqHelper::isEqTautology(tgtLit)) {
       continue;
     }
+
+    if (_salg->getRemodulationManager()->isConflicting(tgtLit)) {
+      env.statistics->crossInductionElimination2++;
+      return res;
+    }
+
+    tgtLit->updateInductionHypotheses(rwLit, eqLitS);
 
     inf_destroyer.disable(); // ownership passed to the the clause below
     Clause* newCl = new(newLength) Clause(newLength, inf);

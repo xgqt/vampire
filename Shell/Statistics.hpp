@@ -133,6 +133,7 @@ public:
   unsigned inductionRemodulation;
   unsigned inductionRedundant;
   unsigned crossInductionElimination;
+  unsigned crossInductionElimination2;
   unsigned smallerSideSuperposition;
   unsigned maxInductionDepth;
   unsigned induction;
