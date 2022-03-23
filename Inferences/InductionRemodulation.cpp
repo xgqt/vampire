@@ -207,8 +207,6 @@ ClauseIterator InductionRemodulation::perform(
       return res;
     }
 
-    tgtLit->updateInductionHypotheses(rwLit, eqLitS);
-
     inf_destroyer.disable(); // ownership passed to the the clause below
     Clause* newCl = new(newLength) Clause(newLength, inf);
 

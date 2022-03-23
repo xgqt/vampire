@@ -202,8 +202,6 @@ bool ForwardDemodulationImpl<combinatorySupSupport>::perform(Clause* cl, Clause*
           premises = pvi( getSingletonIterator(qr.clause));
           return true;
         }
-        auto eqLitS = qr.substitution->applyToBoundResult(qr.literal);
-        resLit->updateInductionHypotheses(lit, eqLitS);
 
         Clause* res = new(cLen) Clause(cLen,
           SimplifyingInference2(InferenceRule::FORWARD_DEMODULATION, cl, qr.clause));

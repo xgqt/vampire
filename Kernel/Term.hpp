@@ -32,7 +32,6 @@
 #include "Lib/Stack.hpp"
 #include "Lib/Metaiterators.hpp"
 #include "Lib/VString.hpp"
-#include "Lib/List.hpp"
 
 #define TERM_DIST_VAR_UNKNOWN 0x3FFFFF
 
@@ -535,18 +534,6 @@ public:
     return _isTwoVarEquality;
   }
 
-  List<Term*>* getInductionHypothesis() const
-  {
-    return _inductionHypotheses;
-  }
-
-  void setInductionHypotheses(List<Term*>* ih)
-  {
-    _inductionHypotheses = ih;
-  }
-
-  void updateInductionHypotheses(Term* orig, Term* eq);
-
   const vstring& functionName() const;
 
   /** True if the term is, in fact, a literal */
@@ -703,7 +690,6 @@ protected:
   unsigned _hasInterpretedConstants : 1;
   /** If true, the object is an equality literal between two variables */
   unsigned _isTwoVarEquality : 1;
-  List<Term*>* _inductionHypotheses;
   /** Weight of the symbol */
   unsigned _weight;
   /** length of maximum reduction length */

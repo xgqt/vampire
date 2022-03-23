@@ -199,7 +199,6 @@ struct BackwardDemodulation::ResultFn
     }
 
     Literal* resLit=EqHelper::replace(qr.literal,lhsS,rhsS);
-    resLit->updateInductionHypotheses(qr.literal,qr.substitution->applyToBoundQuery(_eqLit));
     if(EqHelper::isEqTautology(resLit)) {
       env.statistics->backwardDemodulationsToEqTaut++;
       _removed->insert(qr.clause);

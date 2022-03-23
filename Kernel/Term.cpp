@@ -33,7 +33,6 @@
 #include "Shell/Statistics.hpp"
 
 #include "Formula.hpp"
-#include "Matcher.hpp"
 #include "Signature.hpp"
 #include "SortHelper.hpp"
 #include "Substitution.hpp"
@@ -829,11 +828,6 @@ vstring Literal::toString() const
     /*if(isTwoVarEquality()){
       res += "___ sort: " + twoVarEqSort().toString();
     }*/
-    auto temp = _inductionHypotheses;
-    while(temp) {
-      res += " ["+static_cast<Literal*>(temp->head())->toString()+"] ";
-      temp=temp->tail();
-    }
 
     return res;
   }
@@ -931,29 +925,6 @@ Literal* Literal::apply(Substitution& subst)
   return SubstHelper::apply(this, subst);
 } // Literal::apply
 
-void Term::updateInductionHypotheses(Term* orig, Term* eq) {
-  auto other = orig->_inductionHypotheses;
-  // trivial case
-  if (!_inductionHypotheses && !other) {
-    return;
-  }
-  // cout << "before " << static_cast<Literal*>(this)->toString() << " " << static_cast<Literal*>(orig)->toString() << " " << static_cast<Literal*>(eq)->toString() << endl;
-  // if the original doesn't contain obligations but
-  // this has (maybe because we are remodulating back),
-  // we leave everything as it is
-  if (!other) {
-    return;
-  }
-  while (other) {
-    if (!MatchingUtils::match(static_cast<Literal*>(other->head()), static_cast<Literal*>(eq), false) &&
-      !List<Term*>::member(other->head(), _inductionHypotheses))
-    {
-      List<Term*>::push(other->head(), _inductionHypotheses);
-    }
-    other = other->tail();
-  }
-  // cout << "after " << static_cast<Literal*>(this)->toString() << " " << static_cast<Literal*>(orig)->toString() << endl << endl;
-}
 
 /**
  * Return the hash function of the top-level of a complex term.
@@ -1759,8 +1730,7 @@ Literal* Literal::create(Literal* l,TermList* args)
   ASS_EQ(l->getPreDataSize(), 0);
 
   if (l->isEquality()) {
-    auto res = createEquality(l->polarity(), args[0], args[1], SortHelper::getEqualityArgumentSort(l));
-    return res;
+    return createEquality(l->polarity(), args[0], args[1], SortHelper::getEqualityArgumentSort(l));
   }
 
   int arity = l->arity();
@@ -1875,8 +1845,7 @@ Term::Term(const Term& t) throw()
     _hasInterpretedConstants(0),
     _isTwoVarEquality(0),
     _weight(0),
-    _vars(0),
-    _inductionHypotheses(0)
+    _vars(0)
 {
   CALL("Term::Term/1");
   ASS(!isSpecial()); //we do not copy special terms
@@ -1910,8 +1879,7 @@ Term::Term() throw()
    _isTwoVarEquality(0),
    _weight(0),
    _maxRedLen(0),
-   _vars(0),
-   _inductionHypotheses(0)
+   _vars(0)
 {
   CALL("Term::Term/0");
 

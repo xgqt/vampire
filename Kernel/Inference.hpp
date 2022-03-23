@@ -450,7 +450,6 @@ enum class InferenceRule : unsigned char {
 
   /* Induction hypothesis*/
   INDUCTION_AXIOM,
-  INDUCTION_AXIOM_PREPROCESS,
   /* Generalized induction hypothesis*/
   GEN_INDUCTION_AXIOM,
   /* Integer induction hypothesis for infinite intervals */
