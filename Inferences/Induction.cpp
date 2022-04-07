@@ -498,6 +498,10 @@ void InductionClauseIterator::produceClauses(Clause* premise, Literal* origLit, 
   produceClauses(premise, origLit, hypothesis, rule, &toResolve);
 }
 
+float computeGoalness() {
+  return 1.0f;
+}
+
 void InductionClauseIterator::produceClauses(Clause* premise, Literal* origLit, Formula* hypothesis, InferenceRule rule, const List<pair<Literal*, SLQueryResult>>* toResolve)
 {
   CALL("InductionClauseIterator::produceClauses");
@@ -506,6 +510,7 @@ void InductionClauseIterator::produceClauses(Clause* premise, Literal* origLit, 
   Stack<Clause*> hyp_clauses;
   Inference inf = NonspecificInference0(UnitInputType::AXIOM,rule);
   inf.setInductionDepth(premise->inference().inductionDepth()+1);
+  inf.setGoalness(computeGoalness());
   FormulaUnit* fu = new FormulaUnit(hypothesis,inf);
   cnf.clausify(NNF::ennf(fu), hyp_clauses);
 

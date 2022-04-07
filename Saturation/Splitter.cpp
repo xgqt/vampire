@@ -1250,6 +1250,7 @@ Clause* Splitter::buildAndInsertComponentClause(SplitLevel name, unsigned size, 
     if (orig != nullptr) { //
       def_u_i.setPureTheoryDescendant(orig->isPureTheoryDescendant());
       def_u_i.setInductionDepth(orig->inference().inductionDepth());
+      def_u_i.setGoalness(orig->inference().goalness());
     }
     def_u = new FormulaUnit(def_f,def_u_i);
     InferenceStore::instance()->recordIntroducedSplitName(def_u,formula_name);
