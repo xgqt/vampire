@@ -638,8 +638,7 @@ unsigned Clause::computeWeightForClauseSelection(unsigned w, unsigned splitWeigh
   if (opt.increasedNumeralWeight()) {
     w = (2 * w + numeralWeight);
   }
-  float epsilon = 0.001;
-  return w / (goalness + epsilon);
+  return w / goalness;
 }
 
 

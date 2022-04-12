@@ -3802,6 +3802,9 @@ void TPTP::endFof()
   default:
     break;
   }
+  if (unit->derivedFromGoal()) {
+    unit->inference().setGoalness(1.0f);
+  }
   _units.push(unit);
 } // tag
 

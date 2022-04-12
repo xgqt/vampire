@@ -2186,6 +2186,7 @@ public:
   bool extensionalityAllowPosEq() const { return _extensionalityAllowPosEq.actualValue; }
   unsigned nongoalWeightCoefficientNumerator() const { return _nonGoalWeightCoefficient.numerator; }
   unsigned nongoalWeightCoefficientDenominator() const { return _nonGoalWeightCoefficient.denominator; }
+  float nongoalWeightCoefficient() const { return _nonGoalWeightCoefficient.actualValue; }
   bool restrictNWCtoGC() const { return _restrictNWCtoGC.actualValue; }
   Sos sos() const { return _sos.actualValue; }
   unsigned sosTheoryLimit() const { return _sosTheoryLimit.actualValue; }

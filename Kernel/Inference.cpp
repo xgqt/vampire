@@ -347,6 +347,21 @@ vstring Inference::toString() const
   return result;
 }
 
+void Inference::initDefault(UnitInputType inputType, InferenceRule r)
+{
+  CALL("Inference::initDefault");
+
+  _inputType = inputType;
+  _rule = r;
+  _included = false;
+  _inductionDepth = 0;
+  _XXNarrows = 0;
+  _reductions = 0;
+  _goalness = env.options->nongoalWeightCoefficient();
+  _sineLevel = std::numeric_limits<decltype(_sineLevel)>::max();
+  _splits = nullptr;
+  _age = 0;
+}
 
 void Inference::init0(UnitInputType inputType, InferenceRule r)
 {

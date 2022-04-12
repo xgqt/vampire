@@ -728,21 +728,7 @@ private:
     INFERENCE_FROM_SAT_REFUTATION
   };
 
-  void initDefault(UnitInputType inputType, InferenceRule r) {
-    CALL("Inference::initDefault");
-
-    _inputType = inputType;
-    _rule = r;
-    _included = false;
-    _inductionDepth = 0;
-    _XXNarrows = 0;
-    _reductions = 0;
-    _goalness = 0.0f;
-    _sineLevel = std::numeric_limits<decltype(_sineLevel)>::max();
-    _splits = nullptr;
-    _age = 0;
-  }
-
+  void initDefault(UnitInputType inputType, InferenceRule r);
   void init0(UnitInputType inputType, InferenceRule r);
   void init1(InferenceRule r, Unit* premise);
   void init2(InferenceRule r, Unit* premise1, Unit* premise2);
