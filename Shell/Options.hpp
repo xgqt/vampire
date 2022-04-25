@@ -2266,6 +2266,7 @@ public:
   bool ignoreConjectureInPreprocessing() const {return _ignoreConjectureInPreprocessing.actualValue;}
 
   FunctionDefinitionElimination functionDefinitionElimination() const { return _functionDefinitionElimination.actualValue; }
+  bool functionDefinitionRewriting() const { return _functionDefinitionRewriting.actualValue; }
   bool skolemReuse() const { return _skolemReuse.actualValue; }
   bool definitionReuse() const { return _definitionReuse.actualValue; }
   TweeGoalTransformation tweeGoalTransformation() const { return _tweeGoalTransformation.actualValue; }
@@ -2568,6 +2569,7 @@ private:
   BoolOptionValue _forwardSubsumptionDemodulation;
   UnsignedOptionValue _forwardSubsumptionDemodulationMaxMatches;
   ChoiceOptionValue<FunctionDefinitionElimination> _functionDefinitionElimination;
+  BoolOptionValue _functionDefinitionRewriting;
   BoolOptionValue _skolemReuse;
   BoolOptionValue _definitionReuse;
   ChoiceOptionValue<TweeGoalTransformation> _tweeGoalTransformation;

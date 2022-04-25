@@ -995,7 +995,7 @@ void SMTLIB2::readDefineFun(const vstring& name, LExprList* iArgs, LExpr* oSort,
     lhs = TermList(Term::createFormula(frm));
   }
 
-  Formula* fla = new AtomicFormula(Literal::createEquality(true,lhs,rhs,rangeSort));
+  Formula* fla = new AtomicFormula(Literal::createEquality(true,lhs,rhs,rangeSort), true /*isFunctionDefinition*/);
 
   FormulaUnit* fu = new FormulaUnit(fla, FromInput(UnitInputType::ASSUMPTION));
 

@@ -446,6 +446,11 @@ void Options::init()
     _functionDefinitionElimination.addProblemConstraint(hasEquality());
     _functionDefinitionElimination.setRandomChoices({"all","none"});
 
+    _functionDefinitionRewriting = BoolOptionValue("function_definition_rewriting","fnrw",false);
+    _functionDefinitionRewriting.description="Uses function definitions as conditional rewrite rules rather than clauses.";
+    _lookup.insert(&_functionDefinitionRewriting);
+    _functionDefinitionRewriting.tag(OptionTag::INFERENCES);
+
     _skolemReuse = BoolOptionValue("skolem_reuse", "skr", false);
     _skolemReuse.description =
       "Attempt to reuse Skolem symbols.\n"

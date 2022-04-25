@@ -753,6 +753,10 @@ vstring Kernel::ruleName(InferenceRule rule)
     return "backward subsumption demodulation";
   case InferenceRule::FORWARD_LITERAL_REWRITING:
     return "forward literal rewriting";
+  case InferenceRule::FUNCTION_DEFINITION_DEMODULATION:
+    return "function definition demodulation";
+  case InferenceRule::FUNCTION_DEFINITION_REWRITING:
+    return "function definition rewriting";
   case InferenceRule::INNER_REWRITING:
     return "inner rewriting";
   case InferenceRule::CONDENSATION:

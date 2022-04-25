@@ -32,6 +32,7 @@
 #include "EqualityProxyMono.hpp"
 #include "Flattening.hpp"
 #include "FunctionDefinition.hpp"
+#include "FunctionDefinitionIndex.hpp"
 #include "GeneralSplitting.hpp"
 #include "InequalitySplitting.hpp"
 #include "InterpretedNormalizer.hpp"
@@ -105,6 +106,10 @@ void Preprocess::preprocess(Problem& prb)
       env.out() << "normalization" << std::endl;
 
     Normalisation().normalise(prb);
+  }
+
+  if (_options.functionDefinitionRewriting()) {
+    FunctionDefinitionIndex::preprocess(prb);
   }
 
   if(_options.guessTheGoal() != Options::GoalGuess::OFF){

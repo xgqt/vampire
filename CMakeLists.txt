@@ -409,6 +409,7 @@ set(VAMPIRE_INFERENCE_SOURCES
     Inferences/ForwardLiteralRewriting.cpp
     Inferences/ForwardSubsumptionAndResolution.cpp
     Inferences/ForwardSubsumptionDemodulation.cpp
+    Inferences/FunctionDefinitionRewriting.cpp
     Inferences/GlobalSubsumption.cpp
     Inferences/HyperSuperposition.cpp
     Inferences/InnerRewriting.cpp
@@ -444,6 +445,7 @@ set(VAMPIRE_INFERENCE_SOURCES
     Inferences/ForwardDemodulation.hpp
     Inferences/ForwardLiteralRewriting.hpp
     Inferences/ForwardSubsumptionAndResolution.hpp
+    Inferences/FunctionDefinitionRewriting.cpp
     Inferences/GlobalSubsumption.hpp
     Inferences/HyperSuperposition.hpp
     Inferences/InnerRewriting.hpp
@@ -561,6 +563,7 @@ set(VAMPIRE_SHELL_SOURCES
     Shell/EqualityProxyMono.cpp    
     Shell/Flattening.cpp
     Shell/FunctionDefinition.cpp
+    Shell/FunctionDefinitionIndex.cpp
     Shell/GeneralSplitting.cpp
     Shell/GoalGuessing.cpp
     Shell/Grounding.cpp
@@ -612,6 +615,7 @@ set(VAMPIRE_SHELL_SOURCES
     Shell/EqualityProxyMono.hpp
     Shell/Flattening.hpp
     Shell/FunctionDefinition.hpp
+    Shell/FunctionDefinitionIndex.hpp
     Shell/GeneralSplitting.hpp
     Shell/Grounding.hpp
     Shell/InequalitySplitting.hpp
@@ -722,6 +726,7 @@ set(UNIT_TESTS
     UnitTests/tQuotientE.cpp
     UnitTests/tImplicationSetClosure.cpp
     UnitTests/tUnificationWithAbstraction.cpp
+    UnitTests/tFunctionDefinitionRewriting.cpp
     UnitTests/tGaussianElimination.cpp
     UnitTests/tPushUnaryMinus.cpp
     UnitTests/tArithmeticSubtermGeneralization.cpp

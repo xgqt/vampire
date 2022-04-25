@@ -227,6 +227,8 @@ enum class InferenceRule : unsigned char {
   BACKWARD_SUBSUMPTION_DEMODULATION,
   /** forward literal rewriting inference */
   FORWARD_LITERAL_REWRITING,
+  /** function definition demodulation */
+  FUNCTION_DEFINITION_DEMODULATION,
   /** inner rewriting */
   INNER_REWRITING,
   /** condensation inference */
@@ -301,6 +303,8 @@ enum class InferenceRule : unsigned char {
   INDUCTION_HYPERRESOLUTION,
   /* Generalized induction hyperresolution */
   GEN_INDUCTION_HYPERRESOLUTION,
+  /** function definition rewriting */
+  FUNCTION_DEFINITION_REWRITING,
   /** generated as instance of its parent */
   INSTANCE_GENERATION, // used by InstGen. Fun fact: the inference has one parent (logically) but the age is set from two parents (and +1)!
   /* Instantiation */

@@ -224,6 +224,12 @@ void TimeCounter::outputSingleStat(TimeCounterUnit tcu, ostream& out)
   case TC_FORWARD_LITERAL_REWRITING:
     out<<"forward literal rewriting";
     break;
+  case TC_FUNCTION_DEFINITION_DEMODULATION:
+    out<<"function definition demodulation";
+    break;
+  case TC_FUNCTION_DEFINITION_REWRITING:
+    out<<"function definition rewriting";
+    break;
   case TC_GLOBAL_SUBSUMPTION:
     out<<"global subsumption";
     break;

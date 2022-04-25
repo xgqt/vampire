@@ -59,6 +59,7 @@
 #include "Inferences/BoolEqToDiseq.hpp"
 #include "Inferences/ExtensionalityResolution.hpp"
 #include "Inferences/FOOLParamodulation.hpp"
+#include "Inferences/FunctionDefinitionRewriting.hpp"
 #include "Inferences/Injectivity.hpp"
 #include "Inferences/Factoring.hpp"
 #include "Inferences/ForwardDemodulation.hpp"
@@ -1609,6 +1610,10 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
     sgi->push(new LfpRule<GaussianVariableElimination>(GaussianVariableElimination())); 
   }
 
+  if (env.options->functionDefinitionRewriting()) {
+    sgi->push(new FunctionDefinitionRewriting());
+  }
+
   if (env.options->arithmeticSubtermGeneralizations() == Options::ArithmeticSimplificationMode::CAUTIOUS) {
     for (auto gen : allArithmeticSubtermGeneralizations())  {
       sgi->push(gen);
@@ -1688,6 +1693,10 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   }
   else if (opt.forwardSubsumptionResolution()) {
     USER_ERROR("Forward subsumption resolution requires forward subsumption to be enabled.");
+  }
+
+  if (env.options->functionDefinitionRewriting()) {
+    res->addForwardSimplifierToFront(new FunctionDefinitionRewriting());
   }
 
   // create backward simplification engine
