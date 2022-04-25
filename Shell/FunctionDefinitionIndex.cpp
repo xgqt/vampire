@@ -23,6 +23,37 @@ namespace Shell {
 
 TermSubstitutionTree FunctionDefinitionIndex::_tis;
 
+Branch substituteBoundVariable(unsigned var, TermList t, const Branch& b, TermList body)
+{
+  Substitution subst;
+  subst.bind(var, t);
+
+  auto bn = b;
+  bn.body = SubstHelper::apply(body, subst);
+  bn.header = SubstHelper::apply(bn.header, subst);
+  for (auto& lit : bn.literals) {
+    lit = SubstHelper::apply(lit, subst);
+  }
+  return bn;
+}
+
+Branch addCondition(Literal* lit, const Branch& b, TermList body) {
+  if (lit->isEquality() && lit->isNegative()) {
+    TermList lhs = *lit->nthArgument(0);
+    TermList rhs = *lit->nthArgument(1);
+    if (lhs.isVar() || rhs.isVar()) {
+      if (lhs.isTerm() && rhs.isVar()) {
+        swap(lhs,rhs);
+      }
+      return substituteBoundVariable(lhs.var(), rhs, b, body);
+    }
+  }
+  auto bn = b;
+  bn.body = body;
+  bn.literals.push(lit);
+  return bn;
+}
+
 void FunctionDefinitionIndex::preprocess(Problem& prb)
 {
   CALL("FunctionDefinitionIndex::preprocess(Problem&)");
@@ -52,6 +83,9 @@ bool FunctionDefinitionIndex::preprocess(Formula* f, Unit* unit)
   ASS(l->isEquality());
   
   TermList sort = SortHelper::getEqualityArgumentSort(l);
+  if (sort.isBoolSort()) {
+    return false;
+  }
   Stack<Branch> todos;
   Stack<Branch> done;
   todos.push({
@@ -69,48 +103,35 @@ bool FunctionDefinitionIndex::preprocess(Formula* f, Unit* unit)
     Term::SpecialTermData *sd = t->getSpecialData();
     switch (sd->getType()) {
       case Term::SF_FORMULA:
-      case Term::SF_ITE:
       case Term::SF_LET:
       case Term::SF_LET_TUPLE:
       case Term::SF_TUPLE: {
         return false;
       }
 
-      // case Term::SF_FORMULA: {
-      // }
-
-      // case Term::SF_ITE: {
-      //   sort = sd->getSort();
-      //   conditions.push(sd->getCondition());
-      //   thenBranches.push(*term->nthArgument(0));
-      //   elseBranches.push(*term->nthArgument(1));
-      //   break;
-      // }
-
-      // case Term::SF_LET:
-      // case Term::SF_LET_TUPLE: {
-      //   TermList contents = *term->nthArgument(0);
-      //   TermList processedLet = eliminateLet(sd, contents);
-      //   return findITEs(processedLet, variables, conditions, thenBranches,
-      //     elseBranches, matchVariables, matchConditions, matchBranches);
-      // }
-
-      // case Term::SF_TUPLE: {
-      //   TermList tupleTerm = TermList(sd->getTupleTerm());
-      //   return findITEs(tupleTerm, variables, conditions, thenBranches,
-      //                   elseBranches, matchVariables, matchConditions, matchBranches);
-      // }
+      case Term::SF_ITE: {
+        sort = sd->getSort();
+        auto cf = sd->getCondition();
+        switch (cf->connective())
+        {
+        case LITERAL: {
+          auto l = cf->literal();
+          todos.push(addCondition(Literal::complementaryLiteral(l), b, *t->nthArgument(0)));
+          todos.push(addCondition(l, b, *t->nthArgument(1)));
+          break;
+        }
+        default: {
+          return false;
+        }
+        }
+        break;
+      }
 
       case Term::SF_MATCH: {
         sort = sd->getSort();
         auto matched = *t->nthArgument(0);
         for (unsigned int i = 1; i < t->arity(); i += 2) {
-          Branch bn = b;
-          Substitution subst;
-          subst.bind(matched.var(), *t->nthArgument(i));
-          bn.body = SubstHelper::apply(*t->nthArgument(i + 1), subst);
-          bn.header = SubstHelper::apply(b.header, subst);
-          todos.push(bn);
+          todos.push(substituteBoundVariable(matched.var(), *t->nthArgument(i), b, *t->nthArgument(i+1)));
         }
         break;
       }
