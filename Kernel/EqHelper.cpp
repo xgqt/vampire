@@ -16,6 +16,7 @@
 
 #include "Shell/Options.hpp"
 
+#include "Clause.hpp"
 #include "Ordering.hpp"
 #include "SortHelper.hpp"
 #include "TermIterators.hpp"
@@ -455,5 +456,41 @@ TermIterator EqHelper::getEqualityArgumentIterator(Literal* lit)
 	  getSingletonIterator(*lit->nthArgument(1))) );
 }
 
+/**
+ * This function checks the following condition for a demodulation inference:
+ * s = t     s = t1 \/ C
+ * ---------------------
+ *     t = t1 \/ C
+ * where t > t1 and s = t > C
+ * If this holds, the demodulation cannot be done without losing completeness
+ * (i.e. s = t and t = t1 \/ C are not strictly greater than s = t1 \/ C)
+ * @param rwClause s = t1 \/ C
+ * @param rwLit s = t1
+ * @param eqLHS s
+ * @param eqRHS t
+ **/
+bool EqHelper::demodulationIsRedundant(Clause* rwClause, Literal* rwLit, TermList eqLHS, TermList eqRHS, const Ordering& ord)
+{
+  CALL("EqHelper::demodulationIsRedundant");
+
+  TermList rwRHS=EqHelper::getOtherEqualitySide(rwLit, eqLHS);
+  Ordering::Result tord = ord.compare(eqRHS, rwRHS);
+  if (tord == Ordering::LESS || tord == Ordering::LESS_EQ) {
+    return true;
+  }
+  TermList eqSort = SortHelper::getEqualityArgumentSort(rwLit);
+  Literal* eqLitS = Literal::createEquality(true, eqLHS, eqRHS, eqSort);
+  Clause::Iterator cit(*rwClause);
+  while (cit.hasNext()) {
+    Literal* lit = cit.next();
+    if (rwLit == lit) {
+      continue;
+    }
+    if (ord.compare(eqLitS, lit) == Ordering::LESS) {
+      return true;
+    }
+  }
+  return false;
+}
 
 }

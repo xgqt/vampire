@@ -169,31 +169,8 @@ bool ForwardDemodulationImpl<combinatorySupSupport>::perform(Clause* cl, Clause*
           continue;
         }
 
-        if(toplevelCheck) {
-          TermList other=EqHelper::getOtherEqualitySide(lit, trm);
-          Ordering::Result tord=ordering.compare(rhsS, other);
-          if(tord!=Ordering::LESS && tord!=Ordering::LESS_EQ) {
-            Literal* eqLitS=qr.substitution->applyToBoundResult(qr.literal);
-            bool isMax=true;
-            for(unsigned li2=0;li2<cLen;li2++) {
-              if(li==li2) {
+        if (toplevelCheck && !EqHelper::demodulationIsRedundant(cl, lit, trm, rhsS, ordering)) {
           continue;
-              }
-              if(ordering.compare(eqLitS, (*cl)[li2])==Ordering::LESS) {
-          isMax=false;
-          break;
-              }
-            }
-            if(isMax) {
-              //RSTAT_CTR_INC("tlCheck prevented");
-              //The demodulation is this case which doesn't preserve completeness:
-              //s = t     s = t1 \/ C
-              //---------------------
-              //     t = t1 \/ C
-              //where t > t1 and s = t > C
-              continue;
-            }
-          }
         }
 
         Literal* resLit = EqHelper::replace(lit,trm,rhsS);

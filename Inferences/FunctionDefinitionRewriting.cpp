@@ -152,26 +152,8 @@ Clause *FunctionDefinitionRewriting::perform(
     tgtTermS = tqr.substitution->applyToBoundResult(tgtTerm);
   }
 
-  if (toplevelCheck) {
-    Ordering& ordering = salg->getOrdering();
-    TermList other=EqHelper::getOtherEqualitySide(rwLit, rwTerm);
-    Ordering::Result tord = ordering.compare(tgtTermS, other);
-    if (tord != Ordering::LESS && tord != Ordering::LESS_EQ) {
-      Literal* eqLitS = tqr.substitution->applyToBoundResult(tqr.literal);
-      bool isMax=true;
-      for (unsigned i = 0; i < rwClause->length(); i++) {
-        if (rwLit == (*rwClause)[i]) {
-          continue;
-        }
-        if (ordering.compare(eqLitS, (*rwClause)[i]) == Ordering::LESS) {
-          isMax=false;
-          break;
-        }
-      }
-      if (isMax) {
-        return 0;
-      }
-    }
+  if (toplevelCheck && !EqHelper::demodulationIsRedundant(rwClause, rwLit, rwTerm, tgtTermS, salg->getOrdering())) {
+    return 0;
   }
 
   Literal *tgtLitS = EqHelper::replace(rwLit, rwTerm, tgtTermS);
