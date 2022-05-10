@@ -85,7 +85,6 @@
 #include "Inferences/TheoryInstAndSimp.hpp"
 #include "Inferences/Induction.hpp"
 #include "Inferences/InductionRemodulation.hpp"
-#include "Inferences/CrossInductionElimination.hpp"
 #include "Inferences/ArithmeticSubtermGeneralization.hpp"
 #include "Inferences/TautologyDeletionISE.hpp"
 #include "Inferences/CombinatorDemodISE.hpp"
@@ -304,9 +303,6 @@ SaturationAlgorithm::~SaturationAlgorithm()
   }
   if (_symEl) {
     delete _symEl;
-  }
-  if (_remodulationManager) {
-    delete _remodulationManager;
   }
 
   _active->detach();
@@ -804,6 +800,7 @@ void SaturationAlgorithm::init()
   }
 
   _startTime=env.timer->elapsedMilliseconds();
+  _startInstrs=env.timer->elapsedMegaInstructions();
 }
 
 Clause* SaturationAlgorithm::doImmediateSimplification(Clause* cl0)
@@ -1537,15 +1534,11 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   InductionForwardRewriting* inductionRewriting = nullptr;
   if(opt.induction()!=Options::Induction::NONE){
     induction = new Induction();
-    res->_remodulationManager = new RemodulationManager();
-    res->_remodulationManager->_ord = res->_ordering.ptr();
     if (consGen) {
       inductionRemodulation = new InductionRemodulation();
       gie->addFront(inductionRemodulation);
       inductionRewriting = new InductionForwardRewriting();
       gie->addFront(inductionRewriting);
-      res->_active->addedEvent.subscribe(res->_remodulationManager, &RemodulationManager::onActiveAdded);
-      res->_active->removedEvent.subscribe(res->_remodulationManager, &RemodulationManager::onActiveRemoved);
     }
     gie->addFront(induction);
   }
@@ -1785,10 +1778,6 @@ ImmediateSimplificationEngine* SaturationAlgorithm::createISE(Problem& prb, cons
 
   if (env.options->inductionConsequenceGeneration()!=Options::InductionConsequenceGeneration::OFF) {
     res->addFront(new InductionRemodulationSubsumption());
-  }
-
-  if (env.options->induction()!=Options::Induction::NONE) {
-    res->addFront(new CrossInductionElimination());
   }
 
   if(prb.hasEquality() && opt.equationalTautologyRemoval()) {

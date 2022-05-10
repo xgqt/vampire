@@ -198,10 +198,6 @@ public:
   bool isComponent() const { return _component; }
   void setComponent(bool c) { _component = c; }
 
-  template<typename T>
-  const T* getRemodulationInfo() const { return static_cast<const T*>(_remodulationInfo); }
-  void setRemodulationInfo(void* r) { _remodulationInfo = r; }
-
   bool isInductionLemma() const { return _inductionPhase; }
   unsigned getInductionPhase() const { return _inductionPhase; }
   void setInductionPhase(unsigned p) { _inductionPhase = p; }
@@ -398,8 +394,6 @@ protected:
   InverseLookup<Literal>* _literalPositions;
 
   int _numActiveSplits;
-
-  void* _remodulationInfo;
 
   size_t _auxTimestamp;
   void* _auxData;

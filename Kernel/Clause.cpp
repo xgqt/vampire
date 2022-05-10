@@ -69,7 +69,6 @@ Clause::Clause(unsigned length,const Inference& inf)
     _store(NONE),
     _numSelected(0),
     _inductionPhase(0),
-    _remodulationInfo(0),
     _weight(0),
     _weightForClauseSelection(0),
     _refCnt(0),

@@ -176,20 +176,12 @@ ClauseIterator InductionRemodulation::perform(
 
   TermList tgtTerm = EqHelper::getOtherEqualitySide(eqLit, eqLHS);
   TermList tgtTermS = eqIsResult ? subst->applyToBoundResult(tgtTerm) : subst->applyToBoundQuery(tgtTerm);
-  Literal* eqLitS = eqIsResult ? subst->applyToBoundResult(eqLit) : subst->applyToBoundQuery(eqLit);
 
   auto comp = _salg->getOrdering().compare(tgtTermS,rwTerm);
   if (comp != Ordering::GREATER && comp != Ordering::GREATER_EQ) {
     ASS_NEQ(comp, Ordering::INCOMPARABLE);
     return res;
   }
-
-  // we should only do the redundancy check if one side is possibly rewritten
-  // and the other side doesn't contain the tgtTermS already (since we are
-  // rewriting the occurrences one-by-one)
-  bool shouldCheckRedundancy = rwLit->isEquality() &&
-    ((rwTerm==*rwLit->nthArgument(0) && !rwLit->nthArgument(1)->containsSubterm(tgtTermS)) ||
-     (rwTerm==*rwLit->nthArgument(1) && !rwLit->nthArgument(0)->containsSubterm(tgtTermS)));
 
   SingleOccurrenceReplacement sor(rwLit, rwTerm.term(), tgtTermS);
   Literal* tgtLit = nullptr;
@@ -200,11 +192,6 @@ ClauseIterator InductionRemodulation::perform(
     // cout << "LIT " << *ilit << endl;
     if(EqHelper::isEqTautology(tgtLit)) {
       continue;
-    }
-
-    if (_salg->getRemodulationManager()->isConflicting(tgtLit)) {
-      env.statistics->crossInductionElimination2++;
-      return res;
     }
 
     inf_destroyer.disable(); // ownership passed to the the clause below
@@ -240,39 +227,7 @@ ClauseIterator InductionRemodulation::perform(
       continue;
     }
 
-    static const bool checkRedundancy = env.options->inductionRemodulationRedundancyCheck();
-    if (checkRedundancy) {
-      auto rinfos = RemodulationInfo::update(newCl, tgtLit,
-        rwClause->getRemodulationInfo<DHSet<RemodulationInfo>>(), _salg->getOrdering());
-
-      // The following case has to be checked to decide that
-      // this rewrite makes the new clauses redundant or not
-      //
-      // since we only rewrite one occurrence of rwTerm, the case
-      // we are looking for is when one side is tgtTermS and the
-      // other is unchanged
-      static const bool indGen = env.options->inductionGen();
-      if (!shouldCheckRedundancy ||
-        (tgtTermS!=*tgtLit->nthArgument(0) && tgtTermS!=*tgtLit->nthArgument(1) &&
-         // in non-generalized case we check that the rewritten
-         // term is not contained anymore in the new literal
-         (indGen || !tgtLit->containsSubterm(rwTerm))))
-      {
-        RemodulationInfo rinfo;
-        rinfo._eq = eqLit;
-        rinfo._eqGr = eqLitS;
-        rinfo._rest = rest;
-        rinfo._cl = eqClause;
-        rinfos->insert(rinfo);
-      }
-      // TODO: if -av=off, we should check also that the rest of rwClause is greater than the eqClause
-
-      if (rinfos->isEmpty()) {
-        delete rinfos;
-      } else {
-        newCl->setRemodulationInfo(rinfos);
-      }
-    }
+    // static const bool checkRedundancy = env.options->inductionRemodulationRedundancyCheck();
     newCl->setInductionPhase(2);
     env.statistics->inductionRemodulation++;
     res = pvi(getConcatenatedIterator(res, getSingletonIterator(newCl)));

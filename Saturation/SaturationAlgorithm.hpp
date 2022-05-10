@@ -122,8 +122,6 @@ public:
 
   Splitter* getSplitter() { return _splitter; }
 
-  RemodulationManager* getRemodulationManager() { return _remodulationManager; }
-
 protected:
   virtual void init();
   virtual MainLoopResult runImpl();
@@ -173,8 +171,10 @@ private:
   static SaturationAlgorithm* s_instance;
 protected:
 
-  bool _completeOptionSettings;
   int _startTime;
+  int _startInstrs;
+
+  bool _completeOptionSettings;  
   bool _clauseActivationInProgress;
 
   RCClauseStack _newClauses;
@@ -212,7 +212,6 @@ protected:
   SymElOutput* _symEl;
   AnswerLiteralManager* _answerLiteralManager;
   Instantiation* _instantiation;
-  RemodulationManager* _remodulationManager;
 
 
   SubscriptionData _passiveContRemovalSData;

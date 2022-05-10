@@ -704,10 +704,16 @@ void Splitter::init(SaturationAlgorithm* sa)
   hasSMTSolver = (opts.satSolver() == Options::SatSolver::Z3);
 #endif
 
-  if (opts.splittingAvatimer() > 0.0) {
-    _stopSplittingAt = opts.splittingAvatimer() * opts.timeLimitInDeciseconds() * 100;
+  if (opts.splittingAvatimer() < 1.0) {
+    _stopSplittingAtTime = opts.splittingAvatimer() * opts.timeLimitInDeciseconds() * 100;
+#ifdef __linux__
+    _stopSplittingAtInst = opts.splittingAvatimer() * opts.instructionLimit();
+#endif
   } else {
-    _stopSplittingAt = 0;
+    _stopSplittingAtTime = 0;
+#ifdef __linux__
+    _stopSplittingAtInst = 0;
+#endif
   }
 
   _fastRestart = opts.splittingFastRestart();
@@ -1040,7 +1046,7 @@ bool Splitter::getComponents(Clause* cl, Stack<LiteralStack>& acc)
 
   //Master literal of an variable is the literal
   //with lowest index, in which it appears.
-  static DHMap<unsigned, unsigned, IdentityHash> varMasters;
+  static DHMap<unsigned, unsigned, IdentityHash, Hash> varMasters;
   varMasters.reset();
   IntUnionFind components(clen);
 
@@ -1095,7 +1101,11 @@ bool Splitter::doSplitting(Clause* cl)
   if (hasStopped) {
     return false;
   }
-  if (_stopSplittingAt && (unsigned)env.timer->elapsedMilliseconds() >= _stopSplittingAt) {
+  if (_stopSplittingAtTime && (unsigned)env.timer->elapsedMilliseconds() >= _stopSplittingAtTime
+#ifdef __linux__
+    || _stopSplittingAtInst && env.timer->elapsedMegaInstructions() >= _stopSplittingAtInst
+#endif
+    ) {
     if (_showSplitting) {
       env.beginOutput();
       env.out() << "[AVATAR] Stopping the splitting process."<< std::endl;
@@ -1276,26 +1286,7 @@ Clause* Splitter::buildAndInsertComponentClause(SplitLevel name, unsigned size, 
     compCl->setAge(orig->age());
     compCl->inference().th_ancestors = orig->inference().th_ancestors;
     compCl->inference().all_ancestors = orig->inference().all_ancestors;
-    const auto rinfos = orig->getRemodulationInfo<DHSet<RemodulationInfo>>();
-    if (rinfos && !rinfos->isEmpty()) {
-      DHSet<RemodulationInfo>::Iterator it(*rinfos);
-      auto rinfosNew = new DHSet<RemodulationInfo>();
-      while (it.hasNext()) {
-        auto rinfo = it.next();
-        for (unsigned i = 0; i < size; i++) {
-          auto lhs = RemodulationInfo::getLHS(rinfo._eqGr, _sa->getOrdering());
-          if (lits[i]->containsSubterm(lhs)) {
-            rinfosNew->insert(rinfo);
-          }
-        }
-      }
-      if (rinfosNew->isEmpty()) {
-        delete rinfosNew;
-      } else {
-        compCl->setRemodulationInfo(rinfosNew);
-      }
-      compCl->setInductionPhase(compCl->getInductionPhase());
-    }
+    compCl->setInductionPhase(compCl->getInductionPhase());
   } else {
     compCl->setAge(AGE_NOT_FILLED);
     // We don't know anything about the derivation of the clause, so we set values which are as neutral as possible.
