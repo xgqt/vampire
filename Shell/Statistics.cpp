@@ -76,10 +76,6 @@ Statistics::Statistics()
     inductionRedundant(0),
     smallerSideSuperposition(0),
     maxInductionDepth(0),
-    induction(0),
-    inductionInProof(0),
-    generalizedInduction(0),
-    generalizedInductionInProof(0),
     structInduction(0),
     structInductionInProof(0),
     intInfInduction(0),
@@ -100,6 +96,10 @@ Statistics::Statistics()
     intFinDownInductionInProof(0),
     intDBDownInduction(0),
     intDBDownInductionInProof(0),
+    inductionApplication(0),
+    inductionApplicationInProof(0),
+    generalizedInductionApplication(0),
+    generalizedInductionApplicationInProof(0),
     argumentCongruence(0),
     narrow(0),
     forwardSubVarSup(0),
@@ -373,7 +373,7 @@ void Statistics::print(ostream& out)
       equalityFactoring+equalityResolution+forwardExtensionalityResolution+
       backwardExtensionalityResolution+argumentCongruence+negativeExtensionality+
       +primitiveInstantiations+choiceInstances+narrow+forwardSubVarSup+backwardSubVarSup+selfSubVarSup+
-      theoryInstSimp+theoryInstSimpCandidates+theoryInstSimpTautologies+theoryInstSimpLostSolution+induction);
+      theoryInstSimp+theoryInstSimpCandidates+theoryInstSimpTautologies+theoryInstSimpLostSolution+inductionApplication+generalizedInductionApplication);
   COND_OUT("Binary resolution", resolution);
   COND_OUT("Unit resulting resolution", urResolution);
   COND_OUT("Binary resolution with abstraction",cResolution);
@@ -397,13 +397,10 @@ void Statistics::print(ostream& out)
   COND_OUT("InductionForwardRewriting", inductionForwardRewriting);
   COND_OUT("InductionRedundant", inductionRedundant);
   COND_OUT("SmallerSideSuperposition", smallerSideSuperposition);
-  COND_OUT("Induction",induction);
+  // COND_OUT("Induction",induction);
   COND_OUT("MaxInductionDepth",maxInductionDepth);
-  COND_OUT("InductionStepsInProof",inductionInProof);
   COND_OUT("StructuralInduction",structInduction);
-  COND_OUT("StructuralInductionStepsInProof",structInductionInProof);
-  COND_OUT("GeneralizedInduction",generalizedInduction);
-  COND_OUT("GeneralizedInductionInProof",generalizedInductionInProof);
+  COND_OUT("StructuralInductionInProof",structInductionInProof);
   COND_OUT("IntegerInfiniteIntervalInduction",intInfInduction);
   COND_OUT("IntegerInfiniteIntervalInductionInProof",intInfInductionInProof);
   COND_OUT("IntegerFiniteIntervalInduction",intFinInduction);
@@ -416,12 +413,16 @@ void Statistics::print(ostream& out)
   COND_OUT("IntegerFiniteIntervalUpInductionInProof",intFinUpInductionInProof);
   COND_OUT("IntegerDefaultBoundUpInduction",intDBUpInduction);
   COND_OUT("IntegerDefaultBoundUpInductionInProof",intDBUpInductionInProof);
-  COND_OUT("IntegerInfiniteIntervalDownInduction",intInfInduction);
+  COND_OUT("IntegerInfiniteIntervalDownInduction",intInfDownInduction);
   COND_OUT("IntegerInfiniteIntervalDownInductionInProof",intInfDownInductionInProof);
   COND_OUT("IntegerFiniteIntervalDownInduction",intFinDownInduction);
   COND_OUT("IntegerFiniteIntervalDownInductionInProof",intFinDownInductionInProof);
   COND_OUT("IntegerDefaultBoundDownInduction",intDBDownInduction);
   COND_OUT("IntegerDefaultBoundDownInductionInProof",intDBDownInductionInProof);
+  COND_OUT("InductionApplications",inductionApplication);
+  COND_OUT("InductionApplicationsInProof",inductionApplicationInProof);
+  COND_OUT("GeneralizedInductionApplications",generalizedInductionApplication);
+  COND_OUT("GeneralizedInductionApplicationsInProof",generalizedInductionApplicationInProof);
   COND_OUT("Argument congruence", argumentCongruence);
   COND_OUT("Negative extensionality", negativeExtensionality);
   COND_OUT("Primitive substitutions", primitiveInstantiations);

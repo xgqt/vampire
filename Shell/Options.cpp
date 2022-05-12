@@ -1333,6 +1333,12 @@ void Options::init()
     _inductionRemodulationRedundancyCheck.reliesOn(_inductionConsequenceGeneration.is(notEqual(InductionConsequenceGeneration::OFF)));
     _lookup.insert(&_inductionRemodulationRedundancyCheck);
 
+    _nonUnitInduction = BoolOptionValue("non_unit_induction","nui",false);
+    _nonUnitInduction.description = "Induction on certain clauses or clause sets instead of just unit clauses";
+    _nonUnitInduction.tag(OptionTag::INFERENCES);
+    _nonUnitInduction.reliesOn(_induction.is(notEqual(Induction::NONE)));
+    _lookup.insert(&_nonUnitInduction);
+
     _instantiation = ChoiceOptionValue<Instantiation>("instantiation","inst",Instantiation::OFF,{"off","on"});
     _instantiation.description = "Heuristically instantiate variables. Often wastes a lot of effort. Consider using thi instead.";
     _instantiation.tag(OptionTag::INFERENCES);

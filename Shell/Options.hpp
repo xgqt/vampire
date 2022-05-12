@@ -2288,6 +2288,7 @@ public:
   InductionConsequenceGeneration inductionConsequenceGeneration() const { return _inductionConsequenceGeneration.actualValue; }
   Lib::vvector<int> inductionConsequenceGenerationRatio() const;
   bool inductionRemodulationRedundancyCheck() const { return _inductionRemodulationRedundancyCheck.actualValue; }
+  bool nonUnitInduction() const { return _nonUnitInduction.actualValue; }
 
   float instGenBigRestartRatio() const { return _instGenBigRestartRatio.actualValue; }
   bool instGenPassiveReactivation() const { return _instGenPassiveReactivation.actualValue; }
@@ -2589,6 +2590,7 @@ private:
   ChoiceOptionValue<InductionConsequenceGeneration> _inductionConsequenceGeneration;
   StringOptionValue _inductionConsequenceGenerationRatio;
   BoolOptionValue _inductionRemodulationRedundancyCheck;
+  BoolOptionValue _nonUnitInduction;
 
   StringOptionValue _latexOutput;
   BoolOptionValue _latexUseDefaultSymbols;

@@ -332,7 +332,6 @@ class BackwardSimplificationEngine;
 typedef Lib::SmartPtr<BackwardSimplificationEngine> BackwardSimplificationEngineSP;
 
 class BDDMarkingSubsumption;
-struct RemodulationManager;
 }
 
 namespace SAT

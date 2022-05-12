@@ -132,10 +132,6 @@ public:
   unsigned inductionRedundant;
   unsigned smallerSideSuperposition;
   unsigned maxInductionDepth;
-  unsigned induction;
-  unsigned inductionInProof;
-  unsigned generalizedInduction;
-  unsigned generalizedInductionInProof;
   unsigned structInduction;
   unsigned structInductionInProof;
   unsigned intInfInduction;
@@ -156,6 +152,10 @@ public:
   unsigned intFinDownInductionInProof;
   unsigned intDBDownInduction;
   unsigned intDBDownInductionInProof;
+  unsigned inductionApplication;
+  unsigned inductionApplicationInProof;
+  unsigned generalizedInductionApplication;
+  unsigned generalizedInductionApplicationInProof;
   /** number of argument congruences */
   unsigned argumentCongruence;
   unsigned narrow;
