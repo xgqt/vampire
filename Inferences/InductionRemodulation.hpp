@@ -138,9 +138,9 @@ public:
   USE_ALLOCATOR(InductionSGIWrapper);
 
   InductionSGIWrapper(GeneratingInferenceEngine* induction, GeneratingInferenceEngine* inductionRemodulation,
-      SimplifyingGeneratingInference* generator, GeneratingInferenceEngine* rewriting)
+      SimplifyingGeneratingInference* generator, GeneratingInferenceEngine* rewriting, GeneratingInferenceEngine* injectivity)
     : _induction(induction), _inductionRemodulation(inductionRemodulation), _generator(generator),
-      _rewriting(rewriting) {}
+      _rewriting(rewriting), _injectivity(injectivity) {}
 
   ClauseGenerationResult generateSimplify(Clause* premise) override {
     if (!premise->isInductionLemma()) {
@@ -170,6 +170,7 @@ private:
   GeneratingInferenceEngine* _inductionRemodulation;
   ScopedPtr<SimplifyingGeneratingInference> _generator;
   GeneratingInferenceEngine* _rewriting;
+  GeneratingInferenceEngine* _injectivity;
 };
 
 }

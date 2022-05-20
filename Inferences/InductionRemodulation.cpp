@@ -227,9 +227,9 @@ ClauseIterator InductionRemodulation::perform(
       continue;
     }
 
-    // static const bool checkRedundancy = env.options->inductionRemodulationRedundancyCheck();
     newCl->setInductionPhase(2);
     env.statistics->inductionRemodulation++;
+    // cout << "result " << *newCl << endl;
     res = pvi(getConcatenatedIterator(res, getSingletonIterator(newCl)));
   }
 

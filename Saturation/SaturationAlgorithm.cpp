@@ -85,6 +85,7 @@
 #include "Inferences/TheoryInstAndSimp.hpp"
 #include "Inferences/Induction.hpp"
 #include "Inferences/InductionRemodulation.hpp"
+#include "Inferences/InductionInjectivity.hpp"
 #include "Inferences/ArithmeticSubtermGeneralization.hpp"
 #include "Inferences/TautologyDeletionISE.hpp"
 #include "Inferences/CombinatorDemodISE.hpp"
@@ -1532,6 +1533,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   bool consGen = env.options->inductionConsequenceGeneration()!=Options::InductionConsequenceGeneration::OFF;
   InductionRemodulation* inductionRemodulation = nullptr;
   InductionForwardRewriting* inductionRewriting = nullptr;
+  InductionInjectivity* inductionInjectivity = nullptr;
   if(opt.induction()!=Options::Induction::NONE){
     induction = new Induction();
     if (consGen) {
@@ -1539,6 +1541,8 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
       gie->addFront(inductionRemodulation);
       inductionRewriting = new InductionForwardRewriting();
       gie->addFront(inductionRewriting);
+      inductionInjectivity = new InductionInjectivity();
+      gie->addFront(inductionInjectivity);
     }
     gie->addFront(induction);
   }
@@ -1656,7 +1660,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
 #endif
 
   if (consGen && env.options->induction()!=Options::Induction::NONE) {
-    res->setGeneratingInferenceEngine(new InductionSGIWrapper(induction, inductionRemodulation, sgi, inductionRewriting));
+    res->setGeneratingInferenceEngine(new InductionSGIWrapper(induction, inductionRemodulation, sgi, inductionRewriting, inductionInjectivity));
   } else {
     res->setGeneratingInferenceEngine(sgi);
   }
