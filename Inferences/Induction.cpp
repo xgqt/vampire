@@ -35,6 +35,7 @@
 #include "Shell/Rectify.hpp"
 
 #include "Induction.hpp"
+#include "InductionRemodulation.hpp"
 
 using std::pair;
 using std::make_pair;
@@ -381,13 +382,14 @@ void InductionClauseIterator::processClause(Clause* premise)
 
   // The premise should either contain a literal on which we want to apply induction,
   // or it should be an integer constant comparison we use as a bound.
+  PointerTermReplacement tr;
   if (InductionHelper::isInductionClause(premise)) {
     for (unsigned i=0;i<premise->length();i++) {
-      processLiteral(premise,(*premise)[i]);
+      processLiteral(premise,tr.transform((*premise)[i]));
     }
   }
   if (InductionHelper::isIntInductionTwoOn() && InductionHelper::isIntegerComparison(premise)) {
-    processIntegerComparison(premise, (*premise)[0]);
+    processIntegerComparison(premise, tr.transform((*premise)[0]));
   }
 }
 
@@ -961,7 +963,8 @@ Clause* resolveClausesHelper(const InductionContext& context, const Stack<Clause
       for (const auto& lit : kv.second) {
         TermReplacement tr(getPlaceholderForTerm(context._indTerm),TermList(context._indTerm));
         auto rlit = tr.transform(lit);
-        if (rlit == (*kv.first)[i]) {
+        PointerTermReplacement ptr;
+        if (rlit == ptr.transform((*kv.first)[i])) {
           copyCurr = false;
           break;
         }

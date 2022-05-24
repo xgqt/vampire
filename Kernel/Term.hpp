@@ -367,6 +367,7 @@ public:
   static Term* createConstant(const vstring& name);
   /** Create a new constant and insert in into the sharing structure */
   static Term* createConstant(unsigned symbolNumber) { return create(symbolNumber,0,0); }
+  static Term* createPointerConstant(Term* ptr);
   static Term* createITE(Formula * condition, TermList thenBranch, TermList elseBranch, TermList branchSort);
   static Term* createLet(unsigned functor, VList* variables, TermList binding, TermList body, TermList bodySort);
   static Term* createLambda(TermList lambdaExp, VList* vars, SList* sorts, TermList expSort);
@@ -657,6 +658,8 @@ public:
   bool isMatch() const { return functor() == SF_MATCH; }
   bool isBoolean() const;
   bool isSuper() const; 
+
+  Term* getPointedTerm() const { return _ptr; }
   
   /** Return pointer to structure containing extra data for special terms such as
    * if-then-else or let...in */
@@ -718,6 +721,7 @@ protected:
   unsigned _weight;
   /** length of maximum reduction length */
   int _maxRedLen;
+  Term* _ptr;
   union {
     /** If _isTwoVarEquality is false, this value is valid and contains
      * number of occurrences of variables */

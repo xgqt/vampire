@@ -77,10 +77,6 @@ void SuperpositionSubtermIndex::handleClause(Clause* c, bool adding)
 {
   CALL("SuperpositionSubtermIndex::handleClause");
 
-  if (c->isInductionLemma()) {
-    return;
-  }
-
   TimeCounter tc(TC_BACKWARD_SUPERPOSITION_INDEX_MAINTENANCE);
 
   unsigned selCnt=c->numSelected();
@@ -109,10 +105,6 @@ void SuperpositionLHSIndex::handleClause(Clause* c, bool adding)
 {
   CALL("SuperpositionLHSIndex::handleClause");
 
-  if (c->isInductionLemma()) {
-    return;
-  }
-
   TimeCounter tc(TC_FORWARD_SUPERPOSITION_INDEX_MAINTENANCE);
 
   unsigned selCnt=c->numSelected();
@@ -135,10 +127,6 @@ template <bool combinatorySupSupport>
 void DemodulationSubtermIndexImpl<combinatorySupSupport>::handleClause(Clause* c, bool adding)
 {
   CALL("DemodulationSubtermIndex::handleClause");
-
-  if (c->isInductionLemma()) {
-    return;
-  }
 
   TimeCounter tc(TC_BACKWARD_DEMODULATION_INDEX_MAINTENANCE);
 
@@ -183,7 +171,7 @@ void DemodulationLHSIndex::handleClause(Clause* c, bool adding)
 {
   CALL("DemodulationLHSIndex::handleClause");
 
-  if (c->length()!=1||c->isInductionLemma()) {
+  if (c->length()!=1) {
     return;
   }
 
@@ -275,12 +263,14 @@ void RemodulationSubtermIndex::handleClause(Clause* c, bool adding)
   static DHSet<TermList> inserted;
 
   for (unsigned i=0;i<c->length();i++) {
+    PointerTermReplacement ptr;
     Literal* lit = (*c)[i];
-    if (!InductionHelper::isInductionLiteral(lit)) {
+    Literal* litp = ptr.transform((*c)[i]);
+    if (!InductionHelper::isInductionLiteral(litp)) {
       continue;
     }
     inserted.reset();
-    SubtermIterator it(lit);
+    SubtermIterator it(litp);
     while (it.hasNext()) {
       TermList tl = it.next();
       if (!inserted.insert(tl)) {

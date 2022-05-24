@@ -133,10 +133,6 @@ Clause *InductionForwardRewriting::perform(
     return 0;
   }
 
-  if (rwClause->getInductionPhase()>=2) {
-    return 0;
-  }
-
   TermList tgtTerm = EqHelper::getOtherEqualitySide(eqLit, eqLHS);
   TermList tgtTermS = eqIsResult ? subst->applyToBoundResult(tgtTerm) : subst->applyToBoundQuery(tgtTerm);
   Literal *tgtLitS = EqHelper::replace(rwLit, rwTerm, tgtTermS);
@@ -185,7 +181,6 @@ Clause *InductionForwardRewriting::perform(
       }
     }
   }
-  res->setInductionPhase(1);
   env.statistics->inductionForwardRewriting++;
   return res;
 }

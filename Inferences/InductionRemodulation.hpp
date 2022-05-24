@@ -17,24 +17,45 @@
 #define __InductionRemodulation__
 
 #include "Forwards.hpp"
-#include "Indexing/TermIndex.hpp"
 
 #include "InferenceEngine.hpp"
 #include "InductionHelper.hpp"
-#include "InductionForwardRewriting.hpp"
-#include "InductionRemodulationSubsumption.hpp"
-#include "Indexing/LiteralSubstitutionTree.hpp"
 
 #include "Kernel/EqHelper.hpp"
-#include "Kernel/Matcher.hpp"
+#include "Kernel/TermIterators.hpp"
 #include "Kernel/TermTransformer.hpp"
 
 #include "Lib/SharedSet.hpp"
 
-#include "Shell/InductionSignatureTree.hpp"
-
 namespace Inferences
 {
+
+inline Term* getPointedTerm(Term* t) {
+  if (!env.signature->getFunction(t->functor())->pointer()) {
+    return t;
+  }
+  auto ptr = t->getPointedTerm();
+#if VDEBUG
+  if (ptr != t) {
+    NonVariableIterator nvi(ptr);
+    while (nvi.hasNext()) {
+      auto st = nvi.next().term();
+      ASS_REP(!env.signature->getFunction(st->functor())->pointer(),t->toString());
+    }
+  }
+#endif
+  return ptr;
+}
+
+class PointerTermReplacement : public TermTransformer {
+private:
+  TermList transformSubterm(TermList trm) override {
+    if (trm.isVar()) {
+      return trm;
+    }
+    return TermList(getPointedTerm(trm.term()));
+  }
+};
 
 using namespace Kernel;
 using namespace Indexing;
@@ -84,27 +105,52 @@ inline bool hasTermToInductOn(Term* t, Literal* l) {
   return false;
 }
 
-class SingleOccurrenceReplacement : TermTransformer {
+class SingleOccurrenceReplacementIterator : public IteratorCore<Literal*> {
 public:
-  SingleOccurrenceReplacement(Literal* lit, Term* o, TermList r)
-      : _lit(lit), _o(o), _r(r) {
+  CLASS_NAME(SingleOccurrenceReplacementIterator);
+  USE_ALLOCATOR(SingleOccurrenceReplacementIterator);
+  SingleOccurrenceReplacementIterator(Literal* lit, Term* o, TermList r)
+      : _lit(lit), _o(o), _r(r)
+  {
+    ASS_EQ(_o, getPointedTerm(_o));
+    ASS_EQ(_r.term(), getPointedTerm(_r.term()));
     _occurrences = _lit->countSubtermOccurrences(TermList(_o));
+    NonVariableIterator nvi(_lit);
+    while (nvi.hasNext()) {
+      auto t = nvi.next().term();
+      auto ptr = getPointedTerm(t);
+      if (t != ptr) {
+        _occurrences += ptr->countSubtermOccurrences(TermList(_o));
+      }
+    }
   }
 
-  Literal* transformSubset();
-
-protected:
-  virtual TermList transformSubterm(TermList trm);
+  bool hasNext() override {
+    return _iteration < _occurrences;
+  }
+  Literal* next() override;
 
 private:
-  // _iteration serves as a map of occurrences to replace
   unsigned _iteration = 0;
-  // Counts how many occurrences were already encountered in one transformation
-  unsigned _matchCount = 0;
   unsigned _occurrences;
   Literal* _lit;
   Term* _o;
   TermList _r;
+
+  class Replacer : public TermTransformer {
+  public:
+    Replacer(Term* o, TermList r, unsigned i, bool replaceWithPointer = true)
+      : _o(o), _r(r), _i(i), _matchCount(0), _replaceWithPointer(replaceWithPointer) {}
+
+private:
+    TermList transformSubterm(TermList trm) override;
+
+    Term* _o;
+    TermList _r;
+    unsigned _i;
+    unsigned _matchCount;
+    bool _replaceWithPointer;
+  };
 };
 
 class InductionRemodulation
@@ -123,54 +169,10 @@ public:
   ClauseIterator perform(
     Clause* rwClause, Literal* rwLit, TermList rwTerm,
     Clause* eqClause, Literal* eqLit, TermList eqLHS,
-    ResultSubstitutionSP subst, bool eqIsResult,
-    UnificationConstraintStackSP constraints);
+    ResultSubstitutionSP subst, bool eqIsResult);
 private:
   RemodulationLHSIndex* _lhsIndex;
   RemodulationSubtermIndex* _termIndex;
-};
-
-class InductionSGIWrapper
-: public SimplifyingGeneratingInference
-{
-public:
-  CLASS_NAME(InductionSGIWrapper);
-  USE_ALLOCATOR(InductionSGIWrapper);
-
-  InductionSGIWrapper(GeneratingInferenceEngine* induction, GeneratingInferenceEngine* inductionRemodulation,
-      SimplifyingGeneratingInference* generator, GeneratingInferenceEngine* rewriting, GeneratingInferenceEngine* injectivity)
-    : _induction(induction), _inductionRemodulation(inductionRemodulation), _generator(generator),
-      _rewriting(rewriting), _injectivity(injectivity) {}
-
-  ClauseGenerationResult generateSimplify(Clause* premise) override {
-    if (!premise->isInductionLemma()) {
-      return _generator->generateSimplify(premise);
-    }
-    ASS(InductionHelper::isInductionClause(premise));
-    ASS_EQ(premise->length(), 1);
-    ASS(InductionHelper::isInductionLiteral((*premise)[0]));
-    ClauseIterator clIt = _induction->generateClauses(premise);
-    clIt = pvi(getConcatenatedIterator(clIt, _inductionRemodulation->generateClauses(premise)));
-    clIt = pvi(getConcatenatedIterator(clIt, _rewriting->generateClauses(premise)));
-    return ClauseGenerationResult {
-      .clauses          = clIt,
-      .premiseRedundant = false,
-    };
-  }
-  void attach(SaturationAlgorithm* salg) override
-  {
-    _generator->attach(salg);
-  }
-  void detach() override
-  {
-    _generator->detach();
-  }
-private:
-  GeneratingInferenceEngine* _induction;
-  GeneratingInferenceEngine* _inductionRemodulation;
-  ScopedPtr<SimplifyingGeneratingInference> _generator;
-  GeneratingInferenceEngine* _rewriting;
-  GeneratingInferenceEngine* _injectivity;
 };
 
 }

@@ -31,28 +31,43 @@ namespace Inferences {
 using namespace Lib;
 using namespace Kernel;
 
-TermList SingleOccurrenceReplacement::transformSubterm(TermList trm)
+TermList SingleOccurrenceReplacementIterator::Replacer::transformSubterm(TermList trm)
 {
-  CALL("SingleOccurrenceReplacement::transformSubterm");
+  CALL("SingleOccurrenceReplacementIterator::Replacer::transformSubterm");
 
-  if(trm.isTerm() && trm.term() == _o){
-    if (_iteration == _matchCount++) {
-      return _r;
+  if (trm.isVar()) {
+    return trm;
+  }
+  auto t = trm.term();
+  if (t == _o) {
+    if (_i == _matchCount++) {
+      if (_replaceWithPointer) {
+        PointerTermReplacement ptr;
+        return TermList(Term::createPointerConstant(ptr.transform(_r.term())));
+      } else {
+        return _r;
+      }
     }
+  }
+  auto ptr = getPointedTerm(t);
+  if (ptr != t) {
+    auto occ = ptr->countSubtermOccurrences(TermList(_o));
+    if (_i < _matchCount + occ) {
+      Replacer inner(_o, _r, _i-_matchCount, false);
+      _matchCount+=occ;
+      return TermList(Term::createPointerConstant(inner.transform(TermList(ptr)).term()));
+    }
+    _matchCount+=occ;
   }
   return trm;
 }
 
-Literal* SingleOccurrenceReplacement::transformSubset()
+Literal* SingleOccurrenceReplacementIterator::next()
 {
-  CALL("SingleOccurrenceReplacement::transformSubset");
-  // Increment _iteration, since it either is 0, or was already used.
-  _iteration++;
-  if (_iteration > _occurrences) {
-    return nullptr;
-  }
-  _matchCount = 1;
-  return transform(_lit);
+  CALL("SingleOccurrenceReplacementIterator::next");
+  ASS(hasNext());
+  Replacer sor(_o, _r, _iteration++);
+  return sor.transform(_lit);
 }
 
 void InductionRemodulation::attach(SaturationAlgorithm* salg)
@@ -99,14 +114,15 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
   CALL("InductionRemodulation::generateClauses");
   ClauseIterator res1 = ClauseIterator::getEmpty();
 
-  if (InductionHelper::isInductionClause(premise) && InductionHelper::isInductionLiteral((*premise)[0])) {
+  if (InductionHelper::isInductionClause(premise)) {
     // forward result
     auto it1 = premise->getLiteralIterator();
     auto it2 = getFilteredIterator(it1, [](Literal* lit){
       return InductionHelper::isInductionLiteral(lit);
     });
     auto it3 = getMapAndFlattenIterator(it2, [](Literal* lit) {
-      NonVariableNonTypeIterator nvi(lit);
+      PointerTermReplacement ptr;
+      NonVariableNonTypeIterator nvi(ptr.transform(lit));
       return pvi( pushPairIntoRightIterator(lit, getUniquePersistentIteratorFromPtr(&nvi)) );
     });
     auto it4 = getMapAndFlattenIterator(it3, [this](pair<Literal*, TermList> arg) {
@@ -115,14 +131,13 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
     res1 = pvi(getMapAndFlattenIterator(it4, [this, premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
       TermQueryResult& qr = arg.second;
       return perform(premise, arg.first.first, arg.first.second,
-        qr.clause, qr.literal, qr.term, qr.substitution, true, qr.constraints);
+        qr.clause, qr.literal, qr.term, qr.substitution, true);
     }));
   }
 
   // backward result
   ClauseIterator res2 = ClauseIterator::getEmpty();
-  if (canUseForRewrite(premise))
-  {
+  if (canUseForRewrite(premise)) {
     auto itb1 = premise->getLiteralIterator();
     auto itb2 = getMapAndFlattenIterator(itb1,EqHelper::LHSIteratorFn(_salg->getOrdering()));
     auto itb3 = getMapAndFlattenIterator(itb2,ReverseLHSIteratorFn(premise));
@@ -136,7 +151,7 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
 
       TermQueryResult& qr = arg.second;
       return perform(qr.clause, qr.literal, qr.term,
-        premise, arg.first.first, arg.first.second, qr.substitution, false, qr.constraints);
+        premise, arg.first.first, arg.first.second, qr.substitution, false);
     }));
   }
 
@@ -145,32 +160,51 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
   return pvi( it7 );
 }
 
+vset<unsigned> getSkolems(Literal* lit) {
+  vset<unsigned> res;
+  NonVariableNonTypeIterator it(lit);
+  while (it.hasNext()) {
+    auto trm = it.next();
+    if (env.signature->getFunction(trm.term()->functor())->skolem()) {
+      res.insert(trm.term()->functor());
+    }
+  }
+  return res;
+}
+
 ClauseIterator InductionRemodulation::perform(
     Clause* rwClause, Literal* rwLit, TermList rwTerm,
     Clause* eqClause, Literal* eqLit, TermList eqLHS,
-    ResultSubstitutionSP subst, bool eqIsResult, UnificationConstraintStackSP constraints)
+    ResultSubstitutionSP subst, bool eqIsResult)
 {
   CALL("InductionRemodulation::perform");
   // we want the rwClause and eqClause to be active
   // ASS(rwClause->store()==Clause::ACTIVE);
   ASS(eqClause->store()==Clause::ACTIVE);
 
+  vset<unsigned> eqSkolems = getSkolems(eqLit);
+  if (!eqSkolems.empty()) {
+    vset<unsigned> rwSkolems = getSkolems(rwLit);
+    vset<unsigned> is;
+    set_intersection(eqSkolems.begin(), eqSkolems.end(), rwSkolems.begin(), rwSkolems.end(), inserter(is, is.end()));
+    // if (is.empty()) {
+    //   return ClauseIterator::getEmpty();
+    // }
+    if (is != eqSkolems) {
+      return ClauseIterator::getEmpty();
+    }
+  }
+
   // cout << "performRemodulation with " << rwClause->toString() << " and " << eqClause->toString() << endl;
   //   cout << "rwTerm " << rwTerm.toString() << " eqLHS " << eqLHS.toString() << endl;
   //   // cout << "subst " << endl << subst->tryGetRobSubstitution()->toString() << endl;
   //   cout << "eqIsResult " << eqIsResult << endl;
 
-  unsigned rwLength = rwClause->length();
-  // ASS_EQ(eqClause->length(), 1);
-  unsigned eqLength = eqClause->length();
-  unsigned newLength = rwLength + (eqLength - 1);
-
-  ClauseIterator res = ClauseIterator::getEmpty();
   if (eqLHS.isVar()) {
     TermList eqLHSsort = SortHelper::getEqualityArgumentSort(eqLit);
     TermList tgtTermSort = SortHelper::getTermSort(rwTerm, rwLit);
     if (eqLHSsort != tgtTermSort) {
-      return res;
+      return ClauseIterator::getEmpty();
     }
   }
 
@@ -180,60 +214,54 @@ ClauseIterator InductionRemodulation::perform(
   auto comp = _salg->getOrdering().compare(tgtTermS,rwTerm);
   if (comp != Ordering::GREATER && comp != Ordering::GREATER_EQ) {
     ASS_NEQ(comp, Ordering::INCOMPARABLE);
-    return res;
+    return ClauseIterator::getEmpty();
   }
 
-  SingleOccurrenceReplacement sor(rwLit, rwTerm.term(), tgtTermS);
-  Literal* tgtLit = nullptr;
-  while ((tgtLit = sor.transformSubset())) {
-    Inference inf(GeneratingInference2(InferenceRule::INDUCTION_REMODULATION, rwClause, eqClause));
-    Inference::Destroyer inf_destroyer(inf);
-
-    // cout << "LIT " << *ilit << endl;
-    if(EqHelper::isEqTautology(tgtLit)) {
-      continue;
-    }
-
-    inf_destroyer.disable(); // ownership passed to the the clause below
-    Clause* newCl = new(newLength) Clause(newLength, inf);
-
-    (*newCl)[0] = tgtLit;
-    int next = 1;
-    for(unsigned i=0;i<rwLength;i++) {
-      Literal* curr=(*rwClause)[i];
-      if(curr!=rwLit) {
-        (*newCl)[next++] = curr;
+  return pvi(iterTraits(vi(new SingleOccurrenceReplacementIterator(rwLit, rwTerm.term(), TermList(tgtTermS.term()))))
+    //TODO eliminate & from capture clause
+    .map([eqClause,rwClause,eqLit,rwLit,eqIsResult,subst](Literal* tgtLit) -> Clause* {
+      // cout << "LIT " << *ilit << endl;
+      if(EqHelper::isEqTautology(tgtLit)) {
+        return nullptr;
       }
-    }
 
-    bool destroy = false;
-    vset<pair<Literal*,Literal*>> rest;
-    for (unsigned i = 0; i < eqLength; i++) {
-      Literal *curr = (*eqClause)[i];
-      if (curr != eqLit) {
-        Literal *currAfter = eqIsResult ? subst->applyToBoundResult(curr) : subst->applyToBoundQuery(curr);
-        rest.insert(make_pair(curr, currAfter));
+      unsigned rwLength = rwClause->length();
+      // ASS_EQ(eqClause->length(), 1);
+      unsigned eqLength = eqClause->length();
+      unsigned newLength = rwLength + (eqLength - 1);
+      Inference inf(GeneratingInference2(InferenceRule::INDUCTION_REMODULATION, rwClause, eqClause));
+      Clause* newCl = new(newLength) Clause(newLength, inf);
 
-        if (EqHelper::isEqTautology(currAfter)) {
-          newCl->destroy();
-          destroy = true;
-          break;
+      (*newCl)[0] = tgtLit;
+      int next = 1;
+      // cout << "rwLit " << *rwLit << endl;
+      for(unsigned i=0;i<rwLength;i++) {
+        Literal* curr=(*rwClause)[i];
+        // cout << "curr " << *curr << endl;
+        if(curr!=rwLit) {
+          (*newCl)[next++] = curr;
         }
-
-        (*newCl)[next++] = currAfter;
       }
-    }
-    if (destroy) {
-      continue;
-    }
 
-    newCl->setInductionPhase(2);
-    env.statistics->inductionRemodulation++;
-    // cout << "result " << *newCl << endl;
-    res = pvi(getConcatenatedIterator(res, getSingletonIterator(newCl)));
-  }
+      for (unsigned i = 0; i < eqLength; i++) {
+        Literal *curr = (*eqClause)[i];
+        if (curr != eqLit) {
+          Literal *currAfter = eqIsResult ? subst->applyToBoundResult(curr) : subst->applyToBoundQuery(curr);
 
-  return res;
+          if (EqHelper::isEqTautology(currAfter)) {
+            newCl->destroy();
+            return nullptr;
+          }
+
+          (*newCl)[next++] = currAfter;
+        }
+      }
+      ASS_EQ(next, newLength);
+
+      env.statistics->inductionRemodulation++;
+      // cout << "result " << *newCl << endl << endl;
+      return newCl;
+    }));
 }
 
 }

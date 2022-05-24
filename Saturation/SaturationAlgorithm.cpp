@@ -84,6 +84,7 @@
 #include "Inferences/Instantiation.hpp"
 #include "Inferences/TheoryInstAndSimp.hpp"
 #include "Inferences/Induction.hpp"
+#include "Inferences/InductionForwardRewriting.hpp"
 #include "Inferences/InductionRemodulation.hpp"
 #include "Inferences/InductionInjectivity.hpp"
 #include "Inferences/ArithmeticSubtermGeneralization.hpp"
@@ -211,18 +212,6 @@ std::unique_ptr<PassiveClauseContainer> makeLevel4(bool isOutermost, const Optio
   }
 }
 
-std::unique_ptr<PassiveClauseContainer> makeLevel5(bool isOutermost, const Options& opt, vstring name)
-{
-  Lib::vvector<std::unique_ptr<PassiveClauseContainer>> queues;
-  Lib::vvector<float> cutoffs = {0.0, numeric_limits<float>::max()};
-  for (unsigned i = 0; i < cutoffs.size(); i++)
-  {
-    auto queueName = name + "Ind" + Int::toString(cutoffs[i]) + ":";
-    queues.push_back(makeLevel4(false, opt, queueName));
-  }
-  return std::make_unique<InductionPassiveClauseContainer>(isOutermost, opt, name + "Ind", std::move(queues));
-}
-
 /**
  * Create a SaturationAlgorithm object
  *
@@ -260,7 +249,7 @@ SaturationAlgorithm::SaturationAlgorithm(Problem& prb, const Options& opt)
   }
   else
   {
-    _passive = makeLevel5(true, opt, "");
+    _passive = makeLevel4(true, opt, "");
   }
   _active = new ActiveClauseContainer(opt);
 
@@ -1268,21 +1257,12 @@ start:
     Clause* c = _unprocessed->pop();
     ASS(!isRefutation(c));
 
-    if (c->isInductionLemma() || forwardSimplify(c)) {
-      if (c->isInductionLemma()) {
-        c->incRefCnt();
-        if (_splitter && !_opt.splitAtActivation()) {
-          if (_splitter->doSplitting(c)) {
-            goto splitted;
-          }
-        }
-      }
+    if (forwardSimplify(c)) {
       onClauseRetained(c);
       addToPassive(c);
       ASS_EQ(c->store(), Clause::PASSIVE);
     }
     else {
-splitted:
       ASS_EQ(c->store(), Clause::UNPROCESSED);
       c->setStore(Clause::NONE);
     }
@@ -1529,22 +1509,13 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   CompositeGIE* gie=new CompositeGIE();
 
   //TODO here induction is last, is that right?
-  Induction* induction = nullptr;
-  bool consGen = env.options->inductionConsequenceGeneration()!=Options::InductionConsequenceGeneration::OFF;
-  InductionRemodulation* inductionRemodulation = nullptr;
-  InductionForwardRewriting* inductionRewriting = nullptr;
-  InductionInjectivity* inductionInjectivity = nullptr;
   if(opt.induction()!=Options::Induction::NONE){
-    induction = new Induction();
-    if (consGen) {
-      inductionRemodulation = new InductionRemodulation();
-      gie->addFront(inductionRemodulation);
-      inductionRewriting = new InductionForwardRewriting();
-      gie->addFront(inductionRewriting);
-      inductionInjectivity = new InductionInjectivity();
-      gie->addFront(inductionInjectivity);
+    if (env.options->inductionConsequenceGeneration()!=Options::InductionConsequenceGeneration::OFF) {
+      gie->addFront(new InductionRemodulation());
+      gie->addFront(new InductionForwardRewriting());
+      gie->addFront(new InductionInjectivity());
     }
-    gie->addFront(induction);
+    gie->addFront(new Induction());
   }
 
   if(opt.instantiation()!=Options::Instantiation::OFF){
@@ -1659,11 +1630,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   }
 #endif
 
-  if (consGen && env.options->induction()!=Options::Induction::NONE) {
-    res->setGeneratingInferenceEngine(new InductionSGIWrapper(induction, inductionRemodulation, sgi, inductionRewriting, inductionInjectivity));
-  } else {
-    res->setGeneratingInferenceEngine(sgi);
-  }
+  res->setGeneratingInferenceEngine(sgi);
 
   res->setImmediateSimplificationEngine(createISE(prb, opt, res->getOrdering()));
 
@@ -1779,10 +1746,6 @@ ImmediateSimplificationEngine* SaturationAlgorithm::createISE(Problem& prb, cons
   CALL("MainLoop::createImmediateSE");
 
   CompositeISE* res=new CompositeISE();
-
-  if (env.options->inductionConsequenceGeneration()!=Options::InductionConsequenceGeneration::OFF) {
-    res->addFront(new InductionRemodulationSubsumption());
-  }
 
   if(prb.hasEquality() && opt.equationalTautologyRemoval()) {
     res->addFront(new EquationalTautologyRemoval());

@@ -198,10 +198,6 @@ public:
   bool isComponent() const { return _component; }
   void setComponent(bool c) { _component = c; }
 
-  bool isInductionLemma() const { return _inductionPhase; }
-  unsigned getInductionPhase() const { return _inductionPhase; }
-  void setInductionPhase(unsigned p) { _inductionPhase = p; }
-
   bool skip() const;
 
   unsigned getLiteralPosition(Literal* lit);
@@ -374,7 +370,6 @@ protected:
   unsigned _extensionalityTag : 1;
   /** Clause is a splitting component. */
   unsigned _component : 1;
-  unsigned _inductionPhase : 2;
 
   /** storage class */
   Store _store : 3;

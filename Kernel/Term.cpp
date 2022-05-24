@@ -996,6 +996,29 @@ Term* Term::createConstant(const vstring& name)
   return createConstant(symbolNumber);
 }
 
+Term* Term::createPointerConstant(Term* ptr)
+{
+  CALL("Term::createPointerConstant");
+#if VDEBUG
+  NonVariableIterator nvi(ptr);
+  while (nvi.hasNext()) {
+    auto st = nvi.next().term();
+    ASS_REP(!env.signature->getFunction(st->functor())->pointer(),ptr->toString());
+  }
+#endif
+  TermList srt = env.signature->getFunction(ptr->functor())->fnType()->result();
+  auto name = "c_" + ptr->toString();
+  bool added;
+  auto fn = env.signature->addFunction(name, 0, added);
+  if (added) {
+    env.signature->getFunction(fn)->setType(OperatorType::getConstantsType(srt));
+    env.signature->getFunction(fn)->markPointer();
+  }
+  auto c = createConstant(fn);
+  c->_ptr = ptr;
+  return c;
+}
+
 /** Create a new complex term, copy from @b t its function symbol and
  *  from the array @b args its arguments. Do not insert it into the sharing
  *  structure.

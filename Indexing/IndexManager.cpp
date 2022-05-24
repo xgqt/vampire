@@ -269,11 +269,6 @@ Index* IndexManager::create(IndexType t)
     res=new RewritingLHSIndex(tis, _alg->getOrdering());
     isGenerating = true;
     break;
-  case INDUCTION_REMODULATION_LITERAL_INDEX:
-    is=new LiteralSubstitutionTree();
-    res=new InductionRemodulationLiteralIndex(is);
-    isGenerating = false;
-    break;
 
   case FW_SUBSUMPTION_CODE_TREE:
     res=new CodeTreeSubsumptionIndex();

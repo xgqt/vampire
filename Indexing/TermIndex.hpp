@@ -139,7 +139,7 @@ public:
   : TermIndex(is) {}
 
 protected:
-  void handleClause(Clause* c, bool adding);
+  void handleClause(Clause* c, bool adding) override;
 };
 
 /**
@@ -155,7 +155,7 @@ public:
   RemodulationLHSIndex(TermIndexingStructure* is, Ordering& ord)
   : TermIndex(is), _ord(ord) {};
 protected:
-  void handleClause(Clause* c, bool adding);
+  void handleClause(Clause* c, bool adding) override;
 private:
   Ordering& _ord;
 };
