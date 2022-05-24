@@ -239,15 +239,25 @@ public:
   };
   enum class IntInductionKind : unsigned int {
     ONE,
-    TWO,
-    ALL
+    TWO
   };
   enum class IntegerInductionInterval : unsigned int {
     INFINITE,
     FINITE,
     BOTH
   };
-
+  enum class IntegerInductionLiteralStrictness: unsigned int {
+    NONE,
+    TOPLEVEL_NOT_IN_OTHER,
+    ONLY_ONE_OCCURRENCE,
+    NOT_IN_BOTH,
+    ALWAYS
+  };
+  enum class IntegerInductionTermStrictness: unsigned int {
+    NONE,
+    INTERPRETED_CONSTANT,
+    NO_SKOLEMS
+  };
   enum class InductionConsequenceGeneration : unsigned {
     OFF,
     UNIT_ONLY,
@@ -2285,10 +2295,12 @@ public:
   bool inductionOnComplexTerms() const {return _inductionOnComplexTerms.actualValue;}
   bool integerInductionDefaultBound() const { return _integerInductionDefaultBound.actualValue; }
   IntegerInductionInterval integerInductionInterval() const { return _integerInductionInterval.actualValue; }
-  InductionConsequenceGeneration inductionConsequenceGeneration() const { return _inductionConsequenceGeneration.actualValue; }
-  Lib::vvector<int> inductionConsequenceGenerationRatio() const;
-  bool inductionRemodulationRedundancyCheck() const { return _inductionRemodulationRedundancyCheck.actualValue; }
+  IntegerInductionLiteralStrictness integerInductionStrictnessEq() const {return _integerInductionStrictnessEq.actualValue; }
+  IntegerInductionLiteralStrictness integerInductionStrictnessComp() const {return _integerInductionStrictnessComp.actualValue; }
+  IntegerInductionTermStrictness integerInductionStrictnessTerm() const {return _integerInductionStrictnessTerm.actualValue; }
   bool nonUnitInduction() const { return _nonUnitInduction.actualValue; }
+  InductionConsequenceGeneration inductionConsequenceGeneration() const { return _inductionConsequenceGeneration.actualValue; }
+  bool inductionRemodulationRedundancyCheck() const { return _inductionRemodulationRedundancyCheck.actualValue; }
 
   float instGenBigRestartRatio() const { return _instGenBigRestartRatio.actualValue; }
   bool instGenPassiveReactivation() const { return _instGenPassiveReactivation.actualValue; }
@@ -2587,10 +2599,12 @@ private:
   BoolOptionValue _inductionOnComplexTerms;
   BoolOptionValue _integerInductionDefaultBound;
   ChoiceOptionValue<IntegerInductionInterval> _integerInductionInterval;
-  ChoiceOptionValue<InductionConsequenceGeneration> _inductionConsequenceGeneration;
-  StringOptionValue _inductionConsequenceGenerationRatio;
-  BoolOptionValue _inductionRemodulationRedundancyCheck;
+  ChoiceOptionValue<IntegerInductionLiteralStrictness> _integerInductionStrictnessEq;
+  ChoiceOptionValue<IntegerInductionLiteralStrictness> _integerInductionStrictnessComp;
+  ChoiceOptionValue<IntegerInductionTermStrictness> _integerInductionStrictnessTerm;
   BoolOptionValue _nonUnitInduction;
+  ChoiceOptionValue<InductionConsequenceGeneration> _inductionConsequenceGeneration;
+  BoolOptionValue _inductionRemodulationRedundancyCheck;
 
   StringOptionValue _latexOutput;
   BoolOptionValue _latexUseDefaultSymbols;

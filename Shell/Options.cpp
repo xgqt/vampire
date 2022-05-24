@@ -1314,6 +1314,74 @@ void Options::init()
     _integerInductionInterval.onlyUsefulWith(Or(_induction.is(equal(Induction::INTEGER)),_induction.is(equal(Induction::BOTH))));
     _lookup.insert(&_integerInductionInterval);
 
+    OptionChoiceValues integerInductionLiteralStrictnessValues {
+      "none",
+      "toplevel_not_in_other",
+      "only_one_occurrence",
+      "not_in_both",
+      "always"
+    };
+
+    _integerInductionStrictnessEq = ChoiceOptionValue<IntegerInductionLiteralStrictness>(
+        "int_induction_strictness_eq",
+        "intindsteq",
+        IntegerInductionLiteralStrictness::NONE,
+        integerInductionLiteralStrictnessValues
+    );
+    _integerInductionStrictnessEq.description =
+      "Exclude induction term t/literal l combinations from integer induction.\n"
+      "Induction is not applied to _equality_ literals l:\n"
+      "  - none: no exclusion\n"
+      "  - toplevel_not_in_other: t is a top-level argument of l,\n"
+      "    but it does not occur in the other argument of l\n"
+      "  - only_one_occurrence: t has only one occurrence in l\n"
+      "  - not_in_both: t does not occur in both arguments of l\n"
+      "  - always: induction on l is not allowed at all\n";
+    _integerInductionStrictnessEq.tag(OptionTag::INFERENCES);
+    _integerInductionStrictnessEq.reliesOn(Or(_induction.is(equal(Induction::INTEGER)),_induction.is(equal(Induction::BOTH))));
+    _lookup.insert(&_integerInductionStrictnessEq);
+
+    _integerInductionStrictnessComp = ChoiceOptionValue<IntegerInductionLiteralStrictness>(
+        "int_induction_strictness_comp",
+        "intindstcomp",
+        IntegerInductionLiteralStrictness::TOPLEVEL_NOT_IN_OTHER,
+        integerInductionLiteralStrictnessValues
+    );
+    _integerInductionStrictnessComp.description =
+      "Exclude induction term t/literal l combinations from integer induction.\n"
+      "Induction is not applied to _comparison_ literals l:\n"
+      "  - none: no exclusion\n"
+      "  - toplevel_not_in_other: t is a top-level argument of l,\n"
+      "    but it does not occur in the other argument of l\n"
+      "  - only_one_occurrence: t has only one occurrence in l\n"
+      "  - not_in_both: t does not occur in both arguments of l\n"
+      "  - always: induction on l is not allowed at all\n";
+    _integerInductionStrictnessComp.tag(OptionTag::INFERENCES);
+    _integerInductionStrictnessComp.reliesOn(Or(_induction.is(equal(Induction::INTEGER)),_induction.is(equal(Induction::BOTH))));
+    _lookup.insert(&_integerInductionStrictnessComp);
+
+    _integerInductionStrictnessTerm = ChoiceOptionValue<IntegerInductionTermStrictness>(
+      "int_induction_strictness_term",
+      "intindstterm",
+      IntegerInductionTermStrictness::INTERPRETED_CONSTANT,
+      {"none", "interpreted_constant", "no_skolems"}
+    );
+    _integerInductionStrictnessTerm.description =
+      "Exclude induction term t/literal l combinations from integer induction.\n"
+      "Induction is not applied to the induction term t:\n"
+      "  - none: no exclusion\n"
+      "  - interpreted_constant: t is an interpreted constant\n"
+      "  - no_skolems: t does not contain a skolem function";
+    _integerInductionStrictnessTerm.tag(OptionTag::INFERENCES);
+    _integerInductionStrictnessTerm.reliesOn(Or(_induction.is(equal(Induction::INTEGER)),_induction.is(equal(Induction::BOTH))));
+    _lookup.insert(&_integerInductionStrictnessTerm);
+
+    _nonUnitInduction = BoolOptionValue("non_unit_induction","nui",false);
+    _nonUnitInduction.description = "Induction on certain clauses or clause sets instead of just unit clauses";
+    _nonUnitInduction.tag(OptionTag::INFERENCES);
+    _nonUnitInduction.reliesOn(_induction.is(notEqual(Induction::NONE)));
+    _lookup.insert(&_nonUnitInduction);
+
     _inductionConsequenceGeneration = ChoiceOptionValue<InductionConsequenceGeneration>("induction_consequence_generation","indcg",
                                         InductionConsequenceGeneration::OFF, {"off", "unit_only", "on"});
     _inductionConsequenceGeneration.description = "Generate consequences (without ordering constraints) for induction goals";
@@ -1321,23 +1389,11 @@ void Options::init()
     _inductionConsequenceGeneration.reliesOn(_induction.is(notEqual(Induction::NONE)));
     _lookup.insert(&_inductionConsequenceGeneration);
 
-    _inductionConsequenceGenerationRatio = StringOptionValue("induction_consequence_generation_ratio", "indcgr", "2,1");
-    _inductionConsequenceGenerationRatio.description = "The ratio for induction and non-induction clauses when consequence generation is on.";
-    _lookup.insert(&_inductionConsequenceGenerationRatio);
-    _inductionConsequenceGenerationRatio.reliesOn(_inductionConsequenceGeneration.is(notEqual(InductionConsequenceGeneration::OFF)));
-    _inductionConsequenceGenerationRatio.tag(OptionTag::SATURATION);
-
     _inductionRemodulationRedundancyCheck = BoolOptionValue("induction_remodulation_redundancy_check","indrrc",true);
     _inductionRemodulationRedundancyCheck.description = "Try to do only non-redundant inductions";
     _inductionRemodulationRedundancyCheck.tag(OptionTag::INFERENCES);
     _inductionRemodulationRedundancyCheck.reliesOn(_inductionConsequenceGeneration.is(notEqual(InductionConsequenceGeneration::OFF)));
     _lookup.insert(&_inductionRemodulationRedundancyCheck);
-
-    _nonUnitInduction = BoolOptionValue("non_unit_induction","nui",false);
-    _nonUnitInduction.description = "Induction on certain clauses or clause sets instead of just unit clauses";
-    _nonUnitInduction.tag(OptionTag::INFERENCES);
-    _nonUnitInduction.reliesOn(_induction.is(notEqual(Induction::NONE)));
-    _lookup.insert(&_nonUnitInduction);
 
     _instantiation = ChoiceOptionValue<Instantiation>("instantiation","inst",Instantiation::OFF,{"off","on"});
     _instantiation.description = "Heuristically instantiate variables. Often wastes a lot of effort. Consider using thi instead.";
@@ -1366,6 +1422,9 @@ void Options::init()
     _lookup.insert(&_backwardSubsumption);
     _backwardSubsumption.tag(OptionTag::INFERENCES);
     _backwardSubsumption.onlyUsefulWith(InferencingSaturationAlgorithm());
+    // bs without fs may lead to rapid looping (when a newly derived clause subsumes its own ancestor already in active) and makes little sense
+    _backwardSubsumption.addHardConstraint(
+        If(notEqual(Subsumption::OFF)).then(_forwardSubsumption.is(notEqual(false))));
     _backwardSubsumption.setRandomChoices({"on","off"});
 
     _backwardSubsumptionResolution = ChoiceOptionValue<Subsumption>("backward_subsumption_resolution","bsr",
@@ -3581,24 +3640,6 @@ Lib::vvector<int> Options::positiveLiteralSplitQueueRatios() const
   }
 
   return inputRatios;
-}
-
-Lib::vvector<int> Options::inductionConsequenceGenerationRatio() const
-{
-  CALL("Options::inductionConsequenceGenerationRatio");
-  auto ratio = parseCommaSeparatedList<int>(_inductionConsequenceGenerationRatio.actualValue);
-
-  // sanity checks
-  if (ratio.size() != 2) {
-    USER_ERROR("Wrong usage of option '-indcgr'. It requires exactly two values (e.g. '2,1')");
-  }
-  for (unsigned i = 0; i < 2; i++) {
-    if(ratio[i] <= 0) {
-      USER_ERROR("Each ratio (supplied by option '-plsqr') needs to be a positive integer");
-    }
-  }
-
-  return ratio;
 }
 
 Lib::vvector<float> Options::positiveLiteralSplitQueueCutoffs() const
