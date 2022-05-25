@@ -31,6 +31,32 @@ namespace Inferences {
 using namespace Lib;
 using namespace Kernel;
 
+TermList PointedTermIterator::next()
+{
+  CALL("PointedTermIterator::next");
+
+  Term* t = _stack.pop();
+  _added = 0;
+  Term::Iterator ts(t);
+  for (TermList* ts = t->args();!ts->isEmpty();ts = ts->next()) {
+    if (ts->isTerm()) {
+      _stack.push(getPointedTerm(ts->term()));
+      _added++;
+    }
+  }
+  return TermList(t);
+}
+
+void PointedTermIterator::right()
+{
+  CALL("PointedTermIterator::right");
+
+  while (_added > 0) {
+    _added--;
+    _stack.pop();
+  }
+}
+
 TermList SingleOccurrenceReplacementIterator::Replacer::transformSubterm(TermList trm)
 {
   CALL("SingleOccurrenceReplacementIterator::Replacer::transformSubterm");
@@ -116,48 +142,40 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
 
   if (InductionHelper::isInductionClause(premise)) {
     // forward result
-    auto it1 = premise->getLiteralIterator();
-    auto it2 = getFilteredIterator(it1, [](Literal* lit){
-      return InductionHelper::isInductionLiteral(lit);
-    });
-    auto it3 = getMapAndFlattenIterator(it2, [](Literal* lit) {
-      PointerTermReplacement ptr;
-      NonVariableNonTypeIterator nvi(ptr.transform(lit));
-      return pvi( pushPairIntoRightIterator(lit, getUniquePersistentIteratorFromPtr(&nvi)) );
-    });
-    auto it4 = getMapAndFlattenIterator(it3, [this](pair<Literal*, TermList> arg) {
-      return pvi( pushPairIntoRightIterator(arg, _lhsIndex->getGeneralizations(arg.second, true)) );
-    });
-    res1 = pvi(getMapAndFlattenIterator(it4, [this, premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
-      TermQueryResult& qr = arg.second;
-      return perform(premise, arg.first.first, arg.first.second,
-        qr.clause, qr.literal, qr.term, qr.substitution, true);
-    }));
+    res1 = pvi(iterTraits(premise->iterLits())
+      .filter(&InductionHelper::isInductionLiteral)
+      .flatMap([](Literal* lit) {
+        PointedTermIterator it(lit);
+        return pvi( pushPairIntoRightIterator(lit, getUniquePersistentIteratorFromPtr(&it)) );
+      })
+      .flatMap([this](pair<Literal*, TermList> arg) {
+        return pvi( pushPairIntoRightIterator(arg, _lhsIndex->getGeneralizations(arg.second, true)) );
+      })
+      .flatMap([this, premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
+        TermQueryResult& qr = arg.second;
+        return perform(premise, arg.first.first, arg.first.second,
+          qr.clause, qr.literal, qr.term, qr.substitution, true);
+      }));
   }
 
   // backward result
   ClauseIterator res2 = ClauseIterator::getEmpty();
   if (canUseForRewrite(premise)) {
-    auto itb1 = premise->getLiteralIterator();
-    auto itb2 = getMapAndFlattenIterator(itb1,EqHelper::LHSIteratorFn(_salg->getOrdering()));
-    auto itb3 = getMapAndFlattenIterator(itb2,ReverseLHSIteratorFn(premise));
-    auto itb4 = getMapAndFlattenIterator(itb3, [this](pair<Literal*, TermList> arg) {
-      return pvi( pushPairIntoRightIterator(arg, _termIndex->getInstances(arg.second, true)) );
-    });
-    res2 = pvi(getMapAndFlattenIterator(itb4,[this, premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
-      if(premise == arg.second.clause) {
-        return ClauseIterator::getEmpty();
-      }
-
-      TermQueryResult& qr = arg.second;
-      return perform(qr.clause, qr.literal, qr.term,
-        premise, arg.first.first, arg.first.second, qr.substitution, false);
-    }));
+    res2 = pvi(iterTraits(premise->iterLits())
+      .flatMap(EqHelper::LHSIteratorFn(_salg->getOrdering()))
+      .flatMap(ReverseLHSIteratorFn(premise))
+      .flatMap([this](pair<Literal*, TermList> arg) {
+        return pvi( pushPairIntoRightIterator(arg, _termIndex->getInstances(arg.second, true)) );
+      })
+      .flatMap([this, premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
+        TermQueryResult& qr = arg.second;
+        return perform(qr.clause, qr.literal, qr.term,
+          premise, arg.first.first, arg.first.second, qr.substitution, false);
+      }));
   }
 
-  auto it6 = getConcatenatedIterator(res1,res2);
-  auto it7 = getFilteredIterator(it6, NonzeroFn());
-  return pvi( it7 );
+  return pvi(iterTraits(getConcatenatedIterator(res1,res2))
+    .filter(NonzeroFn()));
 }
 
 vset<unsigned> getSkolems(Literal* lit) {
@@ -218,15 +236,12 @@ ClauseIterator InductionRemodulation::perform(
   }
 
   return pvi(iterTraits(vi(new SingleOccurrenceReplacementIterator(rwLit, rwTerm.term(), TermList(tgtTermS.term()))))
-    //TODO eliminate & from capture clause
     .map([eqClause,rwClause,eqLit,rwLit,eqIsResult,subst](Literal* tgtLit) -> Clause* {
-      // cout << "LIT " << *ilit << endl;
       if(EqHelper::isEqTautology(tgtLit)) {
         return nullptr;
       }
 
       unsigned rwLength = rwClause->length();
-      // ASS_EQ(eqClause->length(), 1);
       unsigned eqLength = eqClause->length();
       unsigned newLength = rwLength + (eqLength - 1);
       Inference inf(GeneratingInference2(InferenceRule::INDUCTION_REMODULATION, rwClause, eqClause));
@@ -234,10 +249,8 @@ ClauseIterator InductionRemodulation::perform(
 
       (*newCl)[0] = tgtLit;
       int next = 1;
-      // cout << "rwLit " << *rwLit << endl;
       for(unsigned i=0;i<rwLength;i++) {
         Literal* curr=(*rwClause)[i];
-        // cout << "curr " << *curr << endl;
         if(curr!=rwLit) {
           (*newCl)[next++] = curr;
         }

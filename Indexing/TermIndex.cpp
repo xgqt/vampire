@@ -263,14 +263,12 @@ void RemodulationSubtermIndex::handleClause(Clause* c, bool adding)
   static DHSet<TermList> inserted;
 
   for (unsigned i=0;i<c->length();i++) {
-    PointerTermReplacement ptr;
     Literal* lit = (*c)[i];
-    Literal* litp = ptr.transform((*c)[i]);
-    if (!InductionHelper::isInductionLiteral(litp)) {
+    if (!InductionHelper::isInductionLiteral(lit)) {
       continue;
     }
     inserted.reset();
-    SubtermIterator it(litp);
+    PointedTermIterator it(lit);
     while (it.hasNext()) {
       TermList tl = it.next();
       if (!inserted.insert(tl)) {
@@ -326,10 +324,11 @@ void StructInductionTermIndex::handleClause(Clause* c, bool adding)
     return;
   }
   static DHSet<TermList> inserted;
+  PointerTermReplacement ptr;
   // Iterate through literals & check if the literal is suitable for induction
   for (unsigned i=0;i<c->length();i++) {
     inserted.reset();
-    Literal* lit = (*c)[i];
+    Literal* lit = ptr.transform((*c)[i]);
     if (!lit->ground()) {
       continue;
     }

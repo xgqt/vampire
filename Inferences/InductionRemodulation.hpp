@@ -47,6 +47,28 @@ inline Term* getPointedTerm(Term* t) {
   return ptr;
 }
 
+class PointedTermIterator
+  : public IteratorCore<TermList>
+{
+public:
+  PointedTermIterator(Literal* lit)
+  : _stack(8),
+    _added(0)
+  {
+    CALL("PointedTermIterator::PointedTermIterator");
+    _stack.push(getPointedTerm(lit));
+    PointedTermIterator::next();
+  }
+
+  bool hasNext() override { return !_stack.isEmpty(); }
+  TermList next() override;
+  void right();
+
+private:
+  Stack<Term*> _stack;
+  int _added;
+};
+
 class PointerTermReplacement : public TermTransformer {
 private:
   TermList transformSubterm(TermList trm) override {
