@@ -22,6 +22,8 @@
 #include "Lib/VirtualIterator.hpp"
 #include "Saturation/ClauseContainer.hpp"
 #include "ResultSubstitution.hpp"
+#include "Kernel/TermIterators.hpp"
+#include "Kernel/Clause.hpp"
 
 #include "Lib/Allocator.hpp"
 
@@ -115,6 +117,19 @@ typedef VirtualIterator<TermQueryResult> TermQueryResultIterator;
 typedef VirtualIterator<ClauseSResQueryResult> ClauseSResResultIterator;
 typedef VirtualIterator<FormulaQueryResult> FormulaQueryResultIterator;
 
+inline bool isNormalClause(Clause* premise) {
+  for (unsigned i = 0; i < premise->length(); i++) {
+    NonVariableIterator nvi((*premise)[i]);
+    while (nvi.hasNext()) {
+      auto t = nvi.next().term();
+      if (env.signature->getFunction(t->functor())->pointer()) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 class Index
 {
 public:
@@ -127,11 +142,18 @@ public:
 protected:
   Index() {}
 
-  void onAddedToContainer(Clause* c)
-  { handleClause(c, true); }
-  void onRemovedFromContainer(Clause* c)
-  { handleClause(c, false); }
-
+  virtual void onAddedToContainer(Clause* c)
+  {
+    if (isNormalClause(c)) {
+      handleClause(c, true);
+    }
+  }
+  virtual void onRemovedFromContainer(Clause* c)
+  {
+    if (isNormalClause(c)) {
+      handleClause(c, false);
+    }
+  }
   virtual void handleClause(Clause* c, bool adding) {}
 
   //TODO: postponing index modifications during iteration (methods isBeingIterated() etc...)

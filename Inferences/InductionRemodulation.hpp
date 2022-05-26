@@ -192,9 +192,59 @@ public:
     Clause* rwClause, Literal* rwLit, TermList rwTerm,
     Clause* eqClause, Literal* eqLit, TermList eqLHS,
     ResultSubstitutionSP subst, bool eqIsResult);
+
+  static bool isNormalClause(Clause* premise) {
+    for (unsigned i = 0; i < premise->length(); i++) {
+      NonVariableIterator nvi((*premise)[i]);
+      while (nvi.hasNext()) {
+        auto t = nvi.next().term();
+        if (env.signature->getFunction(t->functor())->pointer()) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
 private:
   RemodulationLHSIndex* _lhsIndex;
   RemodulationSubtermIndex* _termIndex;
+};
+
+class InductionSGIWrapper
+: public SimplifyingGeneratingInference
+{
+public:
+  CLASS_NAME(InductionSGIWrapper);
+  USE_ALLOCATOR(InductionSGIWrapper);
+
+  InductionSGIWrapper(GeneratingInferenceEngine* induction,
+      GeneratingInferenceEngine* inductionRemodulation,
+      SimplifyingGeneratingInference* generator)
+    : _induction(induction), _inductionRemodulation(inductionRemodulation), _generator(generator) {}
+
+  ClauseGenerationResult generateSimplify(Clause* premise) override {
+    if (InductionRemodulation::isNormalClause(premise)) {
+      return _generator->generateSimplify(premise);
+    }
+    return ClauseGenerationResult {
+      .clauses = pvi(getConcatenatedIterator(
+        _induction->generateClauses(premise),
+        _inductionRemodulation->generateClauses(premise))),
+      .premiseRedundant = false,
+    };
+  }
+  void attach(SaturationAlgorithm* salg) override
+  {
+    _generator->attach(salg);
+  }
+  void detach() override
+  {
+    _generator->detach();
+  }
+private:
+  GeneratingInferenceEngine* _induction;
+  GeneratingInferenceEngine* _inductionRemodulation;
+  ScopedPtr<SimplifyingGeneratingInference> _generator;
 };
 
 }

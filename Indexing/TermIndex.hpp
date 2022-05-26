@@ -138,6 +138,12 @@ public:
   RemodulationSubtermIndex(TermIndexingStructure* is)
   : TermIndex(is) {}
 
+  void onAddedToContainer(Clause* c) override
+  { handleClause(c, true); }
+
+  void onRemovedFromContainer(Clause* c) override
+  { handleClause(c, false); }
+
 protected:
   void handleClause(Clause* c, bool adding) override;
 };
@@ -207,6 +213,12 @@ public:
 
   StructInductionTermIndex(TermIndexingStructure* is)
   : TermIndex(is) {}
+
+  void onAddedToContainer(Clause* c) override
+  { handleClause(c, true); }
+
+  void onRemovedFromContainer(Clause* c) override
+  { handleClause(c, false); }
 
 protected:
   void handleClause(Clause* c, bool adding);
