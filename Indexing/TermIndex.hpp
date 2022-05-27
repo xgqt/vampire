@@ -185,6 +185,24 @@ private:
 };
 
 /**
+ * Term index for general rewriting
+ */
+class RewritingSubtermIndex
+: public TermIndex
+{
+public:
+  CLASS_NAME(RewritingSubtermIndex);
+  USE_ALLOCATOR(RewritingSubtermIndex);
+
+  RewritingSubtermIndex(TermIndexingStructure* is, Ordering& ord)
+  : TermIndex(is), _ord(ord) {}
+protected:
+  void handleClause(Clause* c, bool adding);
+private:
+  Ordering& _ord;
+};
+
+/**
  * Term index for induction
  */
 class InductionTermIndex

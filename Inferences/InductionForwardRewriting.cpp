@@ -31,64 +31,30 @@
 #include "InductionHelper.hpp"
 #include "InductionRemodulation.hpp"
 
-TermIterator getSmallerSideRewritableSubtermIterator(Literal* lit, const Ordering& ord)
-{
-  CALL("getSmallerSideRewritableSubtermIterator");
-
-  if (lit->isEquality()) {
-    TermList sel;
-    switch(ord.getEqualityArgumentOrder(lit)) {
-    case Ordering::INCOMPARABLE:
-    case Ordering::EQUAL: {
-      SubtermIterator si(lit);
-      return getUniquePersistentIteratorFromPtr(&si);
-    }
-    case Ordering::GREATER:
-    case Ordering::GREATER_EQ:
-      sel=*lit->nthArgument(1);
-      break;
-    case Ordering::LESS:
-    case Ordering::LESS_EQ:
-      sel=*lit->nthArgument(0);
-      break;
-#if VDEBUG
-    default:
-      ASSERTION_VIOLATION;
-#endif
-    }
-    if (!sel.isTerm()) {
-      return TermIterator::getEmpty();
-    }
-    return getUniquePersistentIterator(vi(new NonVariableIterator(sel.term(), true)));
-  }
-
-  return TermIterator::getEmpty();
-}
-
 ClauseIterator InductionForwardRewriting::generateClauses(Clause *premise)
 {
   CALL("InductionForwardRewriting::generateClauses");
 
   ClauseIterator res = ClauseIterator::getEmpty();
-  if (InductionHelper::isInductionClause(premise)/*  && InductionRemodulation::isNormalClause(premise) */) {
+  if (InductionHelper::isInductionClause(premise) || canUseForRewrite(premise)) {
     res = pvi(iterTraits(premise->iterLits())
-      // Get an iterator of pairs of selected literals and rewritable subterms
-      // of those literals. Here all subterms of a literal are rewritable.
-      .flatMap([this](Literal *lit) {
-        TermIterator it = getSmallerSideRewritableSubtermIterator(lit, _salg->getOrdering());
-        return pvi( pushPairIntoRightIterator(lit, it) );
+      .filter([premise](Literal* lit){
+        return canUseForRewrite(lit, premise) || InductionHelper::isInductionLiteral(lit);
+      })
+      .flatMap([](Literal* lit){
+        return pvi(pushPairIntoRightIterator(lit, getUniquePersistentIterator(vi(new NonVariableIterator(lit)))));
       })
       // Get clauses with a function definition literal whose lhs is a generalization of the rewritable subterm,
       // returns a pair with the original pair and the generalization result (includes substitution)
       .flatMap([this](pair<Literal *, TermList> arg) {
-        return pvi(pushPairIntoRightIterator(arg, _index->getGeneralizations(arg.second)));
+        return pvi(pushPairIntoRightIterator(arg, _index->getUnifications(arg.second)));
       })
       //Perform forward rewriting
       .map([this, premise](pair<pair<Literal *, TermList>, TermQueryResult> arg) {
         TermQueryResult &qr = arg.second;
-        return InductionForwardRewriting::perform(
+        return perform(
           premise, arg.first.first, arg.first.second, qr.clause,
-          qr.literal, qr.term, qr.substitution, true, _salg->getOrdering());
+          qr.literal, qr.term, qr.substitution, true);
       }));
   }
   if (canUseForRewrite(premise))
@@ -101,13 +67,13 @@ ClauseIterator InductionForwardRewriting::generateClauses(Clause *premise)
         return termHasAllVarsOfClause(arg.second, premise);
       })
       .flatMap([this](pair<Literal*, TermList> arg) {
-        return pvi(pushPairIntoRightIterator(arg, _tindex->getInstances(arg.second, true)));
+        return pvi(pushPairIntoRightIterator(arg, _tindex->getUnifications(arg.second, true)));
       })
       .map([this,premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
         TermQueryResult& qr = arg.second;
-        return InductionForwardRewriting::perform(
+        return perform(
           qr.clause, qr.literal, qr.term, premise, arg.first.first,
-          arg.first.second, qr.substitution, false, _salg->getOrdering());
+          arg.first.second, qr.substitution, false);
       }));
 
     res = pvi(getConcatenatedIterator(res, it));
@@ -119,9 +85,14 @@ ClauseIterator InductionForwardRewriting::generateClauses(Clause *premise)
 Clause *InductionForwardRewriting::perform(
     Clause *rwClause, Literal *rwLit, TermList rwTerm,
     Clause *eqClause, Literal *eqLit, TermList eqLHS,
-    ResultSubstitutionSP subst, bool eqIsResult, Ordering& ord)
+    ResultSubstitutionSP subst, bool eqIsResult)
 {
-  CALL("InductionForwardRewriting::perform/2");
+  CALL("InductionForwardRewriting::perform");
+  // we want the rwClause and eqClause to be active
+  ASS(rwClause->store()==Clause::ACTIVE);
+  ASS(eqClause->store()==Clause::ACTIVE);
+
+  //TODO: do we need rewriting from variables?
 
   if (SortHelper::getTermSort(rwTerm, rwLit) != SortHelper::getEqualityArgumentSort(eqLit)) {
     // sorts don't match
@@ -129,8 +100,47 @@ Clause *InductionForwardRewriting::perform(
   }
 
   TermList tgtTerm = EqHelper::getOtherEqualitySide(eqLit, eqLHS);
-  TermList tgtTermS = eqIsResult ? subst->applyToBoundResult(tgtTerm) : subst->applyToBoundQuery(tgtTerm);
-  Literal *tgtLitS = EqHelper::replace(rwLit, rwTerm, tgtTermS);
+  // TermList tgtTermS = eqIsResult ? subst->applyToBoundResult(tgtTerm) : subst->applyToBoundQuery(tgtTerm);
+  TermList tgtTermS = subst->apply(tgtTerm, eqIsResult);
+  Literal* rwLitS = subst->apply(rwLit, !eqIsResult);
+  TermList rwTermS = subst->apply(rwTerm, !eqIsResult);
+
+  Ordering& ordering = _salg->getOrdering();
+  if(Ordering::isGorGEorE(ordering.compare(tgtTermS,rwTermS))) {
+    ASS_NEQ(ordering.compare(tgtTermS,rwTermS), Ordering::INCOMPARABLE);
+    return 0;
+  }
+
+  // This inference is not covered by superposition if either:
+  // 1. eqLit is not selected in eqClause
+  // 2. rwTerm is not in any rewritable subterm set of selected literals of rwClause
+  //    (or in that of rwLit if simultaneous superposition is off)
+  static bool doSimS = _salg->getOptions().simulatenousSuperposition();
+  for (unsigned i = 0; i < eqClause->numSelected(); i++) {
+    if ((*eqClause)[i] == eqLit) {
+      return 0;
+    }
+  }
+  if (doSimS) {
+    for (unsigned i = 0; i < rwClause->numSelected(); i++) {
+      auto rwstit = EqHelper::getSubtermIterator((*rwClause)[i], ordering);
+      while (rwstit.hasNext()) {
+        if (rwTerm == rwstit.next()) {
+          return 0;
+        }
+      }
+    }
+  } else {
+    auto rwstit = EqHelper::getSubtermIterator(rwLit, ordering);
+    while (rwstit.hasNext()) {
+      if (rwTerm == rwstit.next()) {
+        return 0;
+      }
+    }
+  }
+
+  // Literal *tgtLitS = EqHelper::replace(rwLit, rwTerm, tgtTermS);
+  Literal* tgtLitS = EqHelper::replace(rwLitS,rwTermS,tgtTermS);
   if (EqHelper::isEqTautology(tgtLitS)) {
     return 0;
   }
@@ -143,19 +153,23 @@ Clause *InductionForwardRewriting::perform(
   Clause *res = new (newLength) Clause(newLength, inf);
 
   (*res)[0] = tgtLitS;
-
   unsigned next = 1;
   for (unsigned i = 0; i < rwLength; i++) {
     Literal *curr = (*rwClause)[i];
     if (curr != rwLit) {
-      curr = EqHelper::replace(curr, rwTerm, tgtTermS);
+      Literal* currAfter = subst->apply(curr, !eqIsResult);
+      // curr = EqHelper::replace(curr, rwTerm, tgtTermS);
 
-      if (EqHelper::isEqTautology(curr)) {
+      if (doSimS) {
+        currAfter = EqHelper::replace(currAfter,rwTermS,tgtTermS);
+      }
+
+      if(EqHelper::isEqTautology(currAfter)) {
         res->destroy();
         return 0;
       }
 
-      (*res)[next++] = curr;
+      (*res)[next++] = currAfter;
     }
   }
 
@@ -163,7 +177,8 @@ Clause *InductionForwardRewriting::perform(
     for (unsigned i = 0; i < eqLength; i++) {
       Literal *curr = (*eqClause)[i];
       if (curr != eqLit) {
-        Literal *currAfter = eqIsResult ? subst->applyToBoundResult(curr) : subst->applyToBoundQuery(curr);
+        Literal* currAfter = subst->apply(curr, eqIsResult);
+        // Literal *currAfter = eqIsResult ? subst->applyToBoundResult(curr) : subst->applyToBoundQuery(curr);
 
         if (EqHelper::isEqTautology(currAfter)) {
           res->destroy();

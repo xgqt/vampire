@@ -84,9 +84,7 @@ void SuperpositionSubtermIndex::handleClause(Clause* c, bool adding)
     Literal* lit=(*c)[i];
     TermIterator rsti;
     if(!env.options->combinatorySup()){
-      rsti = env.options->inductionConsequenceGeneration()!=Options::InductionConsequenceGeneration::OFF
-              ? getUniquePersistentIterator(vi(new NonVariableIterator(lit)))
-              : EqHelper::getSubtermIterator(lit,_ord);
+      rsti = EqHelper::getSubtermIterator(lit,_ord);
     } else {
       rsti = EqHelper::getFoSubtermIterator(lit,_ord);
     }
@@ -199,7 +197,7 @@ void RemodulationLHSIndex::handleClause(Clause* c, bool adding)
 
   for (unsigned i = 0; i < c->length(); i++) {
     Literal* lit=(*c)[i];
-    if (!litHasAllVarsOfClause(lit, c)) {
+    if (!canUseForRewrite(lit, c)) {
       continue;
     }
     TermIterator lhsi=EqHelper::getLHSIterator(lit, _ord);
@@ -233,7 +231,7 @@ void RewritingLHSIndex::handleClause(Clause* c, bool adding)
 
   for (unsigned i = 0; i < c->length(); i++) {
     Literal* lit=(*c)[i];
-    if (!litHasAllVarsOfClause(lit, c)) {
+    if (!canUseForRewrite(lit, c)) {
       continue;
     }
     TermIterator lhsi=EqHelper::getLHSIterator(lit, _ord);
@@ -247,6 +245,35 @@ void RewritingLHSIndex::handleClause(Clause* c, bool adding)
       }
       else {
         _is->remove(lhs, lit, c);
+      }
+    }
+  }
+}
+
+void RewritingSubtermIndex::handleClause(Clause* c, bool adding)
+{
+  CALL("RewritingSubtermIndex::handleClause");
+
+  if (!canUseForRewrite(c) || InductionHelper::isInductionClause(c)) {
+    return;
+  }
+
+  unsigned ns = c->numSelected();
+
+  for (unsigned i = 0; i < c->length(); i++) {
+    Literal* lit=(*c)[i];
+    if (!canUseForRewrite(lit, c) && !InductionHelper::isInductionLiteral(lit)) {
+      continue;
+    }
+    NonVariableIterator it(lit);
+    // auto it = EqHelper::getSmallerOrBothSideSubtermIterator(lit,_ord,i<ns);
+    while (it.hasNext()) {
+      auto t = it.next();
+      if (adding) {
+        _is->insert(t, lit, c);
+      }
+      else {
+        _is->remove(t, lit, c);
       }
     }
   }

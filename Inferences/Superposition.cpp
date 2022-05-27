@@ -114,9 +114,7 @@ struct Superposition::RewriteableSubtermsFn
   {
     CALL("Superposition::RewriteableSubtermsFn()");
     TermIterator it = env.options->combinatorySup() ? EqHelper::getFoSubtermIterator(lit, _ord) :
-                                                      env.options->inductionConsequenceGeneration()!=Options::InductionConsequenceGeneration::OFF
-                                                        ? getUniquePersistentIterator(vi(new NonVariableIterator(lit)))
-                                                        : EqHelper::getSubtermIterator(lit, _ord);
+                                                      EqHelper::getSubtermIterator(lit, _ord);
     return pvi( pushPairIntoRightIterator(lit, it) );
   }
 
@@ -481,10 +479,6 @@ Clause* Superposition::performSuperposition(
     return 0;
   }
 
-  // TODO: this is a bit sketchy, fix it
-  const bool shouldRewriteSmallerSide = env.options->inductionConsequenceGeneration()!=Options::InductionConsequenceGeneration::OFF && rwLit->isPositive()
-    && canUseForRewrite(rwClause) && litHasAllVarsOfClause(rwLit, rwClause)
-    && (eqLHS.isVar() || !hasTermToInductOn(eqLHS.term(), eqLit));
   if(rwLitS->isEquality()) {
     //check that we're not rewriting only the smaller side of an equality
     TermList arg0=*rwLitS->nthArgument(0);
@@ -492,19 +486,11 @@ Clause* Superposition::performSuperposition(
 
     if(!arg0.containsSubterm(rwTermS)) {
       if(Ordering::isGorGEorE(ordering.getEqualityArgumentOrder(rwLitS))) {
-        if (!shouldRewriteSmallerSide || !termHasAllVarsOfClause(*rwLit->nthArgument(1), rwClause)) {
-          return 0;
-        } else {
-          env.statistics->smallerSideSuperposition++;
-        }
+        return 0;
       }
     } else if(!arg1.containsSubterm(rwTermS)) {
       if(Ordering::isGorGEorE(Ordering::reverse(ordering.getEqualityArgumentOrder(rwLitS)))) {
-        if (!shouldRewriteSmallerSide || !termHasAllVarsOfClause(*rwLit->nthArgument(0), rwClause)) {
-          return 0;
-        } else {
-          env.statistics->smallerSideSuperposition++;
-        }
+        return 0;
       }
     }
   }

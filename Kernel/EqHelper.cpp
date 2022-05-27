@@ -455,5 +455,22 @@ TermIterator EqHelper::getEqualityArgumentIterator(Literal* lit)
 	  getSingletonIterator(*lit->nthArgument(1))) );
 }
 
+TermIterator EqHelper::getSmallerOrBothSideSubtermIterator(Literal* lit, Ordering& ord, bool onlySmaller)
+{
+  if (!lit->isEquality()) {
+    return TermIterator::getEmpty();
+  }
+  if (onlySmaller) {
+    auto comp = ord.getEqualityArgumentOrder(lit);
+    if (comp == Ordering::INCOMPARABLE) {
+      return TermIterator::getEmpty();
+    }
+    TermList sel = *lit->nthArgument((comp == Ordering::LESS || comp == Ordering::LESS_EQ) ? 0 : 1);
+    return sel.isVar()
+      ? TermIterator::getEmpty()
+      : getUniquePersistentIterator(vi(new NonVariableIterator(sel.term(), true)));
+  }
+  return getUniquePersistentIterator(vi(new NonVariableIterator(lit)));
+}
 
 }

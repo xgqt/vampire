@@ -83,7 +83,10 @@ using namespace Kernel;
 using namespace Indexing;
 using namespace Saturation;
 
-inline bool litHasAllVarsOfClause(Literal* lit, Clause* cl) {
+inline bool canUseForRewrite(Literal* lit, Clause* cl) {
+  if (lit->isNegative() || !lit->isEquality()) {
+    return false;
+  }
   auto vit = cl->getVariableIterator();
   while (vit.hasNext()) {
     auto v = vit.next();
@@ -108,7 +111,8 @@ inline bool termHasAllVarsOfClause(TermList t, Clause* cl) {
 inline bool canUseForRewrite(Clause* cl) {
   return cl->length() == 1 ||
     (env.options->inductionConsequenceGeneration() == Options::InductionConsequenceGeneration::ON &&
-     isFormulaTransformation(cl->inference().rule()));
+     isFormulaTransformation(cl->inference().rule())) ||
+    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_FORWARD_REWRITING;
 }
 
 inline bool hasTermToInductOn(Term* t, Literal* l) {

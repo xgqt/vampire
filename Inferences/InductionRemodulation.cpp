@@ -61,7 +61,7 @@ TermList SingleOccurrenceReplacementIterator::Replacer::transformSubterm(TermLis
 {
   CALL("SingleOccurrenceReplacementIterator::Replacer::transformSubterm");
 
-  if (trm.isVar()) {
+  if (trm.isVar() || _matchCount > _i) {
     return trm;
   }
   auto t = trm.term();
@@ -122,7 +122,7 @@ struct ReverseLHSIteratorFn {
   {
     CALL("ReverseLHSIteratorFn()");
     auto rhs = EqHelper::getOtherEqualitySide(arg.first, arg.second);
-    if (!litHasAllVarsOfClause(arg.first, _cl) ||
+    if (!canUseForRewrite(arg.first, _cl) ||
         !termHasAllVarsOfClause(rhs, _cl)) {
       return VirtualIterator<pair<Literal*, TermList>>::getEmpty();
     }

@@ -130,7 +130,6 @@ public:
   unsigned inductionForwardRewriting;
   unsigned inductionRemodulation;
   unsigned inductionRedundant;
-  unsigned smallerSideSuperposition;
   unsigned maxInductionDepth;
   unsigned structInduction;
   unsigned structInductionInProof;

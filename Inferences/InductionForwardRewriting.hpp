@@ -34,27 +34,27 @@ public:
     GeneratingInferenceEngine::attach(salg);
     _index=static_cast<RewritingLHSIndex*>(
       _salg->getIndexManager()->request(REWRITING_LHS_INDEX));
-    _tindex=static_cast<RemodulationSubtermIndex*>(
-      _salg->getIndexManager()->request(REMODULATION_SUBTERM_INDEX));
+    _tindex=static_cast<RewritingSubtermIndex*>(
+      _salg->getIndexManager()->request(REWRITING_SUBTERM_INDEX));
   }
   void detach() override
   {
-    _index=0;
-    _tindex = 0;
-    _salg->getIndexManager()->release(REMODULATION_SUBTERM_INDEX);
+    _index = nullptr;
+    _tindex = nullptr;
+    _salg->getIndexManager()->release(REWRITING_SUBTERM_INDEX);
     _salg->getIndexManager()->release(REWRITING_LHS_INDEX);
     GeneratingInferenceEngine::detach();
   }
   ClauseIterator generateClauses(Clause *premise) override;
 
 private:
-  static Clause *perform(
-      Clause *rwClause, Literal *rwLiteral, TermList rwTerm,
-      Clause *eqClause, Literal *eqLiteral, TermList eqLHS,
-      ResultSubstitutionSP subst, bool eqIsResult, Ordering& ord);
+  Clause *perform(
+    Clause *rwClause, Literal *rwLiteral, TermList rwTerm,
+    Clause *eqClause, Literal *eqLiteral, TermList eqLHS,
+    ResultSubstitutionSP subst, bool eqIsResult);
 
   RewritingLHSIndex* _index;
-  RemodulationSubtermIndex* _tindex;
+  RewritingSubtermIndex* _tindex;
 };
 
 }; // namespace Inferences

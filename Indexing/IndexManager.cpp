@@ -260,13 +260,18 @@ Index* IndexManager::create(IndexType t)
     isGenerating = true;
     break;
   case REMODULATION_LHS_SUBST_TREE:
-    tis=new CodeTreeTIS();
+    tis=new TermSubstitutionTree();
     res=new RemodulationLHSIndex(tis, _alg->getOrdering());
     isGenerating = true;
     break;
   case REWRITING_LHS_INDEX:
-    tis=new CodeTreeTIS();
+    tis=new TermSubstitutionTree();
     res=new RewritingLHSIndex(tis, _alg->getOrdering());
+    isGenerating = true;
+    break;
+  case REWRITING_SUBTERM_INDEX:
+    tis=new TermSubstitutionTree();
+    res=new RewritingSubtermIndex(tis, _alg->getOrdering());
     isGenerating = true;
     break;
 
