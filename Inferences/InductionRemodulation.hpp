@@ -31,16 +31,16 @@ namespace Inferences
 {
 
 inline Term* getPointedTerm(Term* t) {
-  if (!env.signature->getFunction(t->functor())->pointer()) {
+  auto ptr = t->getPointedTerm();
+  if (!ptr) {
     return t;
   }
-  auto ptr = t->getPointedTerm();
 #if VDEBUG
   if (ptr != t) {
     NonVariableIterator nvi(ptr);
     while (nvi.hasNext()) {
       auto st = nvi.next().term();
-      ASS_REP(!env.signature->getFunction(st->functor())->pointer(),t->toString());
+      ASS_REP(!st->getPointedTerm(),t->toString());
     }
   }
 #endif
@@ -192,11 +192,12 @@ public:
   void attach(SaturationAlgorithm* salg) override;
   void detach() override;
   ClauseIterator generateClauses(Clause* premise) override;
+private:
   ClauseIterator perform(
     Clause* rwClause, Literal* rwLit, TermList rwTerm,
     Clause* eqClause, Literal* eqLit, TermList eqLHS,
     ResultSubstitutionSP subst, bool eqIsResult);
-private:
+
   RemodulationLHSIndex* _lhsIndex;
   RemodulationSubtermIndex* _termIndex;
 };

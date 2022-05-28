@@ -572,7 +572,6 @@ set(VAMPIRE_SHELL_SOURCES
     Shell/GeneralSplitting.cpp
     Shell/GoalGuessing.cpp
     Shell/Grounding.cpp
-    Shell/InductionSignatureTree.cpp
     Shell/InequalitySplitting.cpp
     Shell/InterpolantMinimizer.cpp
     Shell/InterpolantMinimizerNew.cpp

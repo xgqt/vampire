@@ -151,8 +151,6 @@ class Signature
     unsigned _skolem : 1;
     /** if tuple sort */
     unsigned _tuple : 1;
-    /** constant pointing to another term, hidden from unification, matching, etc. */
-    unsigned _pointer : 1;
     /** proxy type */
     Proxy _prox;
     /** combinator type */
@@ -259,9 +257,6 @@ class Signature
 
     inline void markInductionSkolem(){ _inductionSkolem=1; _skolem=1;}
     inline bool inductionSkolem(){ return _inductionSkolem;}
-
-    inline void markPointer(){ _pointer=1; }
-    inline bool pointer() const { return _pointer; }
 
     /** Return true if symbol is an integer constant */
     inline bool integerConstant() const

@@ -720,7 +720,7 @@ bool Clause::isInductionClause()
     NonVariableIterator nvi((*this)[i]);
     while (nvi.hasNext()) {
       auto t = nvi.next().term();
-      if (env.signature->getFunction(t->functor())->pointer()) {
+      if (t->getPointedTerm()) {
         _inductionClause = 3;
         return true;
       }

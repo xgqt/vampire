@@ -149,7 +149,7 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
         return pvi( pushPairIntoRightIterator(lit, getUniquePersistentIteratorFromPtr(&it)) );
       })
       .flatMap([this](pair<Literal*, TermList> arg) {
-        return pvi( pushPairIntoRightIterator(arg, _lhsIndex->getGeneralizations(arg.second, true)) );
+        return pvi( pushPairIntoRightIterator(arg, _lhsIndex->getUnifications(arg.second, true)) );
       })
       .flatMap([this, premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
         TermQueryResult& qr = arg.second;
@@ -165,7 +165,7 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
       .flatMap(EqHelper::LHSIteratorFn(_salg->getOrdering()))
       .flatMap(ReverseLHSIteratorFn(premise))
       .flatMap([this](pair<Literal*, TermList> arg) {
-        return pvi( pushPairIntoRightIterator(arg, _termIndex->getInstances(arg.second, true)) );
+        return pvi( pushPairIntoRightIterator(arg, _termIndex->getUnifications(arg.second, true)) );
       })
       .flatMap([this, premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
         TermQueryResult& qr = arg.second;
@@ -197,7 +197,7 @@ ClauseIterator InductionRemodulation::perform(
 {
   CALL("InductionRemodulation::perform");
   // we want the rwClause and eqClause to be active
-  // ASS(rwClause->store()==Clause::ACTIVE);
+  ASS(rwClause->store()==Clause::ACTIVE);
   ASS(eqClause->store()==Clause::ACTIVE);
 
   vset<unsigned> eqSkolems = getSkolems(eqLit);
@@ -205,9 +205,6 @@ ClauseIterator InductionRemodulation::perform(
     vset<unsigned> rwSkolems = getSkolems(rwLit);
     vset<unsigned> is;
     set_intersection(eqSkolems.begin(), eqSkolems.end(), rwSkolems.begin(), rwSkolems.end(), inserter(is, is.end()));
-    // if (is.empty()) {
-    //   return ClauseIterator::getEmpty();
-    // }
     if (is != eqSkolems) {
       return ClauseIterator::getEmpty();
     }
@@ -227,7 +224,7 @@ ClauseIterator InductionRemodulation::perform(
   }
 
   TermList tgtTerm = EqHelper::getOtherEqualitySide(eqLit, eqLHS);
-  TermList tgtTermS = eqIsResult ? subst->applyToBoundResult(tgtTerm) : subst->applyToBoundQuery(tgtTerm);
+  TermList tgtTermS = subst->apply(tgtTerm,eqIsResult);
 
   auto comp = _salg->getOrdering().compare(tgtTermS,rwTerm);
   if (comp != Ordering::GREATER && comp != Ordering::GREATER_EQ) {
@@ -252,14 +249,21 @@ ClauseIterator InductionRemodulation::perform(
       for(unsigned i=0;i<rwLength;i++) {
         Literal* curr=(*rwClause)[i];
         if(curr!=rwLit) {
-          (*newCl)[next++] = curr;
+          Literal *currAfter = subst->apply(curr,eqIsResult);
+
+          if (EqHelper::isEqTautology(currAfter)) {
+            newCl->destroy();
+            return nullptr;
+          }
+
+          (*newCl)[next++] = currAfter;
         }
       }
 
       for (unsigned i = 0; i < eqLength; i++) {
         Literal *curr = (*eqClause)[i];
         if (curr != eqLit) {
-          Literal *currAfter = eqIsResult ? subst->applyToBoundResult(curr) : subst->applyToBoundQuery(curr);
+          Literal *currAfter = subst->apply(curr,eqIsResult);
 
           if (EqHelper::isEqTautology(currAfter)) {
             newCl->destroy();

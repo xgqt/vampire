@@ -614,7 +614,7 @@ vstring Term::headToString() const
         ASSERTION_VIOLATION;
     }
   } else {
-    if (!isLiteral() && !isSort() && env.signature->getFunction(_functor)->pointer()) {
+    if (!isLiteral() && !isSort() && getPointedTerm()) {
       return "ca_"+getPointedTerm()->toString();
     }
     unsigned proj;
@@ -1007,7 +1007,7 @@ Term* Term::createPointerConstant(Term* ptr)
   NonVariableIterator nvi(ptr);
   while (nvi.hasNext()) {
     auto st = nvi.next().term();
-    ASS_REP(!env.signature->getFunction(st->functor())->pointer(),ptr->toString());
+    ASS_REP(!st->getPointedTerm(),ptr->toString());
   }
 #endif
   TermList srt = env.signature->getFunction(ptr->functor())->fnType()->result();
@@ -1016,7 +1016,6 @@ Term* Term::createPointerConstant(Term* ptr)
   auto fn = env.signature->addFunction(name, 0, added);
   if (added) {
     env.signature->getFunction(fn)->setType(OperatorType::getConstantsType(srt));
-    env.signature->getFunction(fn)->markPointer();
   }
   auto c = createConstant(fn);
   c->_ptr = ptr;
@@ -1809,6 +1808,7 @@ Term::Term(const Term& t) throw()
     _hasInterpretedConstants(0),
     _isTwoVarEquality(0),
     _weight(0),
+    _ptr(nullptr),
     _vars(0)
 {
   CALL("Term::Term/1");
@@ -1843,6 +1843,7 @@ Term::Term() throw()
    _isTwoVarEquality(0),
    _weight(0),
    _maxRedLen(0),
+   _ptr(nullptr),
    _vars(0)
 {
   CALL("Term::Term/0");

@@ -455,4 +455,5 @@ TermIterator EqHelper::getEqualityArgumentIterator(Literal* lit)
 	  getSingletonIterator(*lit->nthArgument(1))) );
 }
 
+
 }

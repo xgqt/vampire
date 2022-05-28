@@ -244,16 +244,9 @@ public:
 
   TermList applyToBoundQuery(TermList t) override
   {
-    CALL("SubstitutionTree::InstMatcher::Substitution::applyToBoundQuery(TermList)");
+    CALL("SubstitutionTree::InstMatcher::Substitution::applyToBoundQuery");
 
     return SubstHelper::apply(t, *this);
-  }
-
-  Literal* applyToBoundQuery(Literal* lit) override
-  {
-    CALL("SubstitutionTree::InstMatcher::Substitution::applyToBoundQuery(Literal*)");
-
-    return SubstHelper::apply(lit, *this);
   }
 
   TermList apply(unsigned var)
