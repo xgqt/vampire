@@ -191,6 +191,8 @@ void RemodulationLHSIndex::handleClause(Clause* c, bool adding)
 {
   CALL("RemodulationLHSIndex::handleClause");
 
+  TimeCounter tc(TC_INDUCTION_REMODULATION_INDEX_MAINTENANCE);
+
   if (!canUseForRewrite(c)) {
     return;
   }
@@ -225,6 +227,8 @@ void RewritingLHSIndex::handleClause(Clause* c, bool adding)
 {
   CALL("RewritingLHSIndex::handleClause");
 
+  TimeCounter tc(TC_INDUCTION_REWRITING_INDEX_MAINTENANCE);
+
   if (!canUseForRewrite(c)) {
     return;
   }
@@ -254,6 +258,8 @@ void RewritingSubtermIndex::handleClause(Clause* c, bool adding)
 {
   CALL("RewritingSubtermIndex::handleClause");
 
+  TimeCounter tc(TC_INDUCTION_REWRITING_INDEX_MAINTENANCE);
+
   if (!canUseForRewrite(c) || InductionHelper::isInductionClause(c)) {
     return;
   }
@@ -282,6 +288,8 @@ void RewritingSubtermIndex::handleClause(Clause* c, bool adding)
 void RemodulationSubtermIndex::handleClause(Clause* c, bool adding)
 {
   CALL("RemodulationSubtermIndex::handleClause");
+
+  TimeCounter tc(TC_INDUCTION_REMODULATION_INDEX_MAINTENANCE);
 
   if (!InductionHelper::isInductionClause(c)) {
     return;

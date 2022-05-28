@@ -45,8 +45,6 @@
 
 #include "DP/ShortConflictMetaDP.hpp"
 
-#include "Inferences/InductionRemodulation.hpp"
-
 #include "SaturationAlgorithm.hpp"
 
 namespace Saturation

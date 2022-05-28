@@ -45,8 +45,6 @@
 #include "Superposition.hpp"
 #include "Shell/UnificationWithAbstractionConfig.hpp"
 
-#include "InductionRemodulation.hpp"
-
 #if VDEBUG
 #include <iostream>
 using namespace std;

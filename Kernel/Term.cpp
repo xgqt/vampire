@@ -614,6 +614,9 @@ vstring Term::headToString() const
         ASSERTION_VIOLATION;
     }
   } else {
+    if (!isLiteral() && !isSort() && env.signature->getFunction(_functor)->pointer()) {
+      return "ca_"+getPointedTerm()->toString();
+    }
     unsigned proj;
     if (!isSort() && Theory::tuples()->findProjection(functor(), isLiteral(), proj)) {
       return "$proj(" + Int::toString(proj) + ", ";
@@ -999,6 +1002,7 @@ Term* Term::createConstant(const vstring& name)
 Term* Term::createPointerConstant(Term* ptr)
 {
   CALL("Term::createPointerConstant");
+  ASS(!ptr->isLiteral());
 #if VDEBUG
   NonVariableIterator nvi(ptr);
   while (nvi.hasNext()) {
@@ -1007,7 +1011,7 @@ Term* Term::createPointerConstant(Term* ptr)
   }
 #endif
   TermList srt = env.signature->getFunction(ptr->functor())->fnType()->result();
-  auto name = "c_" + ptr->toString();
+  auto name = "ca_" + Int::toString(ptr->getId());
   bool added;
   auto fn = env.signature->addFunction(name, 0, added);
   if (added) {

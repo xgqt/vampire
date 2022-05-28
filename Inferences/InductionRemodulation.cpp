@@ -174,8 +174,8 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
       }));
   }
 
-  return pvi(iterTraits(getConcatenatedIterator(res1,res2))
-    .filter(NonzeroFn()));
+  return pvi(getTimeCountedIterator(pvi(iterTraits(getConcatenatedIterator(res1,res2))
+    .filter(NonzeroFn())),TC_INDUCTION_REMODULATION));
 }
 
 vset<unsigned> getSkolems(Literal* lit) {

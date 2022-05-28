@@ -117,19 +117,6 @@ typedef VirtualIterator<TermQueryResult> TermQueryResultIterator;
 typedef VirtualIterator<ClauseSResQueryResult> ClauseSResResultIterator;
 typedef VirtualIterator<FormulaQueryResult> FormulaQueryResultIterator;
 
-inline bool isNormalClause(Clause* premise) {
-  for (unsigned i = 0; i < premise->length(); i++) {
-    NonVariableIterator nvi((*premise)[i]);
-    while (nvi.hasNext()) {
-      auto t = nvi.next().term();
-      if (env.signature->getFunction(t->functor())->pointer()) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
 class Index
 {
 public:
@@ -144,13 +131,13 @@ protected:
 
   virtual void onAddedToContainer(Clause* c)
   {
-    if (isNormalClause(c)) {
+    if (!c->isInductionClause()) {
       handleClause(c, true);
     }
   }
   virtual void onRemovedFromContainer(Clause* c)
   {
-    if (isNormalClause(c)) {
+    if (!c->isInductionClause()) {
       handleClause(c, false);
     }
   }
