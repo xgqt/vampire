@@ -179,7 +179,7 @@ public:
   RewritingLHSIndex(TermIndexingStructure* is, Ordering& ord)
   : TermIndex(is), _ord(ord) {}
 protected:
-  void handleClause(Clause* c, bool adding);
+  void handleClause(Clause* c, bool adding) override;
 private:
   Ordering& _ord;
 };
@@ -194,12 +194,10 @@ public:
   CLASS_NAME(RewritingSubtermIndex);
   USE_ALLOCATOR(RewritingSubtermIndex);
 
-  RewritingSubtermIndex(TermIndexingStructure* is, Ordering& ord)
-  : TermIndex(is), _ord(ord) {}
-protected:
-  void handleClause(Clause* c, bool adding);
+  RewritingSubtermIndex(TermIndexingStructure* is)
+  : TermIndex(is) {}
 private:
-  Ordering& _ord;
+  void handleClause(Clause* c, bool adding) override;
 };
 
 /**

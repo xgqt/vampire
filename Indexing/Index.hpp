@@ -22,7 +22,6 @@
 #include "Lib/VirtualIterator.hpp"
 #include "Saturation/ClauseContainer.hpp"
 #include "ResultSubstitution.hpp"
-#include "Kernel/TermIterators.hpp"
 #include "Kernel/Clause.hpp"
 
 #include "Lib/Allocator.hpp"

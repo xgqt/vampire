@@ -88,12 +88,12 @@ TermList SingleOccurrenceReplacementIterator::Replacer::transformSubterm(TermLis
   return trm;
 }
 
-Literal* SingleOccurrenceReplacementIterator::next()
+Term* SingleOccurrenceReplacementIterator::next()
 {
   CALL("SingleOccurrenceReplacementIterator::next");
   ASS(hasNext());
   Replacer sor(_o, _r, _iteration++);
-  return sor.transform(_lit);
+  return sor.transform(_t);
 }
 
 void InductionRemodulation::attach(SaturationAlgorithm* salg)
@@ -225,16 +225,44 @@ ClauseIterator InductionRemodulation::perform(
 
   TermList tgtTerm = EqHelper::getOtherEqualitySide(eqLit, eqLHS);
   TermList tgtTermS = subst->apply(tgtTerm,eqIsResult);
+  // PointerTermReplacement tr;
+  // ASS_EQ(TermList(tr.transform(tgtTermS.term())), tgtTermS);
+  Literal* rwLitS = subst->apply(rwLit,!eqIsResult);
+  TermList rwTermS = subst->apply(rwTerm,!eqIsResult);
 
-  auto comp = _salg->getOrdering().compare(tgtTermS,rwTerm);
+  auto comp = _salg->getOrdering().compare(tgtTermS,rwTermS);
   if (comp != Ordering::GREATER && comp != Ordering::GREATER_EQ) {
     ASS_NEQ(comp, Ordering::INCOMPARABLE);
     return ClauseIterator::getEmpty();
   }
 
-  return pvi(iterTraits(vi(new SingleOccurrenceReplacementIterator(rwLit, rwTerm.term(), TermList(tgtTermS.term()))))
-    .map([eqClause,rwClause,eqLit,rwLit,eqIsResult,subst](Literal* tgtLit) -> Clause* {
-      if(EqHelper::isEqTautology(tgtLit)) {
+  auto indLit = InductionHelper::isInductionLiteral(rwLit);
+  Term* rwSideS = rwLitS;
+  bool bothSides = true;
+  // ASS(indLit);
+  if (!indLit) {
+    ASS(rwLit->isEquality() && rwLit->isPositive());
+    auto t0 = *rwLitS->nthArgument(0);
+    auto t1 = *rwLitS->nthArgument(1);
+    auto comp = _salg->getOrdering().compare(t0,t1);
+    if (comp != Ordering::INCOMPARABLE) {
+      bothSides = false;
+      if (comp == Ordering::GREATER || comp == Ordering::GREATER_EQ) {
+        ASS(t0.isTerm());
+        rwSideS = t0.term();
+      } else {
+        ASS(t1.isTerm());
+        rwSideS = t1.term();
+      }
+    }
+  }
+
+  return pvi(iterTraits(vi(new SingleOccurrenceReplacementIterator(rwSideS, rwTermS.term(), TermList(tgtTermS.term()))))
+    .map([eqClause,rwClause,eqLit,rwLit,rwLitS,rwSideS,eqIsResult,subst,bothSides](Term* tgtSideS) -> Clause* {
+      Literal* tgtLitS = bothSides
+        ? static_cast<Literal*>(tgtSideS)
+        : EqHelper::replace(rwLitS, TermList(rwSideS), TermList(tgtSideS));
+      if(EqHelper::isEqTautology(tgtLitS)) {
         return nullptr;
       }
 
@@ -244,12 +272,12 @@ ClauseIterator InductionRemodulation::perform(
       Inference inf(GeneratingInference2(InferenceRule::INDUCTION_REMODULATION, rwClause, eqClause));
       Clause* newCl = new(newLength) Clause(newLength, inf);
 
-      (*newCl)[0] = tgtLit;
+      (*newCl)[0] = tgtLitS;
       int next = 1;
       for(unsigned i=0;i<rwLength;i++) {
         Literal* curr=(*rwClause)[i];
         if(curr!=rwLit) {
-          Literal *currAfter = subst->apply(curr,eqIsResult);
+          Literal *currAfter = subst->apply(curr,!eqIsResult);
 
           if (EqHelper::isEqTautology(currAfter)) {
             newCl->destroy();

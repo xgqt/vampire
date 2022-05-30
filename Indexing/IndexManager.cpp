@@ -271,7 +271,7 @@ Index* IndexManager::create(IndexType t)
     break;
   case REWRITING_SUBTERM_INDEX:
     tis=new TermSubstitutionTree();
-    res=new RewritingSubtermIndex(tis, _alg->getOrdering());
+    res=new RewritingSubtermIndex(tis);
     isGenerating = true;
     break;
 

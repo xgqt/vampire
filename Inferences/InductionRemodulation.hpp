@@ -112,7 +112,8 @@ inline bool canUseForRewrite(Clause* cl) {
   return cl->length() == 1 ||
     (env.options->inductionConsequenceGeneration() == Options::InductionConsequenceGeneration::ON &&
      isFormulaTransformation(cl->inference().rule())) ||
-    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_FORWARD_REWRITING;
+    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_FORWARD_REWRITING ||
+    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_REMODULATION;
 }
 
 inline bool hasTermToInductOn(Term* t, Literal* l) {
@@ -131,17 +132,17 @@ inline bool hasTermToInductOn(Term* t, Literal* l) {
   return false;
 }
 
-class SingleOccurrenceReplacementIterator : public IteratorCore<Literal*> {
+class SingleOccurrenceReplacementIterator : public IteratorCore<Term*> {
 public:
   CLASS_NAME(SingleOccurrenceReplacementIterator);
   USE_ALLOCATOR(SingleOccurrenceReplacementIterator);
-  SingleOccurrenceReplacementIterator(Literal* lit, Term* o, TermList r)
-      : _lit(lit), _o(o), _r(r)
+  SingleOccurrenceReplacementIterator(Term* t, Term* o, TermList r)
+      : _t(t), _o(o), _r(r)
   {
-    ASS_EQ(_o, getPointedTerm(_o));
-    ASS_EQ(_r.term(), getPointedTerm(_r.term()));
-    _occurrences = _lit->countSubtermOccurrences(TermList(_o));
-    NonVariableIterator nvi(_lit);
+    ASS(!_o->getPointedTerm());
+    ASS(!_r.term()->getPointedTerm());
+    _occurrences = _t->countSubtermOccurrences(TermList(_o));
+    NonVariableIterator nvi(_t);
     while (nvi.hasNext()) {
       auto t = nvi.next().term();
       auto ptr = getPointedTerm(t);
@@ -154,12 +155,12 @@ public:
   bool hasNext() override {
     return _iteration < _occurrences;
   }
-  Literal* next() override;
+  Term* next() override;
 
 private:
   unsigned _iteration = 0;
   unsigned _occurrences;
-  Literal* _lit;
+  Term* _t;
   Term* _o;
   TermList _r;
 
