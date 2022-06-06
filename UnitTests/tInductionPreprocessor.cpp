@@ -46,7 +46,7 @@ using namespace Shell;
 inline void checkTemplateBranches(const PredSugar& p, const vvector<pair<Term*, vvector<Term*>>>& v) {
   ASS(env.signature->getFnDefHandler()->hasInductionTemplate(p.functor(), false));
   auto templ = env.signature->getFnDefHandler()->getInductionTemplate(p.functor(), false);
-  auto b = templ.branches();
+  auto b = templ->branches();
   ASS_EQ(b.size(), v.size());
   TermList t;
   for (unsigned i = 0; i < b.size(); i++) {
@@ -62,7 +62,7 @@ inline void checkTemplateBranches(const PredSugar& p, const vvector<pair<Term*, 
 inline void checkTemplateBranches(const FuncSugar& f, const vvector<pair<TermSugar, vvector<TermSugar>>>& p) {
   ASS(env.signature->getFnDefHandler()->hasInductionTemplate(f.functor(), true));
   auto templ = env.signature->getFnDefHandler()->getInductionTemplate(f.functor(), true);
-  auto b = templ.branches();
+  auto b = templ->branches();
   ASS_EQ(b.size(), p.size());
   TermList t;
   for (unsigned i = 0; i < b.size(); i++) {
@@ -312,7 +312,7 @@ TEST_FUN(test_08) {
   // TODO(mhajdu): with options set, complex terms should be tested as well
   vset<InductionScheme> schemes;
   auto ft = env.signature->getFnDefHandler()->getInductionTemplate(f.functor(), true);
-  ft.requestInductionScheme(f(sk1,sk2).toTerm().term(), schemes);
+  ft->requestInductionScheme(f(sk1,sk2).toTerm().term(), schemes);
   ASS_EQ(schemes.size(), 1);
   checkInductionTerms(*schemes.begin(), { { sk1.toTerm().term(), 0 }, { sk2.toTerm().term(), 1 } });
   checkCases(*schemes.begin(), {
@@ -324,7 +324,7 @@ TEST_FUN(test_08) {
   });
 
   schemes.clear();
-  ft.requestInductionScheme(f(sk1,sk1).toTerm().term(), schemes);
+  ft->requestInductionScheme(f(sk1,sk1).toTerm().term(), schemes);
   ASS_EQ(schemes.size(), 1);
   checkInductionTerms(*schemes.begin(), { { sk1.toTerm().term(), 0 } });
   checkCases(*schemes.begin(), {
@@ -336,7 +336,7 @@ TEST_FUN(test_08) {
 
   schemes.clear();
   auto qt = env.signature->getFnDefHandler()->getInductionTemplate(q.functor(), false);
-  qt.requestInductionScheme(q(sk3,sk1), schemes);
+  qt->requestInductionScheme(q(sk3,sk1), schemes);
   ASS_EQ(schemes.size(), 1);
   checkInductionTerms(*schemes.begin(), { { sk3().toTerm().term(), 0 }, { sk1().toTerm().term(), 1 } });
   checkCases(*schemes.begin(), {
@@ -351,10 +351,10 @@ TEST_FUN(test_08) {
   // no scheme is generated if no Skolems are present
   // in one of the inductive arguments or the term is non-ground
   schemes.clear();
-  ft.requestInductionScheme(f(sk1,x).toTerm().term(), schemes);
-  ft.requestInductionScheme(f(b,sk1).toTerm().term(), schemes);
-  qt.requestInductionScheme(q(sk3,x), schemes);
-  qt.requestInductionScheme(q(b1,sk1), schemes);
-  qt.requestInductionScheme(q(r1(b,b1),sk1), schemes);
+  ft->requestInductionScheme(f(sk1,x).toTerm().term(), schemes);
+  ft->requestInductionScheme(f(b,sk1).toTerm().term(), schemes);
+  qt->requestInductionScheme(q(sk3,x), schemes);
+  qt->requestInductionScheme(q(b1,sk1), schemes);
+  qt->requestInductionScheme(q(r1(b,b1),sk1), schemes);
   ASS(schemes.empty());
 }

@@ -185,7 +185,7 @@ private:
   void generate(Clause* premise, Literal* lit);
   void process(Term* t, bool active, Literal* lit);
   void process(Literal* lit);
-  void handleActiveTerm(Term* t, InductionTemplate& templ);
+  void handleActiveTerm(Term* t, InductionTemplate* templ);
 
   vset<InductionScheme> _schemes;
   OccurrenceMap _actOccMaps;

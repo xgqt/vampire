@@ -55,8 +55,8 @@ vset<Term*> getInductionTerms(Term* t, TermList s)
     // If function with recursive definition,
     // recurse in its active arguments
     if (env.signature->getFnDefHandler()->hasInductionTemplate(f, true /*trueFun*/)) {
-      auto& templ = env.signature->getFnDefHandler()->getInductionTemplate(f, true /*trueFun*/);
-      const auto& indVars = templ.inductionPositions();
+      auto templ = env.signature->getFnDefHandler()->getInductionTemplate(f, true /*trueFun*/);
+      const auto& indVars = templ->inductionPositions();
 
       Term::Iterator argIt(curr);
       unsigned i = 0;
@@ -172,11 +172,11 @@ void RecursionInductionSchemeGenerator::generate(Clause* premise, Literal* lit)
   ASS(_actStack.isEmpty());
 }
 
-void RecursionInductionSchemeGenerator::handleActiveTerm(Term* t, InductionTemplate& templ)
+void RecursionInductionSchemeGenerator::handleActiveTerm(Term* t, InductionTemplate* templ)
 {
   CALL("RecursionInductionSchemeGenerator::handleActiveTerm");
 
-  const auto& indPos = templ.inductionPositions();
+  const auto& indPos = templ->inductionPositions();
 
   for (int i = t->arity()-1; i >= 0; i--) {
     _actStack.push(indPos[i]);
@@ -217,10 +217,10 @@ void RecursionInductionSchemeGenerator::handleActiveTerm(Term* t, InductionTempl
       } else {
         nt = Term::create(t, argTerms.begin());
       }
-      templ.requestInductionScheme(nt, _schemes);
+      templ->requestInductionScheme(nt, _schemes);
     }
   } else {
-    templ.requestInductionScheme(t, _schemes);
+    templ->requestInductionScheme(t, _schemes);
   }
 }
 

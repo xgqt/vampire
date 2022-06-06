@@ -9,6 +9,7 @@
  */
 
 #include "InductionPreprocessor.hpp"
+#include "Inferences/InductionHelper.hpp"
 
 #include "Kernel/Matcher.hpp"
 #include "Kernel/TermIterators.hpp"
@@ -17,6 +18,7 @@
 
 #include "Lib/Hash.hpp"
 
+using namespace Inferences;
 using namespace Kernel;
 using namespace Lib;
 
@@ -91,10 +93,10 @@ void FnDefHandler::handleClause(Clause* c, unsigned fi, bool reversed)
   auto p = make_pair(fn, trueFun);
   auto templIt = _templates.find(p);
   if (templIt == _templates.end()) {
-    templIt = _templates.insert(make_pair(p, InductionTemplate(header))).first;
+    templIt = _templates.insert(make_pair(p, new InductionTemplate(header))).first;
   }
 
-  templIt->second.addBranch(std::move(recursiveCalls), std::move(header));
+  templIt->second->addBranch(std::move(recursiveCalls), std::move(header));
 }
 
 void FnDefHandler::finalize()
@@ -102,7 +104,7 @@ void FnDefHandler::finalize()
   CALL("FnDefHandler::finalize");
 
   for (auto it = _templates.begin(); it != _templates.end();) {
-    if (!it->second.finalize()) {
+    if (!it->second->finalize()) {
       if (env.options->showInduction()) {
         env.beginOutput();
         env.out() << "% Warning: " << it->second << " discarded" << endl;
@@ -452,6 +454,28 @@ void InductionTemplate::requestInductionScheme(Term* t, vset<InductionScheme>& s
     env.endOutput();
   }
   schemes.insert(std::move(res));
+}
+
+bool InductionTemplate::matchesTerm(Term* t, vvector<Term*>& inductionTerms) const
+{
+  CALL("InductionTemplate::matchesTerm");
+  ASS(t->ground());
+  inductionTerms.clear();
+  for (unsigned i = 0; i < t->arity(); i++) {
+    auto arg = t->nthArgument(i)->term();
+    auto f = arg->functor();
+    if (_indPos[i] && InductionHelper::isInductionTermFunctor(f)) {
+      if (!InductionHelper::isStructInductionOn() || !InductionHelper::isStructInductionFunctor(f)) {
+        return false;
+      }
+      auto it = std::find(inductionTerms.begin(),inductionTerms.end(),arg);
+      if (it != inductionTerms.end()) {
+        return false;
+      }
+      inductionTerms.push_back(arg);
+    }
+  }
+  return !inductionTerms.empty();
 }
 
 bool InductionTemplate::Branch::contains(const InductionTemplate::Branch& other) const

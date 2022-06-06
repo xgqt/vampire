@@ -80,12 +80,15 @@ ostream& operator<<(ostream& out, const InductionScheme& scheme);
  * (i.e. the changing arguments) of the function.
  */
 struct InductionTemplate {
+  CLASS_NAME(InductionTemplate);
+  USE_ALLOCATOR(InductionTemplate);
   InductionTemplate(const Term* t);
 
   void addBranch(vvector<Term*>&& recursiveCalls, Term*&& header);
   bool finalize();
   void requestInductionScheme(Term* t, vset<InductionScheme>& schemes);
   const vvector<bool>& inductionPositions() const { return _indPos; }
+  bool matchesTerm(Term* t, vvector<Term*>& inductionTerms) const;
 
   /**
    * Stores the template for a recursive case
@@ -150,13 +153,13 @@ public:
     return _templates.count(make_pair(fn, trueFun));
   }
 
-  InductionTemplate& getInductionTemplate(unsigned fn, bool trueFun) {
+  InductionTemplate* getInductionTemplate(unsigned fn, bool trueFun) {
     return _templates.at(make_pair(fn, trueFun));
   }
 
 private:
   unique_ptr<TermIndexingStructure> _is;
-  vmap<pair<unsigned, bool>, InductionTemplate> _templates;
+  vmap<pair<unsigned, bool>, InductionTemplate*> _templates;
   vmap<TermAlgebra*, vvector<InductionScheme::Case>> _taCaseMap;
 };
 
