@@ -66,7 +66,6 @@
 #include "Inferences/ForwardLiteralRewriting.hpp"
 #include "Inferences/ForwardSubsumptionAndResolution.hpp"
 #include "Inferences/ForwardSubsumptionDemodulation.hpp"
-#include "Inferences/GeneralInduction.hpp"
 #include "Inferences/GlobalSubsumption.hpp"
 #include "Inferences/HyperSuperposition.hpp"
 #include "Inferences/InductionHypothesisRewriting.hpp"
@@ -1512,18 +1511,6 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   if(opt.induction()!=Options::Induction::NONE){
     auto induction = new Induction();
     gie->addFront(induction);
-    // vvector<InductionSchemeGenerator*> generators;
-    // if (InductionHelper::isStructInductionOn()) {
-    //   if (InductionHelper::isStructInductionOneOn()) {
-    //     generators.push_back(new StructuralInductionSchemeGenerator());
-    //   }
-    //   if (InductionHelper::isStructInductionRecDefOn()) {
-    //     generators.push_back(new RecursionInductionSchemeGenerator());
-    //   }
-    // }
-    // auto induction = new GeneralInduction();
-    // induction->setGenerators(std::move(generators));
-    // gie->addFront(induction);
     // since indhrw relies on induction, we create this
     // inference here and hand the induction object to it
     if (opt.inductionHypRewriting()) {

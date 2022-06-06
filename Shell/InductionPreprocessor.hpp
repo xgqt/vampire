@@ -31,49 +31,6 @@ bool skolem(Term* t);
 bool containsSkolem(Term* t);
 bool canInductOn(Term* t);
 
-using InductionTerms = vmap<Term*, unsigned>;
-
-/**
- * An instantiated induction template for a term.
- */
-class InductionScheme
-{
-public:
-  InductionScheme(const InductionTerms& indTerms, bool noChecks = false)
-    : _inductionTerms(indTerms), _finalized(false), _noChecks(noChecks), _cases() {}
-
-  struct Case {
-    Case() = default;
-    Case(vvector<Substitution>&& recursiveCalls, Substitution&& step)
-      : _recursiveCalls(recursiveCalls), _step(step) {}
-
-    vvector<Substitution> _recursiveCalls;
-    Substitution _step;
-  };
-
-  bool finalize();
-  static Term* createRepresentingTerm(const InductionTerms& inductionTerms, const Substitution& s);
-  const vvector<Case>& cases() const { ASS(_finalized); return *_cases; }
-  const InductionTerms& inductionTerms() const { ASS(_finalized); return _inductionTerms; }
-  bool operator<(const InductionScheme& other) const {
-    return _inductionTerms < other._inductionTerms ||
-      (_inductionTerms == other._inductionTerms && _cases < other._cases);
-  }
-
-private:
-  bool addBaseCases();
-
-  friend struct InductionTemplate;
-  friend class FnDefHandler;
-
-  InductionTerms _inductionTerms;
-  bool _finalized;
-  bool _noChecks;
-  vvector<Case>* _cases;
-};
-
-ostream& operator<<(ostream& out, const InductionScheme& scheme);
-
 /**
  * Corresponds to the branches of a function definition.
  * Stores the branches and the active positions
@@ -86,7 +43,6 @@ struct InductionTemplate {
 
   void addBranch(vvector<Term*>&& recursiveCalls, Term*&& header);
   bool finalize();
-  void requestInductionScheme(Term* t, vset<InductionScheme>& schemes);
   const vvector<bool>& inductionPositions() const { return _indPos; }
   bool matchesTerm(Term* t, vvector<Term*>& inductionTerms) const;
 
@@ -123,10 +79,6 @@ private:
 
   vvector<Branch> _branches;
   vvector<bool> _indPos;
-  vvector<bool> _usedNonIndPos;
-
-  vmap<vvector<TermList>, vvector<InductionScheme::Case>> _caseMap;
-  vset<vvector<TermList>> _invalids;
 };
 
 ostream& operator<<(ostream& out, const InductionTemplate::Branch& branch);
@@ -143,7 +95,6 @@ public:
 
   void handleClause(Clause* c, unsigned i, bool reversed);
   void finalize();
-  void requestStructuralInductionScheme(Term* t, vvector<InductionScheme>& schemes);
 
   TermQueryResultIterator getGeneralizations(TermList t) {
     return _is->getGeneralizations(t, true);
@@ -160,7 +111,6 @@ public:
 private:
   unique_ptr<TermIndexingStructure> _is;
   vmap<pair<unsigned, bool>, InductionTemplate*> _templates;
-  vmap<TermAlgebra*, vvector<InductionScheme::Case>> _taCaseMap;
 };
 
 /**

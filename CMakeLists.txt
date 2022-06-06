@@ -410,7 +410,6 @@ set(VAMPIRE_INFERENCE_SOURCES
     Inferences/ForwardLiteralRewriting.cpp
     Inferences/ForwardSubsumptionAndResolution.cpp
     Inferences/ForwardSubsumptionDemodulation.cpp
-    Inferences/GeneralInduction.cpp
     Inferences/GlobalSubsumption.cpp
     Inferences/HyperSuperposition.cpp
     Inferences/InductionHypothesisRewriting.cpp
@@ -568,7 +567,6 @@ set(VAMPIRE_SHELL_SOURCES
     Shell/GoalGuessing.cpp
     Shell/Grounding.cpp
     Shell/InductionPreprocessor.cpp
-    Shell/InductionSchemeGenerator.cpp
     Shell/InequalitySplitting.cpp
     Shell/InterpolantMinimizer.cpp
     Shell/Interpolants.cpp
@@ -762,8 +760,6 @@ set(UNIT_TESTS
     UnitTests/tFnDefRewriting.cpp
     UnitTests/tInductionHypothesisRewriting.cpp
     UnitTests/tInductionPreprocessor.cpp
-    UnitTests/tInductionSchemeGenerator.cpp
-    UnitTests/tGeneralInduction.cpp
     )
 source_group(unit_tests FILES ${UNIT_TESTS})
 

@@ -9,7 +9,7 @@
  */
 
 #include "Test/UnitTesting.hpp"
-#include "Shell/InductionSchemeGenerator.hpp"
+/*#include "Shell/InductionSchemeGenerator.hpp"
 #include "Inferences/GeneralInduction.hpp"
 
 using namespace Shell;
@@ -106,3 +106,4 @@ TEST_FUN(OccurrenceMap1) {
   check_next(0b1111, 0b1111, git2);
   ASS(!git2.hasNext());
 }
+ */
