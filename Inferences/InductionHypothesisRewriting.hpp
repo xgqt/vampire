@@ -76,8 +76,6 @@ public:
 #endif
 
 private:
-  ClauseIterator generateClauses(Literal* lit, Clause* premise);
-
   InductionEqualityLHSIndex *_lhsIndex;
   InductionInequalitySubtermIndex* _stIndex;
   GeneratingInferenceEngine* _induction;

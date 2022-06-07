@@ -138,7 +138,7 @@ TEST_GENERATION_INDUCTION_HRW(test_04,
       .expected(none())
     )
 
-// only same literal is recursed upon
+// whole clause is recursed upon
 TEST_GENERATION_INDUCTION_HRW(test_05,
     Generation::TestCase()
       .context({
@@ -148,17 +148,21 @@ TEST_GENERATION_INDUCTION_HRW(test_05,
       .indices({ lhsIndex(), subtermIndex() })
       .input( fromInduction(clause({ c != f(sk2,sk1), c != f(sk1,sk2) })) )
       .expected({
-        clause({ c != f(d,sk1), c != f(sk1,sk2) }), // result clause used again
-        clause({ c != f(d,b), c != f(sk1,sk2) }),
+        // one occurrence is rewritten
+        clause({ c != f(d,sk1), c != f(sk1,sk2) }),
+        clause({ c != f(sk2,b), c != f(sk1,sk2) }),
+        clause({ c != f(sk2,sk1), c != f(b,sk2) }),
+        clause({ c != f(sk2,sk1), c != f(sk1,d) }),
 
-        clause({ c != f(sk2,b), c != f(sk1,sk2) }), // result clause used again
+        // two occurrences
         clause({ c != f(d,b), c != f(sk1,sk2) }),
-
-        clause({ c != f(sk2,sk1), c != f(b,sk2) }), // result clause used again
+        clause({ c != f(d,b), c != f(sk1,sk2) }),
+        clause({ c != f(d,sk1), c != f(b,sk2) }),
+        clause({ c != f(d,sk1), c != f(b,sk2) }),
+        clause({ c != f(sk2,b), c != f(sk1,d) }),
+        clause({ c != f(sk2,b), c != f(sk1,d) }),
         clause({ c != f(sk2,sk1), c != f(b,d) }),
-
-        clause({ c != f(sk2,sk1), c != f(sk1,d) }), // result clause used again
-        clause({ c != f(sk2,sk1), c != f(b,d) })
+        clause({ c != f(sk2,sk1), c != f(b,d) }),
       })
     )
 

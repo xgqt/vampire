@@ -159,20 +159,19 @@ protected:
   TermList transformSubterm(TermList trm) override;
 
 private:
-  bool hasNextInner() const {
-    return _outerIter < _iteration.size() &&
-      _iteration[_outerIter] < _maxIterations[_outerIter];
-  }
+  bool shouldSkipIteration() const;
+  void stepIteration();
+  void getActiveOccurrences();
   // _iteration serves as a map of occurrences to replace
-  size_t _outerIter = 0;
   vvector<unsigned> _iteration;
   vvector<unsigned> _maxIterations;
   // Counts how many occurrences were already encountered in one transformation
   vvector<unsigned> _matchCount;
-  vvector<unsigned> _occurrences;
-  const unsigned _maxOccurrences = 20;
+  vvector<unsigned> _activeOccurrences;
+  const unsigned _maxOccurrences = 1 << 20;
   const unsigned _maxSubsetSize;
   bool _ready;
+  bool _done;
 };
 
 class Induction

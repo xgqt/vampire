@@ -24,35 +24,6 @@ using namespace Lib;
 
 namespace Shell {
 
-bool skolem(Term* t)
-{
-  ASS(!t->isLiteral());
-  return env.signature->getFunction(t->functor())->skolem();
-}
-
-bool containsSkolem(Term* t)
-{
-  CALL("containsSkolem");
-
-  ASS(!t->isLiteral());
-  NonVariableIterator nvi(t, true /* includeSelf */);
-  while (nvi.hasNext()) {
-    auto st = nvi.next();
-    if (skolem(st.term())) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool canInductOn(Term* t)
-{
-  CALL("canInductOn");
-
-  static bool complexTermsAllowed = env.options->inductionOnComplexTerms();
-  return skolem(t) || (complexTermsAllowed && containsSkolem(t));
-}
-
 void FnDefHandler::handleClause(Clause* c, unsigned fi, bool reversed)
 {
   CALL("FnDefHandler::handleClause");
@@ -120,7 +91,7 @@ void FnDefHandler::finalize()
         } else {
           env.out() << "[Induction] predicate: " << env.signature->getPredicate(it->first.first)->name() << endl;
         }
-        env.out() << ", with induction template: " << it->second << endl;
+        env.out() << ", with induction template: " << *it->second << endl;
         env.endOutput();
       }
       it++;

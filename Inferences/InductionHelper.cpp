@@ -154,13 +154,6 @@ bool InductionHelper::isStructInductionOneOn() {
   return structInd;
 }
 
-bool InductionHelper::isStructInductionRecDefOn() {
-  CALL("InductionHelper::isStructInductionRecDefOn");
-  static bool structInd = env.options->structInduction() == Options::StructuralInductionKind::ALL ||
-                          env.options->structInduction() == Options::StructuralInductionKind::REC_DEF;
-  return structInd;
-}
-
 bool InductionHelper::isNonUnitStructInductionOn() {
   CALL("InductionHelper::isNonUnitStructInductionOn");
   return isStructInductionOn() && env.options->nonUnitInduction();

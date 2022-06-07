@@ -27,10 +27,6 @@ using namespace Indexing;
 using namespace Kernel;
 using namespace Lib;
 
-bool skolem(Term* t);
-bool containsSkolem(Term* t);
-bool canInductOn(Term* t);
-
 /**
  * Corresponds to the branches of a function definition.
  * Stores the branches and the active positions

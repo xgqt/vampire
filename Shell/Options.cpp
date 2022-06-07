@@ -1259,7 +1259,7 @@ void Options::init()
     //_induction.setRandomChoices
 
     _structInduction = ChoiceOptionValue<StructuralInductionKind>("structural_induction_kind","sik",
-                         StructuralInductionKind::ONE,{"one","two","three","rec_def","all"});
+                         StructuralInductionKind::ONE,{"one","two","three","all"});
     _structInduction.description="The kind of structural induction applied";
     _structInduction.tag(OptionTag::INFERENCES);
     _structInduction.onlyUsefulWith(Or(_induction.is(equal(Induction::STRUCTURAL)),_induction.is(equal(Induction::BOTH))));
@@ -1332,33 +1332,21 @@ void Options::init()
     _inductionOnComplexTerms.onlyUsefulWith(_induction.is(notEqual(Induction::NONE)));
     _lookup.insert(&_inductionOnComplexTerms);
 
-    _inductionOnComplexTermsHeur = BoolOptionValue("induction_on_complex_terms_heuristic","indocth",true);
-    _inductionOnComplexTermsHeur.description = "When inducting on complex terms, only use them if they have more than one occurrence";
-    _inductionOnComplexTermsHeur.tag(OptionTag::INFERENCES);
-    _lookup.insert(&_inductionOnComplexTermsHeur);
-
     _inductionHypRewriting = BoolOptionValue("induction_hypothesis_rewriting","indhrw",true);
     _inductionHypRewriting.description = "Rewrite with induction hypotheses (possibly against the ordering) and perform induction on the result";
     _inductionHypRewriting.tag(OptionTag::INFERENCES);
     _lookup.insert(&_inductionHypRewriting);
 
-    _inductionMultiClause = BoolOptionValue("induction_multiclause","indmc",true);
-    _inductionMultiClause.description = "Induct on multiple clauses together when they contain the same induction terms";
-    _inductionMultiClause.tag(OptionTag::INFERENCES);
-    _lookup.insert(&_inductionMultiClause);
-
-    _inductionExhaustiveGeneration = BoolOptionValue("induction_exhaustive_generation","indeg",false);
-    _inductionExhaustiveGeneration.description = "When generating induction formulas, given a function/predicate f(t1,...,tn)"
-                                                  " apart from f with arguments t1,...,tn, consider f with any combination of"
-                                                  " subterms s1,...,sn s.t. si is a subterm of ti and is the same sort";
-    _inductionExhaustiveGeneration.tag(OptionTag::INFERENCES);
-    _inductionExhaustiveGeneration.reliesOn(_structInduction.is(equal(StructuralInductionKind::REC_DEF)));
-    _lookup.insert(&_inductionExhaustiveGeneration);
-
     _functionDefinitionRewriting = BoolOptionValue("function_definition_rewriting","fnrw",true);
     _functionDefinitionRewriting.description = "Use function definitions as rewrite rules with the intended orientation rather than the term ordering one";
     _functionDefinitionRewriting.tag(OptionTag::INFERENCES);
     _lookup.insert(&_functionDefinitionRewriting);
+
+    _inductionWithRecursiveFunctions = BoolOptionValue("induction_with_recursive_functions","indrfn",false);
+    _inductionWithRecursiveFunctions.description = "Use function definitions to generate induction formulas";
+    _inductionWithRecursiveFunctions.tag(OptionTag::INFERENCES);
+    _inductionWithRecursiveFunctions.onlyUsefulWith(_induction.is(notEqual(Induction::NONE)));
+    _lookup.insert(&_inductionWithRecursiveFunctions);
 
     _integerInductionDefaultBound = BoolOptionValue("int_induction_default_bound","intinddb",false);
     _integerInductionDefaultBound.description = "Always apply integer induction with bound 0";

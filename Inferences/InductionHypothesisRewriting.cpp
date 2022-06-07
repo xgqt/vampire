@@ -12,13 +12,11 @@
  * Implements class InductionHypothesisRewriting.
  */
 
-#include "Lib/Environment.hpp"
 #include "Lib/Metaiterators.hpp"
 
 #include "Kernel/Clause.hpp"
 #include "Kernel/EqHelper.hpp"
 #include "Kernel/Inference.hpp"
-#include "Kernel/RobSubstitution.hpp"
 #include "Kernel/SortHelper.hpp"
 #include "Kernel/Term.hpp"
 #include "Kernel/TermIterators.hpp"
@@ -41,9 +39,6 @@ using namespace Indexing;
 struct FilterFn
 {
   bool operator()(const pair<TermQueryResult, TermQueryResult>& p) const {
-    if (!p.first.literal->isEquality() || !p.second.literal->isEquality()) {
-      return false;
-    }
     vset<unsigned> mainSk = InductionHelper::collectInductionSkolems(p.first.literal, p.first.clause);
     if (mainSk.empty()) {
       return false;
@@ -56,105 +51,45 @@ struct FilterFn
   }
 };
 
-struct SideFn
-{
-  VirtualIterator<pair<pair<TermQueryResult, TermQueryResult>, TermList> > operator()(const pair<TermQueryResult, TermQueryResult>& p)
-  {
-    return pvi( pushPairIntoRightIterator(p, EqHelper::getEqualityArgumentIterator(p.first.literal)) );
-  }
-};
-
-struct GeneralizationsFn
-{
-  GeneralizationsFn(InductionEqualityLHSIndex* index) : _index(index) {}
-  VirtualIterator<pair<TermQueryResult, TermQueryResult> > operator()(TermQueryResult qr)
-  {
-    return pvi( pushPairIntoRightIterator(qr, _index->getGeneralizations(qr.term)) );
-  }
-private:
-  InductionEqualityLHSIndex* _index;
-};
-
-struct InstancesFn
-{
-  InstancesFn(InductionInequalitySubtermIndex* index) : _index(index) {}
-  VirtualIterator<pair<TermQueryResult, TermQueryResult> > operator()(TermQueryResult qr)
-  {
-    return pvi( getMappingIterator(_index->getInstances(qr.term), PairLeftPushingFn<TermQueryResult, TermQueryResult>(qr)) );
-  }
-private:
-  InductionInequalitySubtermIndex* _index;
-};
-
-struct TermToTermQueryResultFn
-{
-  TermToTermQueryResultFn(Literal* lit, Clause* cl) : _lit(lit), _cl(cl) {}
-  TermQueryResult operator()(TermList t)
-  {
-    return TermQueryResult(t, _lit, _cl);
-  }
-private:
-  Literal* _lit;
-  Clause* _cl;
-};
-
-struct ResultsFn
-{
-  ResultsFn(InductionHypothesisRewriting* indhrw) : _indhrw(indhrw) {}
-  ClauseIterator operator()(const pair<pair<TermQueryResult, TermQueryResult>, TermList>& p)
-  {
-    auto& qr1 = p.first.first;
-    auto& qr2 = p.first.second;
-
-    vset<unsigned> sk = InductionHelper::collectInductionSkolems(qr2.literal, qr2.clause);
-    return _indhrw->perform(sk, qr1.clause, qr1.literal, p.second, qr1.term,
-      qr2.clause, qr2.literal, qr2.term,
-      qr1.substitution ? qr1.substitution : qr2.substitution, !qr1.substitution);
-  }
-private:
-  InductionHypothesisRewriting* _indhrw;
-};
-
 ClauseIterator InductionHypothesisRewriting::generateClauses(Clause *premise)
 {
   CALL("InductionHypothesisRewriting::generateClauses(Clause*)");
 
-  ClauseIterator res = ClauseIterator::getEmpty();
-  for (unsigned i = 0; i < premise->length(); i++) {
-    res = pvi(getConcatenatedIterator(res, generateClauses((*premise)[i], premise)));
-  }
-  return res;
-}
+  return pvi( iterTraits(premise->iterLits())
+    .filter([premise](Literal* lit) {
+      return lit->isEquality() && InductionHelper::isInductionLiteral(lit, premise);
+    })
+    .flatMap([](Literal* lit) {
+      TermIterator it;
+      if (lit->isNegative()) {
+        NonVariableNonTypeIterator nvi(lit);
+        it = pvi(getUniquePersistentIteratorFromPtr(&nvi));
+      } else {
+        it = EqHelper::getEqualityArgumentIterator(lit);
+      }
+      return pvi( pushPairIntoRightIterator(lit, it) );
+    })
+    .flatMap([this,premise](const pair<Literal*, TermList>& kv) {
+      TermQueryResult qr(kv.second, kv.first, premise);
+      if (kv.first->isNegative()) {
+        return pvi( pushPairIntoRightIterator(qr, _lhsIndex->getGeneralizations(qr.term)) );
+      } else {
+        return pvi( getMappingIterator(_stIndex->getInstances(qr.term), PairLeftPushingFn<TermQueryResult, TermQueryResult>(qr)) );
+      }
+    })
+    .filter(FilterFn())
+    .flatMap([](const pair<TermQueryResult, TermQueryResult>& p) {
+      return pvi( pushPairIntoRightIterator(p, EqHelper::getEqualityArgumentIterator(p.first.literal)) );
+    })
+    .flatMap([this](const pair<pair<TermQueryResult, TermQueryResult>, TermList>& p) {
+      auto& qr1 = p.first.first;
+      auto& qr2 = p.first.second;
 
-ClauseIterator InductionHypothesisRewriting::generateClauses(Literal* lit, Clause *premise)
-{
-  CALL("InductionHypothesisRewriting::generateClauses(Literal*,Clause*)");
-
-  if (!lit->isEquality() || !InductionHelper::isInductionLiteral(lit, premise)) {
-    return ClauseIterator::getEmpty();
-  }
-
-  // create pairs of TermQueryResult: (conclusion, hypothesis)
-  TermIterator it;
-  if (lit->isNegative()) {
-    NonVariableNonTypeIterator nvi(lit);
-    it = pvi(getUniquePersistentIteratorFromPtr(&nvi));
-  } else {
-    it = EqHelper::getEqualityArgumentIterator(lit);
-  }
-  auto it2 = getMappingIterator(it, TermToTermQueryResultFn(lit, premise));
-  VirtualIterator<pair<TermQueryResult, TermQueryResult>> it3;
-  if (lit->isNegative()) {
-    it3 = pvi(getMapAndFlattenIterator(it2, GeneralizationsFn(_lhsIndex)));
-  } else {
-    it3 = pvi(getMapAndFlattenIterator(it2, InstancesFn(_stIndex)));
-  }
-  // filter the pairs
-  auto it4 = getFilteredIterator(it3, FilterFn());
-  // add the two sides of inequality for each conclusion
-  auto it5 = getMapAndFlattenIterator(it4, SideFn());
-  // compute results
-  return pvi(getMapAndFlattenIterator(it5, ResultsFn(this)));
+      vset<unsigned> sk = InductionHelper::collectInductionSkolems(qr2.literal, qr2.clause);
+      return perform(sk, qr1.clause, qr1.literal, p.second, qr1.term,
+        qr2.clause, qr2.literal, qr2.term,
+        qr1.substitution ? qr1.substitution : qr2.substitution, !qr1.substitution);
+    }));
 }
 
 ClauseIterator InductionHypothesisRewriting::perform(const vset<unsigned>& sig,
@@ -273,5 +208,5 @@ ClauseIterator InductionHypothesisRewriting::perform(const vset<unsigned>& sig,
   for (const auto& fn : sig) {
     newCl->inference().removeFromInductionInfo(fn);
   }
-  return pvi(getConcatenatedIterator(generateClauses(tgtLitS, newCl), _induction->generateClauses(newCl)));
+  return pvi(getConcatenatedIterator(generateClauses(newCl), _induction->generateClauses(newCl)));
 }

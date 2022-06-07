@@ -229,23 +229,30 @@ ContextReplacement* ContextSubsetReplacement::instance(const InductionContext& c
 
 ContextSubsetReplacement::ContextSubsetReplacement(const InductionContext& context, const unsigned maxSubsetSize)
   : ContextReplacement(context),
-    _iteration(context._indTerms.size(),0),
+    _iteration(context._indTerms.size(),1), // we want to exclude empty subset, so set all to 1
     _maxIterations(context._indTerms.size(),0),
     _matchCount(context._indTerms.size(),0),
-    _occurrences(context._indTerms.size(),0),
+    _activeOccurrences(),
     _maxSubsetSize(maxSubsetSize),
-    _ready(false)
+    _ready(false), _done(false)
 {
-  for (const auto& kv : _context._cls) {
-    for (const auto& lit : kv.second) {
-      for (unsigned i = 0; i < _context._indTerms.size(); i++) {
-        _occurrences[i] += lit->countSubtermOccurrences(TermList(_context._indTerms[i]));
+  for (unsigned i = 0; i < _context._indTerms.size(); i++) {
+    unsigned occurrences = 0;
+    for (const auto& kv : _context._cls) {
+      for (const auto& lit : kv.second) {
+        occurrences += lit->countSubtermOccurrences(TermList(_context._indTerms[i]));
       }
     }
+    _maxIterations[i] = pow(2, occurrences);
+    if (_maxIterations[i] > _maxOccurrences) {
+      _iteration[i] = _maxIterations[i]-1;
+    }
   }
-  for (unsigned i = 0; i < _context._indTerms.size(); i++) {
-    _maxIterations[i] = pow(2, _occurrences[i]);
+  while (!_done && shouldSkipIteration()) {
+    stepIteration();
   }
+  _ready = true;
+  // getActiveOccurrences();
 }
 
 TermList ContextSubsetReplacement::transformSubterm(TermList trm)
@@ -255,9 +262,7 @@ TermList ContextSubsetReplacement::transformSubterm(TermList trm)
     auto it = std::find(_context._indTerms.begin(), _context._indTerms.end(), trm.term());
     if (it != _context._indTerms.end()) {
       auto i = it - _context._indTerms.begin();
-      // Replace either if there are too many occurrences to try all possibilities,
-      // or if the bit in _iteration corresponding to this match is set to 1.
-      if ((_occurrences[i] > _maxOccurrences) || (1 & (_iteration[i] >> _matchCount[i]++))) {
+      if (1 & (_iteration[i] >> _matchCount[i]++)) {
         return _m.at(trm.term());
       }
     }
@@ -269,34 +274,20 @@ bool ContextSubsetReplacement::hasNext()
 {
   CALL("ContextSubsetReplacement::hasNext");
   if (_ready) {
-    return hasNextInner();
+    return !_done;
   }
   _ready = true;
-  // Increment _iteration, since it either is 0, or was already used.
-  _iteration[_outerIter]++;
-  // Note: __builtin_popcount() is a GCC built-in function.
-  unsigned setBits = __builtin_popcount(_iteration[_outerIter]);
-  // Skip this iteration if not all bits are set, but more than maxSubset are set.
-  while (hasNextInner() &&
-         ((_maxSubsetSize > 0) && (setBits < _occurrences[_outerIter]) && (setBits > _maxSubsetSize))) {
-    _iteration[_outerIter]++;
-    setBits = __builtin_popcount(_iteration[_outerIter]);
+  stepIteration();
+  while (!_done && shouldSkipIteration()) {
+    stepIteration();
   }
-  if (!hasNextInner() ||
-      ((_occurrences[_outerIter] > _maxOccurrences) &&
-       (_iteration[_outerIter] > 1))) {
-    // All combinations were already returned.
-    return false;
-  }
-  return true;
+  return !_done;
 }
 
 InductionContext ContextSubsetReplacement::next() {
   CALL("ContextSubsetReplacement::next");
   ASS(_ready);
   InductionContext context(_context._indTerms);
-  ASSERTION_VIOLATION;
-  // TODO fix generalization
   for (unsigned i = 0; i < _context._indTerms.size(); i++) {
     _matchCount[i] = 0;
   }
@@ -310,6 +301,83 @@ InductionContext ContextSubsetReplacement::next() {
   }
   _ready = false;
   return context;
+}
+
+bool ContextSubsetReplacement::shouldSkipIteration() const
+{
+  CALL("ContextSubsetReplacement::shouldSkipIteration");
+  const bool subsetSizeCheck = _maxSubsetSize > 0;
+  for (unsigned i = 0; i < _iteration.size(); i++) {
+    unsigned setBits = __builtin_popcount(_iteration[i]);
+    // never skip no generalization
+    if (_iteration[i] == _maxIterations[i]-1) {
+      continue;
+    }
+    if (subsetSizeCheck && setBits > _maxSubsetSize) {
+      return true;
+    }
+    // if (_iteration[i] != _activeOccurrences[i]) {
+    //   return true;
+    // }
+  }
+  return false;
+}
+
+void ContextSubsetReplacement::stepIteration()
+{
+  CALL("ContextSubsetReplacement::stepIteration");
+  for (unsigned i = 0; i < _iteration.size(); i++) {
+    if (_maxIterations[i] > _maxOccurrences) {
+      continue;
+    }
+    _iteration[i]++;
+    if (_iteration[i] < _maxIterations[i]) {
+      return;
+    } else {
+      _iteration[i] = 1;
+    }
+  }
+  _done = true;
+}
+
+void ContextSubsetReplacement::getActiveOccurrences()
+{
+  CALL("ContextSubsetReplacement::getActiveOccurrences");
+  _activeOccurrences = vvector<unsigned>(_context._indTerms.size(),0);
+  vvector<decltype(_context._cls.begin())> refs;
+  for (auto it = _context._cls.begin(); it != _context._cls.end(); it++) {
+    refs.push_back(it);
+  }
+  Stack<pair<Term*,bool>> stack(8);
+  for (int i = refs.size()-1; i >= 0; i--) {
+    for (int j = refs[i]->second.size()-1; j >= 0; j--) {
+      stack.reset();
+      stack.push(make_pair(refs[i]->second[j],true));
+      while (stack.isNonEmpty()) {
+        auto kv = stack.pop();
+        auto t = kv.first;
+        auto active = kv.second;
+        auto f = t->functor();
+        auto lit = t->isLiteral();
+        if (active && env.signature->getFnDefHandler()->hasInductionTemplate(f, !lit)) {
+          auto& actPos = env.signature->getFnDefHandler()->getInductionTemplate(f, !lit)->inductionPositions();
+          for (int k = t->arity()-1; k >= 0; k--) {
+            stack.push(make_pair(t->nthArgument(k)->term(), actPos[k]));
+          }
+        } else {
+          for (int k = t->arity()-1; k >= 0; k--) {
+            stack.push(make_pair(t->nthArgument(k)->term(), active));
+          }
+        }
+        auto it = std::find(_context._indTerms.begin(), _context._indTerms.end(), t);
+        if (it != _context._indTerms.end()) {
+          auto idx = _context._indTerms.end() - it;
+          _activeOccurrences[idx] <<= 1;
+          _activeOccurrences[idx] = _activeOccurrences[idx] & active;
+        }
+      }
+    }
+  }
 }
 
 void Induction::attach(SaturationAlgorithm* salg) {
@@ -634,9 +702,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
     if (!InductionHelper::isInductionLiteral(lit)) {
       return;
     }
-    static bool rec_def = _opt.structInduction() == Options::StructuralInductionKind::REC_DEF ||
-                      _opt.structInduction() == Options::StructuralInductionKind::ALL;
-    if (!rec_def) {
+    if (!_opt.inductionWithRecursiveFunctions()) {
       return;
     }
     for (const auto& kv : fn_terms) {

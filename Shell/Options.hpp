@@ -235,7 +235,6 @@ public:
     ONE,
     TWO,
     THREE,
-    REC_DEF,
     ALL
   };
   enum class IntInductionKind : unsigned int {
@@ -2320,11 +2319,9 @@ public:
   bool inductionStrengthenHypothesis() const { return _inductionStrengthenHypothesis.actualValue; }
   unsigned maxInductionGenSubsetSize() const { return _maxInductionGenSubsetSize.actualValue; }
   bool inductionOnComplexTerms() const {return _inductionOnComplexTerms.actualValue;}
-  bool inductionOnComplexTermsHeuristic() const { return _inductionOnComplexTermsHeur.actualValue; }
   bool inductionHypRewriting() const { return _inductionHypRewriting.actualValue; }
-  bool inductionMultiClause() const { return _inductionMultiClause.actualValue; }
-  bool inductionExhaustiveGeneration() const { return _inductionExhaustiveGeneration.actualValue; }
   bool functionDefinitionRewriting() const { return _functionDefinitionRewriting.actualValue; }
+  bool inductionWithRecursiveFunctions() const { return _inductionWithRecursiveFunctions.actualValue; }
   bool integerInductionDefaultBound() const { return _integerInductionDefaultBound.actualValue; }
   IntegerInductionInterval integerInductionInterval() const { return _integerInductionInterval.actualValue; }
   IntegerInductionLiteralStrictness integerInductionStrictnessEq() const {return _integerInductionStrictnessEq.actualValue; }
@@ -2629,11 +2626,9 @@ private:
   BoolOptionValue _inductionStrengthenHypothesis;
   UnsignedOptionValue _maxInductionGenSubsetSize;
   BoolOptionValue _inductionOnComplexTerms;
-  BoolOptionValue _inductionOnComplexTermsHeur;
   BoolOptionValue _inductionHypRewriting;
-  BoolOptionValue _inductionMultiClause;
-  BoolOptionValue _inductionExhaustiveGeneration;
   BoolOptionValue _functionDefinitionRewriting;
+  BoolOptionValue _inductionWithRecursiveFunctions;
   BoolOptionValue _integerInductionDefaultBound;
   ChoiceOptionValue<IntegerInductionInterval> _integerInductionInterval;
   ChoiceOptionValue<IntegerInductionLiteralStrictness> _integerInductionStrictnessEq;
