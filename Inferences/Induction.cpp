@@ -69,16 +69,17 @@ TermList ActiveOccurrenceIterator::next()
 Term* getPlaceholderForTerm(const vvector<Term*>& ts, unsigned i)
 {
   CALL("getPlaceholderForTerm");
-  static DHMap<TermList,Term*> placeholders;
+  static DHMap<pair<TermList,unsigned>,Term*> placeholders;
   TermList srt = env.signature->getFunction(ts[i]->functor())->fnType()->result();
-  if(!placeholders.find(srt)){
+  auto p = make_pair(srt,i);
+  if(!placeholders.find(p)){
     unsigned fresh = env.signature->addFreshFunction(0,(srt.toString() + "_placeholder" + Int::toString(i)).c_str());
     env.signature->getFunction(fresh)->setType(OperatorType::getConstantsType(srt));
     auto res = Term::createConstant(fresh);
-    placeholders.insert(srt,res);
+    placeholders.insert(p,res);
     return res;
   }
-  return placeholders.get(srt);
+  return placeholders.get(p);
 }
 
 TermList TermReplacement::transformSubterm(TermList trm)
@@ -723,16 +724,18 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
     for (const auto& kv : fn_terms) {
       InductionContext context(kv.first);
       context.insert(premise, lit);
-      ContextReplacement cr(context);
-      auto ctx = cr.next();
-      InductionFormulaIndex::Entry* e;
-      if (_recFormulaIndex.findOrInsert(ctx, e)) {
-        for (const auto& templ : kv.second) {
-          performRecursionInduction(ctx, templ, e);
+      auto cr = vi(ContextSubsetReplacement::instance(context, _opt));
+      while (cr.hasNext()) {
+        auto ctx = cr.next();
+        InductionFormulaIndex::Entry* e;
+        if (_recFormulaIndex.findOrInsert(ctx, e)) {
+          for (const auto& templ : kv.second) {
+            performRecursionInduction(ctx, templ, e);
+          }
         }
-      }
-      for (auto& kv2 : e->get()) {
-        resolveClauses(kv2.first, ctx, kv2.second);
+        for (auto& kv2 : e->get()) {
+          resolveClauses(kv2.first, ctx, kv2.second);
+        }
       }
     }
   }

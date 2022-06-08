@@ -273,8 +273,10 @@ bool InductionTemplate::matchesTerm(Term* t, vvector<Term*>& inductionTerms) con
   for (unsigned i = 0; i < t->arity(); i++) {
     auto arg = t->nthArgument(i)->term();
     auto f = arg->functor();
-    if (_indPos[i] && InductionHelper::isInductionTermFunctor(f)) {
-      if (!InductionHelper::isStructInductionOn() || !InductionHelper::isStructInductionFunctor(f)) {
+    if (_indPos[i]) {
+      if (!InductionHelper::isInductionTermFunctor(f) ||
+          !InductionHelper::isStructInductionOn() ||
+          !InductionHelper::isStructInductionFunctor(f)) {
         return false;
       }
       auto it = std::find(inductionTerms.begin(),inductionTerms.end(),arg);
