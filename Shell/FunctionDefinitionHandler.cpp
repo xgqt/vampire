@@ -60,14 +60,18 @@ bool FunctionDefinitionHandler::preprocess(Formula* f, Stack<Branch>& branches)
   ASS(l->isEquality());
 
   //TODO handle predicate definitions as well
-  TermList sort = SortHelper::getEqualityArgumentSort(l);
-  if (sort.isBoolSort()) {
-    return false;
-  }
   ASS(l->nthArgument(0)->isTerm());
+  auto header = l->nthArgument(0)->term();
+  if (header->isSpecial()) {
+    // literal headers are nicely packed into multiple layers
+    ASS_EQ(header->getSpecialData()->getType(), Term::SF_FORMULA);
+    auto of = header->getSpecialData()->getFormula();
+    ASS_EQ(of->connective(), LITERAL);
+    header = of->literal();
+  }
   Stack<Branch> todos;
   todos.push({
-    .header = l->nthArgument(0)->term(),
+    .header = header,
     .body = *l->nthArgument(1),
     .literals = LiteralStack()
   });
@@ -80,7 +84,15 @@ bool FunctionDefinitionHandler::preprocess(Formula* f, Stack<Branch>& branches)
     auto t = b.body.term();
     Term::SpecialTermData *sd = t->getSpecialData();
     switch (sd->getType()) {
-      case Term::SF_FORMULA:
+      case Term::SF_FORMULA: {
+        // only the atoms of formula bodies of bool
+        // functions are interesting, so save them
+        ASS(header->isLiteral());
+        auto f = sd->getFormula();
+        f->collectAtoms(b.literals);
+        branches.push(std::move(b));
+        break;
+      }
       case Term::SF_LET:
       case Term::SF_LET_TUPLE:
       case Term::SF_TUPLE: {
@@ -88,7 +100,6 @@ bool FunctionDefinitionHandler::preprocess(Formula* f, Stack<Branch>& branches)
       }
 
       case Term::SF_ITE: {
-        sort = sd->getSort();
         auto cf = sd->getCondition();
         switch (cf->connective())
         {
@@ -106,7 +117,6 @@ bool FunctionDefinitionHandler::preprocess(Formula* f, Stack<Branch>& branches)
       }
 
       case Term::SF_MATCH: {
-        sort = sd->getSort();
         auto matched = *t->nthArgument(0);
         for (unsigned int i = 1; i < t->arity(); i += 2) {
           todos.push(substituteBoundVariable(matched.var(), *t->nthArgument(i), b, *t->nthArgument(i+1)));
@@ -124,41 +134,38 @@ bool FunctionDefinitionHandler::preprocess(Formula* f, Stack<Branch>& branches)
 void FunctionDefinitionHandler::addFunction(const Stack<Branch>& branches, Unit* unit)
 {
   CALL("FunctionDefinitionHandler::addFunction");
-  ASS(branches.isNonEmpty());
+  ASS_REP(branches.isNonEmpty(), unit->toString());
 
   auto header = branches[0].header;
   auto fn = header->functor();
   auto isLit = header->isLiteral();
   auto symb = isLit ? env.signature->getPredicate(fn) : env.signature->getFunction(fn);
-  ASS(!isLit);
   auto sort = isLit ? symb->predType()->result() : symb->fnType()->result();
   auto templ = new InductionTemplate(header);
   for (auto& b : branches) {
     // handle for induction
     vvector<Term*> recursiveCalls;
-    if (b.body.isTerm()) {
-      NonVariableIterator it(b.body.term(), true);
-      while (it.hasNext()) {
-        auto st = it.next();
-        if (st.term()->functor() == fn) {
-          recursiveCalls.push_back(st.term());
+    if (isLit) {
+      for(const auto& lit : b.literals) {
+        if (!lit->isEquality() && fn == lit->functor()) {
+          recursiveCalls.push_back(lit->isPositive() ? lit : Literal::complementaryLiteral(lit));
+        }
+      }
+    } else {
+      if (b.body.isTerm()) {
+        NonVariableIterator it(b.body.term(), true);
+        while (it.hasNext()) {
+          auto st = it.next();
+          if (st.term()->functor() == fn) {
+            recursiveCalls.push_back(st.term());
+          }
         }
       }
     }
-    // TODO: if sort is bool, recursive calls are other literals
-    // header = lit->isPositive() ? lit : Literal::complementaryLiteral(lit);
-    // for(unsigned i = 0; i < c->length(); i++) {
-    //   if (fi != i) {
-    //     Literal* curr = (*c)[i];
-    //     if (!curr->isEquality() && fn == curr->functor()) {
-    //       recursiveCalls.push_back(curr->isPositive() ? curr : Literal::complementaryLiteral(curr));
-    //     }
-    //   }
-    // }
     templ->addBranch(std::move(recursiveCalls), b.header);
 
     // handle for rewriting
-    if (env.options->functionDefinitionRewriting()) {
+    if (!isLit && env.options->functionDefinitionRewriting()) {
       auto mainLit = Literal::createEquality(true, TermList(b.header), b.body, sort);
       b.literals.push(mainLit);
       auto rwCl = Clause::fromStack(b.literals, FormulaTransformation(InferenceRule::CLAUSIFY,unit));
@@ -174,7 +181,7 @@ void FunctionDefinitionHandler::addFunction(const Stack<Branch>& branches, Unit*
       env.out() << ", with induction template: " << templ->toString() << endl;
       env.endOutput();
     }
-    ALWAYS(_templates.insert(make_pair(make_pair(fn,true), templ)).second);
+    ALWAYS(_templates.insert(make_pair(make_pair(fn,!isLit), templ)).second);
   }
 }
 
