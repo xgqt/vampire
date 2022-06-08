@@ -210,23 +210,6 @@ FunctionDefinitionHandler::Branch FunctionDefinitionHandler::addCondition(Litera
   return bn;
 }
 
-ostream& operator<<(ostream& out, const InductionTemplate::Branch& branch)
-{
-  if (!branch._recursiveCalls.empty()) {
-    out << "(";
-    unsigned n = 0;
-    for (const auto& r : branch._recursiveCalls) {
-      out << *r;
-      if (++n < branch._recursiveCalls.size()) {
-        out << " & ";
-      }
-    }
-    out << ") => ";
-  }
-  out << *branch._header;
-  return out;
-}
-
 bool InductionTemplate::finalize() {
   CALL("InductionTemplate::finalize");
 
@@ -343,25 +326,7 @@ bool InductionTemplate::checkUsefulness() const
       discard = false;
     }
   }
-  if (discard) {
-    auto t = _branches.begin()->_header;
-    if (env.options->showInduction()) {
-      env.beginOutput();
-      env.out() << "% Warning: template for "
-                << (t->isLiteral() ? "predicate " : "function ")
-                << (t->isLiteral() ? static_cast<Literal*>(t)->predicateName() : t->functionName())
-                << " is discarded because it is not useful" << endl;
-      env.endOutput();
-    }
-  }
   return !discard;
-}
-
-VList* getVariables(TermList t) {
-  if (t.isVar()) {
-    return VList::singleton(t.var());
-  }
-  return t.freeVariables();
 }
 
 bool InductionTemplate::checkWellFoundedness()
@@ -413,7 +378,18 @@ vstring InductionTemplate::toString() const
   str << "Branches: ";
   unsigned n = 0;
   for (const auto& b : _branches) {
-    str << b;
+    if (!b._recursiveCalls.empty()) {
+      str << "(";
+      unsigned n = 0;
+      for (const auto& r : b._recursiveCalls) {
+        str << *r;
+        if (++n < b._recursiveCalls.size()) {
+          str << " & ";
+        }
+      }
+      str << ") => ";
+    }
+    str << *b._header;
     if (++n < _branches.size()) {
       str << "; ";
     }

@@ -98,8 +98,7 @@ ClauseIterator FnDefRewriting::generateClauses(Clause *premise)
   //Perform forward rewriting
   auto it = pvi(getMappingIterator(itf3, ForwardResultFn(premise)));
   // Remove null elements
-  auto it2 = getFilteredIterator(it, NonzeroFn());
-  return getTimeCountedIterator(it2, TC_FNDEF_REWRITING);
+  return pvi(getFilteredIterator(it, NonzeroFn()));
 }
 
 bool FnDefRewriting::perform(Clause* cl, Clause*& replacement, ClauseIterator& premises)

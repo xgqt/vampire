@@ -235,6 +235,7 @@ public:
     ONE,
     TWO,
     THREE,
+    RECURSION,
     ALL
   };
   enum class IntInductionKind : unsigned int {
@@ -2320,7 +2321,6 @@ public:
   unsigned maxInductionGenSubsetSize() const { return _maxInductionGenSubsetSize.actualValue; }
   bool inductionOnComplexTerms() const {return _inductionOnComplexTerms.actualValue;}
   bool functionDefinitionRewriting() const { return _functionDefinitionRewriting.actualValue; }
-  bool inductionWithRecursiveFunctions() const { return _inductionWithRecursiveFunctions.actualValue; }
   bool integerInductionDefaultBound() const { return _integerInductionDefaultBound.actualValue; }
   IntegerInductionInterval integerInductionInterval() const { return _integerInductionInterval.actualValue; }
   IntegerInductionLiteralStrictness integerInductionStrictnessEq() const {return _integerInductionStrictnessEq.actualValue; }
@@ -2626,7 +2626,6 @@ private:
   UnsignedOptionValue _maxInductionGenSubsetSize;
   BoolOptionValue _inductionOnComplexTerms;
   BoolOptionValue _functionDefinitionRewriting;
-  BoolOptionValue _inductionWithRecursiveFunctions;
   BoolOptionValue _integerInductionDefaultBound;
   ChoiceOptionValue<IntegerInductionInterval> _integerInductionInterval;
   ChoiceOptionValue<IntegerInductionLiteralStrictness> _integerInductionStrictnessEq;

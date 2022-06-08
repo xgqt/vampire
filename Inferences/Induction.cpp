@@ -543,8 +543,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
   if (lit->ground()) {
       Set<Term*> ta_terms;
       Set<Term*> int_terms;
-      // TODO this should be a map from induction terms to an array of templates
-      vvector<pair<vvector<Term*>,const InductionTemplate*>> fn_terms;
+      vmap<vvector<Term*>,vvector<const InductionTemplate*>> fn_terms;
 
       auto fnDefHandler = _salg->getFunctionDefinitionHandler();
       auto templ = fnDefHandler ?
@@ -552,7 +551,11 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       if (templ) {
         vvector<Term*> indTerms;
         if (templ->matchesTerm(lit, indTerms)) {
-          fn_terms.push_back(make_pair(indTerms, templ));
+          auto it = fn_terms.find(indTerms);
+          if (it == fn_terms.end()) {
+            it = fn_terms.insert(make_pair(indTerms,vvector<const InductionTemplate*>())).first;
+          }
+          it->second.push_back(templ);
         }
       }
 
@@ -574,7 +577,11 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
         if (templ) {
           vvector<Term*> indTerms;
           if (templ->matchesTerm(ts.term(), indTerms)) {
-            fn_terms.push_back(make_pair(indTerms, templ));
+            auto it = fn_terms.find(indTerms);
+            if (it == fn_terms.end()) {
+              it = fn_terms.insert(make_pair(indTerms,vvector<const InductionTemplate*>())).first;
+            }
+            it->second.push_back(templ);
           }
         }
       }
@@ -708,7 +715,9 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
     if (!InductionHelper::isInductionLiteral(lit)) {
       return;
     }
-    if (!_opt.inductionWithRecursiveFunctions()) {
+    static bool rec = _opt.structInduction() == Options::StructuralInductionKind::RECURSION ||
+                      _opt.structInduction() == Options::StructuralInductionKind::ALL;
+    if (!rec) {
       return;
     }
     for (const auto& kv : fn_terms) {
@@ -718,10 +727,12 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       auto ctx = cr.next();
       InductionFormulaIndex::Entry* e;
       if (_recFormulaIndex.findOrInsert(ctx, e)) {
-        performRecursionInduction(ctx, kv.second, e);
+        for (const auto& templ : kv.second) {
+          performRecursionInduction(ctx, templ, e);
+        }
       }
-      for (auto& kv : e->get()) {
-        resolveClauses(kv.first, ctx, kv.second);
+      for (auto& kv2 : e->get()) {
+        resolveClauses(kv2.first, ctx, kv2.second);
       }
     }
   }

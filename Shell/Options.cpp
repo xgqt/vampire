@@ -1259,7 +1259,7 @@ void Options::init()
     //_induction.setRandomChoices
 
     _structInduction = ChoiceOptionValue<StructuralInductionKind>("structural_induction_kind","sik",
-                         StructuralInductionKind::ONE,{"one","two","three","all"});
+                         StructuralInductionKind::ONE,{"one","two","three","recursion","all"});
     _structInduction.description="The kind of structural induction applied";
     _structInduction.tag(OptionTag::INFERENCES);
     _structInduction.onlyUsefulWith(Or(_induction.is(equal(Induction::STRUCTURAL)),_induction.is(equal(Induction::BOTH))));
@@ -1336,12 +1336,6 @@ void Options::init()
     _functionDefinitionRewriting.description = "Use function definitions as rewrite rules with the intended orientation rather than the term ordering one";
     _functionDefinitionRewriting.tag(OptionTag::INFERENCES);
     _lookup.insert(&_functionDefinitionRewriting);
-
-    _inductionWithRecursiveFunctions = BoolOptionValue("induction_with_recursive_functions","indrfn",false);
-    _inductionWithRecursiveFunctions.description = "Use function definitions to generate induction formulas";
-    _inductionWithRecursiveFunctions.tag(OptionTag::INFERENCES);
-    _inductionWithRecursiveFunctions.onlyUsefulWith(_induction.is(notEqual(Induction::NONE)));
-    _lookup.insert(&_inductionWithRecursiveFunctions);
 
     _integerInductionDefaultBound = BoolOptionValue("int_induction_default_bound","intinddb",false);
     _integerInductionDefaultBound.description = "Always apply integer induction with bound 0";
