@@ -45,8 +45,6 @@
 
 #include "DP/ShortConflictMetaDP.hpp"
 
-#include "Inferences/InductionHelper.hpp"
-
 #include "SaturationAlgorithm.hpp"
 
 namespace Saturation
@@ -1286,15 +1284,6 @@ Clause* Splitter::buildAndInsertComponentClause(SplitLevel name, unsigned size, 
     compCl->setAge(orig->age());
     compCl->inference().th_ancestors = orig->inference().th_ancestors;
     compCl->inference().all_ancestors = orig->inference().all_ancestors;
-    DHSet<unsigned>* origii = static_cast<DHSet<unsigned>*>(orig->inference().inductionInfo());
-    if (origii) {
-      for (unsigned i = 0; i < size; i++) {
-        auto inductionInfo = Inferences::InductionHelper::collectInductionSkolems(lits[i], origii);
-        for (const auto& e : inductionInfo) {
-          compCl->inference().addToInductionInfo(e);
-        }
-      }
-    }
   } else {
     compCl->setAge(AGE_NOT_FILLED);
     // We don't know anything about the derivation of the clause, so we set values which are as neutral as possible.

@@ -1332,11 +1332,6 @@ void Options::init()
     _inductionOnComplexTerms.onlyUsefulWith(_induction.is(notEqual(Induction::NONE)));
     _lookup.insert(&_inductionOnComplexTerms);
 
-    _inductionHypRewriting = BoolOptionValue("induction_hypothesis_rewriting","indhrw",true);
-    _inductionHypRewriting.description = "Rewrite with induction hypotheses (possibly against the ordering) and perform induction on the result";
-    _inductionHypRewriting.tag(OptionTag::INFERENCES);
-    _lookup.insert(&_inductionHypRewriting);
-
     _functionDefinitionRewriting = BoolOptionValue("function_definition_rewriting","fnrw",true);
     _functionDefinitionRewriting.description = "Use function definitions as rewrite rules with the intended orientation rather than the term ordering one";
     _functionDefinitionRewriting.tag(OptionTag::INFERENCES);

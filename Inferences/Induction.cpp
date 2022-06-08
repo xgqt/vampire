@@ -23,7 +23,6 @@
 #include "Lib/Set.hpp"
 
 #include "Kernel/FormulaUnit.hpp"
-#include "Kernel/FormulaVarIterator.hpp"
 #include "Kernel/RobSubstitution.hpp"
 #include "Kernel/TermIterators.hpp"
 
@@ -544,6 +543,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
   if (lit->ground()) {
       Set<Term*> ta_terms;
       Set<Term*> int_terms;
+      // TODO this should be a map from induction terms to an array of templates
       vvector<pair<vvector<Term*>,const InductionTemplate*>> fn_terms;
 
       auto fnDefHandler = _salg->getFunctionDefinitionHandler();
@@ -786,7 +786,7 @@ void InductionClauseIterator::processIntegerComparison(Clause* premise, Literal*
   }
 }
 
-ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, vset<unsigned>* hypVars)
+ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context)
 {
   CALL("InductionClauseIterator::produceClauses");
   NewCNF cnf(0);
@@ -805,22 +805,6 @@ ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, Inferen
     env.endOutput();
   }
   cnf.clausify(NNF::ennf(fu), hyp_clauses);
-
-  if (hypVars) {
-    DHMap<unsigned,unsigned> rvs;
-    rvs.loadFromInverted(cnf.getSkFunToVarMap());
-    DHSet<unsigned> info;
-    for (const auto& v : *hypVars) {
-      info.insert(rvs.get(v));
-    }
-    for (auto& cl : hyp_clauses) {
-      for (unsigned i = 0; i < cl->length(); i++) {
-        for (const auto& v : InductionHelper::collectInductionSkolems((*cl)[i], &info)) {
-          cl->inference().addToInductionInfo(v);
-        }
-      }
-    }
-  }
 
   switch (rule) {
     case InferenceRule::STRUCT_INDUCTION_AXIOM:
@@ -1472,7 +1456,6 @@ void InductionClauseIterator::performRecursionInduction(const InductionContext& 
   FormulaList* formulas = FormulaList::empty();
   vvector<TermList> ts(context._indTerms.size(), TermList());
   auto& indPos = templ->inductionPositions();
-  vset<unsigned> hypVars;
 
   for (const auto& b : templ->branches()) {
     Renaming rn(var);
@@ -1496,13 +1479,8 @@ void InductionClauseIterator::performRecursionInduction(const InductionContext& 
       }
       FormulaList::push(context.getFormula(ts,true),hyps);
     }
-    auto left = JunctionFormula::generalJunction(Connective::AND,hyps);
-    FormulaVarIterator fvit(left);
-    while (fvit.hasNext()) {
-      hypVars.insert(fvit.next());
-    }
     FormulaList::push(hyps ?
-      new BinaryFormula(Connective::IMP,left,right) : right, formulas);
+      new BinaryFormula(Connective::IMP,JunctionFormula::generalJunction(Connective::AND,hyps),right) : right, formulas);
     var = rn.nextVar();
   }
   ASS(formulas);
@@ -1514,7 +1492,7 @@ void InductionClauseIterator::performRecursionInduction(const InductionContext& 
   auto conclusion = context.getFormula(ts, true, &subst);
   Formula* hypothesis = new BinaryFormula(Connective::IMP, Formula::quantify(indPremise), Formula::quantify(conclusion));
 
-  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, &hypVars);
+  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context);
   e->add(std::move(cls), std::move(subst));
 }
 

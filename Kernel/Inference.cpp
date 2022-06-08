@@ -296,13 +296,6 @@ vstring Inference::toString() const
   result += ", age: " + Int::toString(_age);
   result += ", thAx:" + Int::toString((int)(th_ancestors));
   result += ", allAx:" + Int::toString((int)(all_ancestors));
-  if (_inductionInfo) {
-    auto it = static_cast<DHSet<unsigned>*>(_inductionInfo)->iterator();
-    result += ",ind:";
-    while (it.hasNext()) {
-      result += Term::create(it.next(), 0, nullptr)->toString() + ",";
-    }
-  }
 
   return result;
 }
@@ -340,12 +333,6 @@ void Inference::init1(InferenceRule r, Unit* premise)
 
   premise->incRefCnt();
 
-  if (premise->inference()._inductionInfo) {
-    _inductionInfo = new DHSet<unsigned>();
-    static_cast<DHSet<unsigned>*>(_inductionInfo)->loadFromIterator(
-      static_cast<DHSet<unsigned>*>(premise->inference()._inductionInfo)->iterator());
-  }
-
   computeTheoryRunningSums();
   _isPureTheoryDescendant = premise->isPureTheoryDescendant();
   _combAxiomsDescendant = premise->isCombAxiomsDescendant();
@@ -368,18 +355,6 @@ void Inference::init2(InferenceRule r, Unit* premise1, Unit* premise2)
 
   premise1->incRefCnt();
   premise2->incRefCnt();
-
-  if (premise1->inference()._inductionInfo || premise2->inference()._inductionInfo) {
-    _inductionInfo = new DHSet<unsigned>();
-    if (premise1->inference()._inductionInfo) {
-      static_cast<DHSet<unsigned>*>(_inductionInfo)->loadFromIterator(
-        static_cast<DHSet<unsigned>*>(premise1->inference()._inductionInfo)->iterator());
-    }
-    if (premise2->inference()._inductionInfo) {
-      static_cast<DHSet<unsigned>*>(_inductionInfo)->loadFromIterator(
-        static_cast<DHSet<unsigned>*>(premise2->inference()._inductionInfo)->iterator());
-    }
-  }
 
   computeTheoryRunningSums();
   _isPureTheoryDescendant = premise1->isPureTheoryDescendant() && premise2->isPureTheoryDescendant();
@@ -404,13 +379,6 @@ void Inference::initMany(InferenceRule r, UnitList* premises)
   UnitList* it= premises;
   while(it) {
     it->head()->incRefCnt();
-    if (it->head()->inference()._inductionInfo) {
-      if (!_inductionInfo) {
-        _inductionInfo = new DHSet<unsigned>();
-      }
-      static_cast<DHSet<unsigned>*>(_inductionInfo)->loadFromIterator(
-        static_cast<DHSet<unsigned>*>(it->head()->inference()._inductionInfo)->iterator());
-    }
     it=it->tail();
   }
 
@@ -612,18 +580,8 @@ void Inference::minimizePremises()
   {
     _ptr1 = newFOPrems;
     UnitList* it= newFOPrems;
-    if (_inductionInfo) {
-      static_cast<DHSet<unsigned>*>(_inductionInfo)->reset();
-    }
     while(it) {
       it->head()->incRefCnt();
-      if (it->head()->inference()._inductionInfo) {
-        if (!_inductionInfo) {
-          _inductionInfo = new DHSet<unsigned>();
-        }
-        static_cast<DHSet<unsigned>*>(_inductionInfo)->loadFromIterator(
-          static_cast<DHSet<unsigned>*>(it->head()->inference()._inductionInfo)->iterator());
-      }
       it=it->tail();
     }
   }
@@ -782,8 +740,6 @@ vstring Kernel::ruleName(InferenceRule rule)
     return "fn def rewriting";
   case InferenceRule::FNDEF_DEMODULATION:
     return "fn def demodulation";
-  case InferenceRule::IH_REWRITING:
-    return "induction hypothesis rewriting";
   case InferenceRule::CONSTRAINED_SUPERPOSITION:
     return "constrained superposition";
   case InferenceRule::EQUALITY_FACTORING:
@@ -891,15 +847,11 @@ vstring Kernel::ruleName(InferenceRule rule)
     return "external theory axiom";
   case InferenceRule::TERM_ALGEBRA_ACYCLICITY:
     return "term algebras acyclicity";
-  case InferenceRule::TERM_ALGEBRA_DIRECT_SUBTERMS_AXIOM:
-    return "term algebras direct subterms";
   case InferenceRule::TERM_ALGEBRA_DISTINCTNESS:
     return "term algebras distinctness";
   case InferenceRule::TERM_ALGEBRA_INJECTIVITY_GENERATING:
   case InferenceRule::TERM_ALGEBRA_INJECTIVITY_SIMPLIFYING:
     return "term algebras injectivity";
-  case InferenceRule::TERM_ALGEBRA_SUBTERMS_TRANSITIVE_AXIOM:
-    return "term algebras subterms transitivity";
   case InferenceRule::THEORY_FLATTENING:
     return "theory flattening";
   case InferenceRule::BOOLEAN_TERM_ENCODING:
@@ -1061,6 +1013,8 @@ vstring Kernel::ruleName(InferenceRule rule)
   case InferenceRule::INTERNAL_SIMPLIFYING_INFERNCE_LAST: 
   case InferenceRule::GENERIC_GENERATING_INFERNCE:
   case InferenceRule::INTERNAL_GENERATING_INFERNCE_LAST:
+  case InferenceRule::TERM_ALGEBRA_DIRECT_SUBTERMS_AXIOM:
+  case InferenceRule::TERM_ALGEBRA_SUBTERMS_TRANSITIVE_AXIOM:
   case InferenceRule::INTERNAL_THEORY_AXIOM_LAST:
     { /* explicitly ignoring this cases */ }
   }
@@ -1070,18 +1024,3 @@ vstring Kernel::ruleName(InferenceRule rule)
   return "!UNKNOWN INFERENCE RULE!";
 } // Inference::name()
 
-void Inference::addToInductionInfo(unsigned e) {
-  if (!_inductionInfo) {
-    _inductionInfo = new DHSet<unsigned>();
-  }
-  static_cast<DHSet<unsigned>*>(_inductionInfo)->insert(e);
-}
-
-void Inference::removeFromInductionInfo(unsigned e) {
-  ASS(_inductionInfo);
-  static_cast<DHSet<unsigned>*>(_inductionInfo)->remove(e);
-  if (static_cast<DHSet<unsigned>*>(_inductionInfo)->size() == 0) {
-    delete static_cast<DHSet<unsigned>*>(_inductionInfo);
-    _inductionInfo = nullptr;
-  }
-}

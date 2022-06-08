@@ -2319,7 +2319,6 @@ public:
   bool inductionStrengthenHypothesis() const { return _inductionStrengthenHypothesis.actualValue; }
   unsigned maxInductionGenSubsetSize() const { return _maxInductionGenSubsetSize.actualValue; }
   bool inductionOnComplexTerms() const {return _inductionOnComplexTerms.actualValue;}
-  bool inductionHypRewriting() const { return _inductionHypRewriting.actualValue; }
   bool functionDefinitionRewriting() const { return _functionDefinitionRewriting.actualValue; }
   bool inductionWithRecursiveFunctions() const { return _inductionWithRecursiveFunctions.actualValue; }
   bool integerInductionDefaultBound() const { return _integerInductionDefaultBound.actualValue; }
@@ -2626,7 +2625,6 @@ private:
   BoolOptionValue _inductionStrengthenHypothesis;
   UnsignedOptionValue _maxInductionGenSubsetSize;
   BoolOptionValue _inductionOnComplexTerms;
-  BoolOptionValue _inductionHypRewriting;
   BoolOptionValue _functionDefinitionRewriting;
   BoolOptionValue _inductionWithRecursiveFunctions;
   BoolOptionValue _integerInductionDefaultBound;

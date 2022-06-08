@@ -538,25 +538,6 @@ inline Clause* clause(std::initializer_list<Lit> ls_) {
   return &out; 
 }
 
-inline Clause* fromInduction(Clause* cl) {
-  cl->inference().setInductionDepth(1);
-
-  for (unsigned i = 0; i < cl->length(); i++) { 
-    Literal* lit = (*cl)[i];
-    // add the induction info based on induction skolems
-    if (lit->ground()) {
-      NonVariableIterator nvi(lit);
-      while (nvi.hasNext()) {
-        unsigned fn = nvi.next().term()->functor();
-        if (env.signature->getFunction(fn)->skolem()) {
-          cl->inference().addToInductionInfo(fn);
-        }
-      }
-    }
-  }
-  return cl;
-}
-
 inline Stack<Clause*> clauses(std::initializer_list<std::initializer_list<Lit>> cls) { 
   auto out = Stack<Clause*>();
   for (auto cl : cls) {

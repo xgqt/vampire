@@ -412,7 +412,6 @@ set(VAMPIRE_INFERENCE_SOURCES
     Inferences/ForwardSubsumptionDemodulation.cpp
     Inferences/GlobalSubsumption.cpp
     Inferences/HyperSuperposition.cpp
-    Inferences/InductionHypothesisRewriting.cpp
     Inferences/InnerRewriting.cpp
     Inferences/EquationalTautologyRemoval.cpp
     Inferences/Induction.cpp
@@ -758,7 +757,6 @@ set(UNIT_TESTS
     UnitTests/tInductionGeneralization.cpp
     UnitTests/tTermAlgebra.cpp
     UnitTests/tFnDefRewriting.cpp
-    UnitTests/tInductionHypothesisRewriting.cpp
     UnitTests/tFunctionDefinitionHandler.cpp
     )
 source_group(unit_tests FILES ${UNIT_TESTS})

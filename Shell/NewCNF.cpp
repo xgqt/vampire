@@ -1051,7 +1051,6 @@ Term* NewCNF::createSkolemTerm(unsigned var, VarSet* free, Formula *reuse_formul
       env.signature->getFunction(fun)->markInGoal();
     }
     if(_forInduction){
-      _skFnToVar.insert(fun, var);
       env.signature->getFunction(fun)->markInductionSkolem();
     }
     res = Term::create(fun, arity, fnArgs.begin());
@@ -1422,7 +1421,7 @@ void NewCNF::process(Formula* g, Occurrences &occurrences)
       break;
 
     case LITERAL:
-      process(g->literal(), occurrences);
+      process(g->literal(),occurrences);
       break;
 
     case NOT:

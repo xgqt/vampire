@@ -68,7 +68,6 @@
 #include "Inferences/ForwardSubsumptionDemodulation.hpp"
 #include "Inferences/GlobalSubsumption.hpp"
 #include "Inferences/HyperSuperposition.hpp"
-#include "Inferences/InductionHypothesisRewriting.hpp"
 #include "Inferences/InnerRewriting.hpp"
 #include "Inferences/TermAlgebraReasoning.hpp"
 #include "Inferences/SLQueryBackwardSubsumption.hpp"
@@ -1510,15 +1509,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
 
   //TODO here induction is last, is that right?
   if(opt.induction()!=Options::Induction::NONE){
-    auto induction = new Induction();
-    gie->addFront(induction);
-    // since indhrw relies on induction, we create this
-    // inference here and hand the induction object to it
-    if (opt.inductionHypRewriting()) {
-      auto indhrw = new InductionHypothesisRewriting();
-      indhrw->setInduction(induction);
-      gie->addFront(indhrw);
-    }
+    gie->addFront(new Induction());
   }
 
   if(opt.instantiation()!=Options::Instantiation::OFF){

@@ -46,10 +46,10 @@ Stack<Index*> getIndices() {
   return { comparisonIndex(), intInductionIndex(), structInductionIndex() };
 }
 
-// inline Clause* fromInduction(Clause* cl) {
-//   cl->inference().setInductionDepth(1);
-//   return cl;
-// }
+inline Clause* fromInduction(Clause* cl) {
+  cl->inference().setInductionDepth(1);
+  return cl;
+}
 
 InductionContext inductionContext(TermSugar t, std::initializer_list<Clause*> cls) {
   InductionContext res({ t.toTerm().term() });

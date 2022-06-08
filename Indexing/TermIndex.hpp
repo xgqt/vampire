@@ -80,34 +80,6 @@ private:
   const Options& _opt;
 };
 
-class InductionEqualityLHSIndex
-: public TermIndex
-{
-public:
-  CLASS_NAME(InductionEqualityLHSIndex);
-  USE_ALLOCATOR(InductionEqualityLHSIndex);
-
-  InductionEqualityLHSIndex(TermIndexingStructure* is)
-    : TermIndex(is) {}
-
-protected:
-  void handleClause(Clause* c, bool adding);
-};
-
-class InductionInequalitySubtermIndex
-: public TermIndex
-{
-public:
-  CLASS_NAME(InductionInequalitySubtermIndex);
-  USE_ALLOCATOR(InductionInequalitySubtermIndex);
-
-  InductionInequalitySubtermIndex(TermIndexingStructure* is)
-    : TermIndex(is) {}
-
-protected:
-  void handleClause(Clause* c, bool adding);
-};
-
 /**
  * Term index for backward demodulation
  */

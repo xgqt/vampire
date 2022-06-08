@@ -147,13 +147,6 @@ bool InductionHelper::isStructInductionOn() {
   return structInd;
 }
 
-bool InductionHelper::isStructInductionOneOn() {
-  CALL("InductionHelper::isStructInductionOneOn");
-  static bool structInd = env.options->structInduction() == Options::StructuralInductionKind::ALL ||
-                          env.options->structInduction() == Options::StructuralInductionKind::ONE;
-  return structInd;
-}
-
 bool InductionHelper::isNonUnitStructInductionOn() {
   CALL("InductionHelper::isNonUnitStructInductionOn");
   return isStructInductionOn() && env.options->nonUnitInduction();
@@ -180,41 +173,6 @@ bool InductionHelper::isInductionLiteral(Literal* l) {
            (theory->isInterpretedPredicate(l) && theory->isInequality(theory->interpretPredicate(l)))
           ) && l->ground()
          );
-}
-
-bool InductionHelper::isInductionLiteral(Literal* l, Clause* cl) {
-  CALL("InductionHelper::isInductionLiteral");
-  DHSet<unsigned>* info = static_cast<DHSet<unsigned>*>(cl->inference().inductionInfo());
-  if (l->ground() && info && !info->isEmpty()) {
-    NonVariableIterator nvi(l);
-    while (nvi.hasNext()) {
-      unsigned fn = nvi.next().term()->functor();
-      if (info->find(fn)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-vset<unsigned> InductionHelper::collectInductionSkolems(Literal* l, Clause* cl) {
-  return collectInductionSkolems(l,
-    static_cast<DHSet<unsigned>*>(cl->inference().inductionInfo()));
-}
-
-vset<unsigned> InductionHelper::collectInductionSkolems(Literal* l, const DHSet<unsigned>* info) {
-  CALL("InductionHelper::collectInductionSkolems");
-  vset<unsigned> res;
-  if (l->ground() && info && !info->isEmpty()) {
-    NonVariableIterator nvi(l);
-    while (nvi.hasNext()) {
-      unsigned fn = nvi.next().term()->functor();
-      if (info->find(fn)) {
-        res.insert(fn);
-      }
-    }
-  }
-  return res;
 }
 
 bool InductionHelper::isInductionTermFunctor(unsigned f) {

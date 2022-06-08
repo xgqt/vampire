@@ -282,19 +282,6 @@ struct SecondaryHash<std::pair<T,U> > {
   };
 };
 
-template<typename T>
-struct SecondaryHash<Stack<T>> {
-  struct Type {
-    static unsigned hash(const Stack<T>& st) {
-      unsigned res = 0;
-      for (const auto& e : st) {
-        res += SecondaryHash<T>::Type::hash(e);
-      }
-      return res;
-    }
-  };
-};
-
 } // namespace Lib
 
 namespace std {
