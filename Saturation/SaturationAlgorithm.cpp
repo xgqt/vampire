@@ -1503,6 +1503,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   if(opt.splitting()){
     res->_splitter = new Splitter();
   }
+  res->_fnDefHandler = prb.getFunctionDefinitionHandler();
 
   // create generating inference engine
   CompositeGIE* gie=new CompositeGIE();

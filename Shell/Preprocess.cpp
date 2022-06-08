@@ -33,7 +33,7 @@
 #include "Flattening.hpp"
 #include "FunctionDefinition.hpp"
 #include "GeneralSplitting.hpp"
-#include "InductionPreprocessor.hpp"
+#include "FunctionDefinitionHandler.hpp"
 #include "InequalitySplitting.hpp"
 #include "InterpretedNormalizer.hpp"
 #include "Naming.hpp"
@@ -128,6 +128,10 @@ void Preprocess::preprocess(Problem& prb)
       TheoryAxioms(prb).apply();
     }
   }
+
+  auto fnDefHandler = new FunctionDefinitionHandler();
+  fnDefHandler->preprocess(prb);
+  prb.addFunctionDefinitionHandler(fnDefHandler);
 
   if (prb.hasFOOL() || prb.higherOrder()) {
     // This is the point to extend the signature with $$true and $$false
@@ -598,7 +602,6 @@ void Preprocess::newCnf(Problem& prb)
     prb.invalidateProperty();
   }
   prb.reportFormulasEliminated();
-  env.signature->getFnDefHandler()->finalize();
 } 
 
 /**

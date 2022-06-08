@@ -566,7 +566,7 @@ set(VAMPIRE_SHELL_SOURCES
     Shell/GeneralSplitting.cpp
     Shell/GoalGuessing.cpp
     Shell/Grounding.cpp
-    Shell/InductionPreprocessor.cpp
+    Shell/FunctionDefinitionHandler.cpp
     Shell/InequalitySplitting.cpp
     Shell/InterpolantMinimizer.cpp
     Shell/Interpolants.cpp
@@ -759,7 +759,7 @@ set(UNIT_TESTS
     UnitTests/tTermAlgebra.cpp
     UnitTests/tFnDefRewriting.cpp
     UnitTests/tInductionHypothesisRewriting.cpp
-    UnitTests/tInductionPreprocessor.cpp
+    UnitTests/tFunctionDefinitionHandler.cpp
     )
 source_group(unit_tests FILES ${UNIT_TESTS})
 

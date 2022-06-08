@@ -16,7 +16,6 @@
 #include "Lib/Int.hpp"
 #include "Shell/Options.hpp"
 #include "Shell/DistinctGroupExpansion.hpp"
-#include "Shell/InductionPreprocessor.hpp"
 #include "Kernel/SortHelper.hpp"
 
 #include "Signature.hpp"
@@ -250,8 +249,7 @@ Signature::Signature ():
     _arrayCon(UINT_MAX),
     _arrowCon(UINT_MAX),
     _appFun(UINT_MAX),
-    _termAlgebras(),
-    _fnDefHandler(0)
+    _termAlgebras()
 {
   CALL("Signature::Signature");
 
@@ -285,10 +283,6 @@ Signature::~Signature ()
   }
   for (int i = _preds.length()-1;i >= 0;i--) {
     _preds[i]->destroyPredSymbol();
-  }
-  if (_fnDefHandler) {
-    delete _fnDefHandler;
-    _fnDefHandler = nullptr;
   }
   for (int i = _typeCons.length()-1;i >= 0;i--) {
     _typeCons[i]->destroyTypeConSymbol();
@@ -1231,13 +1225,6 @@ TermAlgebraConstructor* Signature::getTermAlgebraConstructor(unsigned functor)
   }
 
   return nullptr;
-}
-
-FnDefHandler* Signature::getFnDefHandler() {
-  if (!_fnDefHandler) {
-    _fnDefHandler = new FnDefHandler();
-  }
-  return _fnDefHandler;
 }
 
 /**

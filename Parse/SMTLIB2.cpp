@@ -991,13 +991,13 @@ void SMTLIB2::readDefineFun(const vstring& name, LExprList* iArgs, LExpr* oSort,
   if (isTrueFun) {
     lhs = TermList(Term::create(symbIdx,args.size(),args.begin()));
   } else {
-    Formula* frm = new AtomicFormula(Literal::create(symbIdx,args.size(),true,false,args.begin()), true /*isFunctionDefinition*/);
+    Formula* frm = new AtomicFormula(Literal::create(symbIdx,args.size(),true,false,args.begin()));
     lhs = TermList(Term::createFormula(frm));
   }
 
-  Formula* fla = new AtomicFormula(Literal::createEquality(true,lhs,rhs,rangeSort), true /*isFunctionDefinition*/);
+  Formula* fla = new AtomicFormula(Literal::createEquality(true,lhs,rhs,rangeSort));
 
-  FormulaUnit* fu = new FormulaUnit(fla, FromInput(UnitInputType::ASSUMPTION));
+  FormulaUnit* fu = new FormulaUnit(fla, FromInput(UnitInputType::ASSUMPTION), true /*isFunctionDefinition*/);
 
   UnitList::push(fu, _formulas);
 }

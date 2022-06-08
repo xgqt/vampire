@@ -31,7 +31,7 @@
 #include "Lib/DHSet.hpp"
 #include "Lib/List.hpp"
 
-#include "Shell/InductionPreprocessor.hpp"
+#include "Shell/FunctionDefinitionHandler.hpp"
 
 #include "InductionHelper.hpp"
 #include "InferenceEngine.hpp"
@@ -48,8 +48,8 @@ class ActiveOccurrenceIterator
   : public IteratorCore<TermList>
 {
 public:
-  ActiveOccurrenceIterator(Term* term)
-  : _stack(8)
+  ActiveOccurrenceIterator(Term* term, FunctionDefinitionHandler* fnDefHandler)
+  : _stack(8), _fnDefHandler(fnDefHandler)
   {
     _stack.push(term);
     ASS(term->ground());
@@ -60,6 +60,7 @@ public:
   TermList next() override;
 private:
   Stack<Term*> _stack;
+  FunctionDefinitionHandler* _fnDefHandler;
 };
 
 Term* getPlaceholderForTerm(const vvector<Term*>& ts, unsigned i);
@@ -209,9 +210,9 @@ public:
   // all the work happens in the constructor!
   InductionClauseIterator(Clause* premise, InductionHelper helper, const Options& opt,
     TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex,
-    InductionFormulaIndex& recFormulaIndex)
+    InductionFormulaIndex& recFormulaIndex, SaturationAlgorithm* salg)
       : _helper(helper), _opt(opt), _structInductionTermIndex(structInductionTermIndex),
-      _formulaIndex(formulaIndex), _recFormulaIndex(recFormulaIndex)
+      _formulaIndex(formulaIndex), _recFormulaIndex(recFormulaIndex), _salg(salg)
   {
     processClause(premise);
   }
@@ -251,6 +252,7 @@ private:
   TermIndex* _structInductionTermIndex;
   InductionFormulaIndex& _formulaIndex;
   InductionFormulaIndex& _recFormulaIndex;
+  SaturationAlgorithm* _salg;
 };
 
 };

@@ -34,7 +34,7 @@
 #include "Kernel/TermIterators.hpp"
 #include "Kernel/OperatorType.hpp"
 #include "Shell/TermAlgebra.hpp"
-#include "Shell/InductionPreprocessor.hpp"
+#include "Shell/FunctionDefinitionHandler.hpp"
 
 #define __TO_SORT_RAT RationalConstantType::getSort()
 #define __TO_SORT_INT IntegerConstantType::getSort()
@@ -600,10 +600,10 @@ inline void createFunctionDefinitions(std::initializer_list<tuple<Clause*,unsign
   for (const auto& t : cls) {
     auto cl = get<0>(t);
     auto i = get<1>(t);
-    env.signature->getFnDefHandler()->handleClause(cl, i,
-      get<2>(t) ^ (*cl)[i]->isOrientedReversed());
+    // env.signature->getFnDefHandler()->handleClause(cl, i,
+    //   get<2>(t) ^ (*cl)[i]->isOrientedReversed());
   }
-  env.signature->getFnDefHandler()->finalize();
+  // env.signature->getFnDefHandler()->finalize();
 }
 
 #endif // __TEST__SYNTAX_SUGAR__H__

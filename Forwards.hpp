@@ -361,6 +361,7 @@ class LaTeX;
 class Options;
 class Property;
 class Statistics;
+class FunctionDefinitionHandler;
 
 class EPRRestoring;
 class EPRInlining;

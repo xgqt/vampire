@@ -121,6 +121,7 @@ public:
   static void tryUpdateFinalClauseCount();
 
   Splitter* getSplitter() { return _splitter; }
+  FunctionDefinitionHandler* getFunctionDefinitionHandler() { return _fnDefHandler.ptr(); }
 
 protected:
   virtual void init();
@@ -212,7 +213,7 @@ protected:
   SymElOutput* _symEl;
   AnswerLiteralManager* _answerLiteralManager;
   Instantiation* _instantiation;
-
+  ScopedPtr<FunctionDefinitionHandler> _fnDefHandler;
 
   SubscriptionData _passiveContRemovalSData;
   SubscriptionData _activeContRemovalSData;

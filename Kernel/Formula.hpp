@@ -69,7 +69,6 @@ public:
   Formula* uarg();
   const Literal* literal() const;
   Literal* literal();
-  bool isFunctionDefinition() const;
   const TermList getBooleanTerm() const;
   TermList getBooleanTerm();
   VList* freeVariables () const;
@@ -160,16 +159,14 @@ class AtomicFormula
 {
 public:
   /** building atomic formula from a literal */
-  explicit AtomicFormula (Literal* lit, bool functionDefinition = false)
+  explicit AtomicFormula (Literal* lit)
     : Formula(LITERAL),
-      _literal(lit),
-      _functionDefinition(functionDefinition)
+      _literal(lit)
   {}
   /** Return the literal of this formula */
   const Literal* getLiteral() const { return _literal; }
   /** Return the literal of this formula */
   Literal* getLiteral() { return _literal; }
-  bool isFunctionDefinition() const { return _functionDefinition; }
 
   // use allocator to (de)allocate objects of this class
   CLASS_NAME(AtomicFormula);
@@ -177,7 +174,6 @@ public:
 protected:
   /** The literal of this formula */
   Literal* _literal;
-  bool _functionDefinition;
 }; // class AtomicFormula
 
 
@@ -484,13 +480,6 @@ Literal* Formula::literal()
 {
   ASS(_connective == LITERAL);
   return static_cast<AtomicFormula*>(this)->getLiteral();
-}
-
-inline
-bool Formula::isFunctionDefinition() const
-{
-  ASS(_connective == LITERAL);
-  return static_cast<const AtomicFormula*>(this)->isFunctionDefinition();
 }
 
 /** Return the lhs subformula of a binary formula */

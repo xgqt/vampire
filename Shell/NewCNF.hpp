@@ -210,7 +210,7 @@ private:
 
   void toClauses(SPGenClause gc, Stack<Clause*>& output);
   bool mapSubstitution(List<GenLit>* gc, Substitution subst, bool onlyFormulaLevel, List<GenLit>* &output);
-  Clause* toClause(SPGenClause gc, bool& fndef);
+  Clause* toClause(SPGenClause gc);
 
   typedef list<SPGenClause,STLAllocator<SPGenClause>> GenClauses;
 
@@ -642,7 +642,7 @@ private:
   void process(QuantifiedFormula* g, Occurrences &occurrences);
 
   void processBoolterm(TermList ts, Occurrences &occurrences);
-  void process(Literal* l, bool functionDefinition, Occurrences &occurrences);
+  void process(Literal* l, Occurrences &occurrences);
   void processConstant(bool constant, Occurrences &occurrences);
   void processBoolVar(SIGN sign, unsigned var, Occurrences &occurrences);
   void processITE(Formula* condition, Formula* thenBranch, Formula* elseBranch, Occurrences &occurrences);

@@ -40,10 +40,6 @@
 
 #include <climits>
 
-namespace Shell {
-  class FnDefHandler;
-}
-
 namespace Kernel {
 
 using namespace std;
@@ -894,8 +890,6 @@ class Signature
   VirtualIterator<Shell::TermAlgebra*> termAlgebrasIterator() const { return _termAlgebras.range(); }
   Shell::TermAlgebraConstructor* getTermAlgebraConstructor(unsigned functor);
 
-  Shell::FnDefHandler* getFnDefHandler();
-
   void recordDividesNvalue(TermList n){
     _dividesNvalues.push(n);
   }
@@ -977,8 +971,6 @@ private:
    * Map from sorts to the associated term algebra, if applicable for the sort
    */ 
   DHMap<TermList, Shell::TermAlgebra*> _termAlgebras;
-
-  Shell::FnDefHandler* _fnDefHandler;
 
   //TODO Why are these here? They are not used anywhere. AYB
   //void defineOptionTermAlgebra(unsigned optionSort);

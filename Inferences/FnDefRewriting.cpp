@@ -28,7 +28,7 @@
 #include "Saturation/SaturationAlgorithm.hpp"
 
 #include "Shell/Options.hpp"
-#include "Shell/InductionPreprocessor.hpp"
+#include "Shell/FunctionDefinitionHandler.hpp"
 
 #include "FnDefRewriting.hpp"
 
@@ -43,7 +43,7 @@ using namespace Kernel;
 using namespace Saturation;
 
 struct FnDefRewriting::GeneralizationsFn {
-  GeneralizationsFn(FnDefHandler *index) : _index(index) {}
+  GeneralizationsFn(FunctionDefinitionHandler *index) : _index(index) {}
   VirtualIterator<pair<pair<Literal *, TermList>, TermQueryResult>> operator()(pair<Literal *, TermList> arg)
   {
     CALL("FnDefRewriting::GeneralizationsFn()");
@@ -51,7 +51,7 @@ struct FnDefRewriting::GeneralizationsFn {
   }
 
 private:
-  FnDefHandler *_index;
+  FunctionDefinitionHandler *_index;
 };
 
 struct FnDefRewriting::RewriteableSubtermsFn {
@@ -93,7 +93,7 @@ ClauseIterator FnDefRewriting::generateClauses(Clause *premise)
 
   // Get clauses with a function definition literal whose lhs is a generalization of the rewritable subterm,
   // returns a pair with the original pair and the generalization result (includes substitution)
-  auto itf3 = getMapAndFlattenIterator(itf2, GeneralizationsFn(env.signature->getFnDefHandler()));
+  auto itf3 = getMapAndFlattenIterator(itf2, GeneralizationsFn(GeneratingInferenceEngine::_salg->getFunctionDefinitionHandler()));
 
   //Perform forward rewriting
   auto it = pvi(getMappingIterator(itf3, ForwardResultFn(premise)));
@@ -105,8 +105,9 @@ ClauseIterator FnDefRewriting::generateClauses(Clause *premise)
 bool FnDefRewriting::perform(Clause* cl, Clause*& replacement, ClauseIterator& premises)
 {
   CALL("FnDefRewriting::perform/1");
+  auto salg = ForwardSimplificationEngine::_salg;
 
-  Ordering& ordering = ForwardSimplificationEngine::_salg->getOrdering();
+  Ordering& ordering = salg->getOrdering();
 
   static DHSet<TermList> attempted;
   attempted.reset();
@@ -122,10 +123,10 @@ bool FnDefRewriting::perform(Clause* cl, Clause*& replacement, ClauseIterator& p
         continue;
       }
 
-      bool toplevelCheck = ForwardSimplificationEngine::_salg->getOptions().demodulationRedundancyCheck() &&
+      bool toplevelCheck = salg->getOptions().demodulationRedundancyCheck() &&
         lit->isEquality() && (trm==*lit->nthArgument(0) || trm==*lit->nthArgument(1));
 
-      auto git = env.signature->getFnDefHandler()->getGeneralizations(trm);
+      auto git = salg->getFunctionDefinitionHandler()->getGeneralizations(trm);
       while (git.hasNext()) {
         TermQueryResult qr = git.next();
         if (qr.clause->length() != 1) {
@@ -137,7 +138,7 @@ bool FnDefRewriting::perform(Clause* cl, Clause*& replacement, ClauseIterator& p
         }
         bool isEqTautology = false;
         auto res = FnDefRewriting::perform(cl, lit, trm, qr.clause, qr.literal, qr.term, qr.substitution, toplevelCheck,
-          isEqTautology, Inference(SimplifyingInference2(InferenceRule::FNDEF_DEMODULATION, cl, qr.clause)), ForwardSimplificationEngine::_salg);
+          isEqTautology, Inference(SimplifyingInference2(InferenceRule::FNDEF_DEMODULATION, cl, qr.clause)), salg);
         if (!res && !isEqTautology) {
           continue;
         }

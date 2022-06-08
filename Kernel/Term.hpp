@@ -597,22 +597,6 @@ public:
 
   /** True if the term is, in fact, a literal */
   bool isLiteral() const { return _args[0]._info.literal; }
-
-  void reverseOrientation()
-  {
-    _orientation ^= 1;
-  }
-
-  void resetOrientation()
-  {
-    _orientation = 0;
-  }
-
-  bool isOrientedReversed()
-  {
-    return _orientation;
-  }
-  
   /** True if the term is, in fact, a sort */
   bool isSort() const { return _args[0]._info.sort; }
   /** true if the term is an application */
@@ -755,8 +739,6 @@ protected:
   unsigned _isTwoVarEquality : 1;
   /** Weight of the symbol */
   unsigned _weight;
-  /** If true, the literal is oriented reversed compared to the initial orientation */
-  unsigned _orientation : 1;
   /** length of maximum reduction length */
   int _maxRedLen;
   union {

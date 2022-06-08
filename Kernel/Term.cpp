@@ -1785,7 +1785,6 @@ Term::Term(const Term& t) throw()
     _hasInterpretedConstants(0),
     _isTwoVarEquality(0),
     _weight(0),
-    _orientation(t._orientation),
     _vars(0)
 {
   CALL("Term::Term/1");
@@ -1819,7 +1818,6 @@ Term::Term() throw()
    _hasInterpretedConstants(0),
    _isTwoVarEquality(0),
    _weight(0),
-   _orientation(0),
    _maxRedLen(0),
    _vars(0)
 {
@@ -1897,7 +1895,7 @@ std::ostream& Kernel::operator<< (ostream& out, const Literal& l )
   return out<<l.toString();
 }
 
-bool Kernel::operator<(const TermList& lhs, const TermList& rhs) 
+bool operator<(const TermList& lhs, const TermList& rhs) 
 { 
   auto cmp = lhs.isTerm() - rhs.isTerm();
   if (cmp != 0) return cmp < 0;

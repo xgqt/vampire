@@ -50,8 +50,10 @@ TermList ActiveOccurrenceIterator::next()
   Term* t = _stack.pop();
   auto f = t->functor();
   auto lit = t->isLiteral();
-  if (env.signature->getFnDefHandler()->hasInductionTemplate(f, !lit)) {
-    auto& actPos = env.signature->getFnDefHandler()->getInductionTemplate(f, !lit)->inductionPositions();
+  InductionTemplate* templ = _fnDefHandler ?
+    _fnDefHandler->getInductionTemplate(f, !lit) : nullptr;
+  if (templ) {
+    auto& actPos = templ->inductionPositions();
     for (unsigned i = 0; i < t->arity(); i++) {
       if (actPos[i]) {
         _stack.push(t->nthArgument(i)->term());
@@ -343,41 +345,42 @@ void ContextSubsetReplacement::stepIteration()
 void ContextSubsetReplacement::getActiveOccurrences()
 {
   CALL("ContextSubsetReplacement::getActiveOccurrences");
-  _activeOccurrences = vvector<unsigned>(_context._indTerms.size(),0);
-  vvector<decltype(_context._cls.begin())> refs;
-  for (auto it = _context._cls.begin(); it != _context._cls.end(); it++) {
-    refs.push_back(it);
-  }
-  Stack<pair<Term*,bool>> stack(8);
-  for (int i = refs.size()-1; i >= 0; i--) {
-    for (int j = refs[i]->second.size()-1; j >= 0; j--) {
-      stack.reset();
-      stack.push(make_pair(refs[i]->second[j],true));
-      while (stack.isNonEmpty()) {
-        auto kv = stack.pop();
-        auto t = kv.first;
-        auto active = kv.second;
-        auto f = t->functor();
-        auto lit = t->isLiteral();
-        if (active && env.signature->getFnDefHandler()->hasInductionTemplate(f, !lit)) {
-          auto& actPos = env.signature->getFnDefHandler()->getInductionTemplate(f, !lit)->inductionPositions();
-          for (int k = t->arity()-1; k >= 0; k--) {
-            stack.push(make_pair(t->nthArgument(k)->term(), actPos[k]));
-          }
-        } else {
-          for (int k = t->arity()-1; k >= 0; k--) {
-            stack.push(make_pair(t->nthArgument(k)->term(), active));
-          }
-        }
-        auto it = std::find(_context._indTerms.begin(), _context._indTerms.end(), t);
-        if (it != _context._indTerms.end()) {
-          auto idx = _context._indTerms.end() - it;
-          _activeOccurrences[idx] <<= 1;
-          _activeOccurrences[idx] = _activeOccurrences[idx] & active;
-        }
-      }
-    }
-  }
+//   _activeOccurrences = vvector<unsigned>(_context._indTerms.size(),0);
+//   vvector<decltype(_context._cls.begin())> refs;
+//   for (auto it = _context._cls.begin(); it != _context._cls.end(); it++) {
+//     refs.push_back(it);
+//   }
+//   Stack<pair<Term*,bool>> stack(8);
+//   for (int i = refs.size()-1; i >= 0; i--) {
+//     for (int j = refs[i]->second.size()-1; j >= 0; j--) {
+//       stack.reset();
+//       stack.push(make_pair(refs[i]->second[j],true));
+//       while (stack.isNonEmpty()) {
+//         auto kv = stack.pop();
+//         auto t = kv.first;
+//         auto active = kv.second;
+//         auto f = t->functor();
+//         auto lit = t->isLiteral();
+//         auto templ = 
+//         if (active && env.signature->getFnDefHandler()->hasInductionTemplate(f, !lit)) {
+//           auto& actPos = env.signature->getFnDefHandler()->getInductionTemplate(f, !lit)->inductionPositions();
+//           for (int k = t->arity()-1; k >= 0; k--) {
+//             stack.push(make_pair(t->nthArgument(k)->term(), actPos[k]));
+//           }
+//         } else {
+//           for (int k = t->arity()-1; k >= 0; k--) {
+//             stack.push(make_pair(t->nthArgument(k)->term(), active));
+//           }
+//         }
+//         auto it = std::find(_context._indTerms.begin(), _context._indTerms.end(), t);
+//         if (it != _context._indTerms.end()) {
+//           auto idx = _context._indTerms.end() - it;
+//           _activeOccurrences[idx] <<= 1;
+//           _activeOccurrences[idx] = _activeOccurrences[idx] & active;
+//         }
+//       }
+//     }
+//   }
 }
 
 void Induction::attach(SaturationAlgorithm* salg) {
@@ -415,7 +418,7 @@ ClauseIterator Induction::generateClauses(Clause* premise)
   CALL("Induction::generateClauses");
 
   return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex), getOptions(),
-    _structInductionTermIndex, _formulaIndex, _recFormulaIndex));
+    _structInductionTermIndex, _formulaIndex, _recFormulaIndex, _salg));
 }
 
 void InductionClauseIterator::processClause(Clause* premise)
@@ -543,8 +546,10 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       Set<Term*> int_terms;
       vvector<pair<vvector<Term*>,const InductionTemplate*>> fn_terms;
 
-      if (env.signature->getFnDefHandler()->hasInductionTemplate(lit->functor(), false)) {
-        const auto& templ = env.signature->getFnDefHandler()->getInductionTemplate(lit->functor(), false);
+      auto fnDefHandler = _salg->getFunctionDefinitionHandler();
+      auto templ = fnDefHandler ?
+        fnDefHandler->getInductionTemplate(lit->functor(), false) : nullptr;
+      if (templ) {
         vvector<Term*> indTerms;
         if (templ->matchesTerm(lit, indTerms)) {
           fn_terms.push_back(make_pair(indTerms, templ));
@@ -552,7 +557,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       }
 
       // NonVariableNonTypeIterator it(lit);
-      ActiveOccurrenceIterator it(lit);
+      ActiveOccurrenceIterator it(lit, fnDefHandler);
       while(it.hasNext()){
         TermList ts = it.next();
         unsigned f = ts.term()->functor(); 
@@ -564,8 +569,9 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
             int_terms.insert(ts.term());
           }
         }
-        if (env.signature->getFnDefHandler()->hasInductionTemplate(f, true)) {
-          const auto& templ = env.signature->getFnDefHandler()->getInductionTemplate(f, true);
+        auto templ = fnDefHandler ?
+          fnDefHandler->getInductionTemplate(f, true) : nullptr;
+        if (templ) {
           vvector<Term*> indTerms;
           if (templ->matchesTerm(ts.term(), indTerms)) {
             fn_terms.push_back(make_pair(indTerms, templ));

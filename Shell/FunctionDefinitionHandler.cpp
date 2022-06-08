@@ -8,15 +8,18 @@
  * and in the source directory
  */
 
-#include "InductionPreprocessor.hpp"
+#include "FunctionDefinitionHandler.hpp"
 #include "Inferences/InductionHelper.hpp"
 
 #include "Kernel/Matcher.hpp"
 #include "Kernel/TermIterators.hpp"
-#include "Kernel/Unit.hpp"
+#include "Kernel/FormulaUnit.hpp"
 #include "Kernel/Signature.hpp"
+#include "Kernel/SubstHelper.hpp"
+#include "Kernel/Problem.hpp"
 
 #include "Lib/Hash.hpp"
+#include "Lib/SharedSet.hpp"
 
 using namespace Inferences;
 using namespace Kernel;
@@ -24,79 +27,187 @@ using namespace Lib;
 
 namespace Shell {
 
-void FnDefHandler::handleClause(Clause* c, unsigned fi, bool reversed)
+void FunctionDefinitionHandler::preprocess(Problem& prb)
 {
-  CALL("FnDefHandler::handleClause");
-
-  auto lit = (*c)[fi];
-  auto trueFun = lit->isEquality();
-  Term* header;
-  vvector<Term*> recursiveCalls;
-  unsigned fn;
-
-  if (trueFun) {
-    ASS(lit->isPositive());
-    ASS(lit->nthArgument(reversed ? 1 : 0)->isTerm());
-    header = lit->nthArgument(reversed ? 1 : 0)->term();
-    TermList body = *lit->nthArgument(reversed ? 0 : 1);
-    ASS(lit->nthArgument(reversed ? 1 : 0)->containsAllVariablesOf(body));
-
-    static const bool fnrw = env.options->functionDefinitionRewriting();
-    if (fnrw) {
-      _is->insert(TermList(header), lit, c);
+  CALL("FunctionDefinitionHandler::preprocess(Problem&)");
+  UnitList::DelIterator it(prb.units());
+  while (it.hasNext()) {
+    auto u = it.next();
+    if (u->isClause()) {
+      continue;
     }
-
-    fn = header->functor();
-    InductionPreprocessor::processCase(fn, body, recursiveCalls);
-  } else {
-    // look for other literals with the same top-level functor
-    fn = lit->functor();
-    header = lit->isPositive() ? lit : Literal::complementaryLiteral(lit);
-    for(unsigned i = 0; i < c->length(); i++) {
-      if (fi != i) {
-        Literal* curr = (*c)[i];
-        if (!curr->isEquality() && fn == curr->functor()) {
-          recursiveCalls.push_back(curr->isPositive() ? curr : Literal::complementaryLiteral(curr));
+    auto fu = static_cast<FormulaUnit*>(u);
+    if (fu->isFunctionDefinition()) {
+      // if the definition could be processed and the function axioms
+      // will be used as rewrite rules, we remove the unit
+      Stack<Branch> branches;
+      if (preprocess(fu->formula(), branches)) {
+        addFunction(branches, u);
+        if (env.options->functionDefinitionRewriting()) {
+          it.del();
         }
       }
     }
   }
-  auto p = make_pair(fn, trueFun);
-  auto templIt = _templates.find(p);
-  if (templIt == _templates.end()) {
-    templIt = _templates.insert(make_pair(p, new InductionTemplate(header))).first;
-  }
-
-  templIt->second->addBranch(std::move(recursiveCalls), std::move(header));
 }
 
-void FnDefHandler::finalize()
+bool FunctionDefinitionHandler::preprocess(Formula* f, Stack<Branch>& branches)
 {
-  CALL("FnDefHandler::finalize");
+  CALL("FunctionDefinitionHandler::preprocess(Formula*, Stack<Branch>& branches)");
+  ASS_EQ(f->connective(), LITERAL);
 
-  for (auto it = _templates.begin(); it != _templates.end();) {
-    if (!it->second->finalize()) {
-      if (env.options->showInduction()) {
-        env.beginOutput();
-        env.out() << "% Warning: " << it->second << " discarded" << endl;
-        env.endOutput();
-      }
-      it = _templates.erase(it);
+  auto l = f->literal();
+  ASS(l->isEquality());
+
+  //TODO handle predicate definitions as well
+  TermList sort = SortHelper::getEqualityArgumentSort(l);
+  if (sort.isBoolSort()) {
+    return false;
+  }
+  ASS(l->nthArgument(0)->isTerm());
+  Stack<Branch> todos;
+  todos.push({
+    .header = l->nthArgument(0)->term(),
+    .body = *l->nthArgument(1),
+    .literals = LiteralStack()
+  });
+  while (todos.isNonEmpty()) {
+    auto b = todos.pop();
+    if (b.body.isVar() || !b.body.term()->isSpecial()) {
+      branches.push(std::move(b));
       continue;
-    } else {
-      if (env.options->showInduction()){
-        env.beginOutput();
-        if (it->first.second) {
-          env.out() << "[Induction] function: " << env.signature->getFunction(it->first.first)->name() << endl;
-        } else {
-          env.out() << "[Induction] predicate: " << env.signature->getPredicate(it->first.first)->name() << endl;
-        }
-        env.out() << ", with induction template: " << *it->second << endl;
-        env.endOutput();
+    }
+    auto t = b.body.term();
+    Term::SpecialTermData *sd = t->getSpecialData();
+    switch (sd->getType()) {
+      case Term::SF_FORMULA:
+      case Term::SF_LET:
+      case Term::SF_LET_TUPLE:
+      case Term::SF_TUPLE: {
+        return false;
       }
-      it++;
+
+      case Term::SF_ITE: {
+        sort = sd->getSort();
+        auto cf = sd->getCondition();
+        switch (cf->connective())
+        {
+        case LITERAL: {
+          auto l = cf->literal();
+          todos.push(addCondition(Literal::complementaryLiteral(l), b, *t->nthArgument(0)));
+          todos.push(addCondition(l, b, *t->nthArgument(1)));
+          break;
+        }
+        default: {
+          return false;
+        }
+        }
+        break;
+      }
+
+      case Term::SF_MATCH: {
+        sort = sd->getSort();
+        auto matched = *t->nthArgument(0);
+        for (unsigned int i = 1; i < t->arity(); i += 2) {
+          todos.push(substituteBoundVariable(matched.var(), *t->nthArgument(i), b, *t->nthArgument(i+1)));
+        }
+        break;
+      }
+
+      default:
+        ASSERTION_VIOLATION_REP(t->toString());
     }
   }
+  return true;
+}
+
+void FunctionDefinitionHandler::addFunction(const Stack<Branch>& branches, Unit* unit)
+{
+  CALL("FunctionDefinitionHandler::addFunction");
+  ASS(branches.isNonEmpty());
+
+  auto header = branches[0].header;
+  auto fn = header->functor();
+  auto isLit = header->isLiteral();
+  auto symb = isLit ? env.signature->getPredicate(fn) : env.signature->getFunction(fn);
+  ASS(!isLit);
+  auto sort = isLit ? symb->predType()->result() : symb->fnType()->result();
+  auto templ = new InductionTemplate(header);
+  for (auto& b : branches) {
+    // handle for induction
+    vvector<Term*> recursiveCalls;
+    if (b.body.isTerm()) {
+      NonVariableIterator it(b.body.term(), true);
+      while (it.hasNext()) {
+        auto st = it.next();
+        if (st.term()->functor() == fn) {
+          recursiveCalls.push_back(st.term());
+        }
+      }
+    }
+    // TODO: if sort is bool, recursive calls are other literals
+    // header = lit->isPositive() ? lit : Literal::complementaryLiteral(lit);
+    // for(unsigned i = 0; i < c->length(); i++) {
+    //   if (fi != i) {
+    //     Literal* curr = (*c)[i];
+    //     if (!curr->isEquality() && fn == curr->functor()) {
+    //       recursiveCalls.push_back(curr->isPositive() ? curr : Literal::complementaryLiteral(curr));
+    //     }
+    //   }
+    // }
+    templ->addBranch(std::move(recursiveCalls), b.header);
+
+    // handle for rewriting
+    if (env.options->functionDefinitionRewriting()) {
+      auto mainLit = Literal::createEquality(true, TermList(b.header), b.body, sort);
+      b.literals.push(mainLit);
+      auto rwCl = Clause::fromStack(b.literals, FormulaTransformation(InferenceRule::CLAUSIFY,unit));
+      rwCl->setSplits(SplitSet::getEmpty());
+      rwCl->incRefCnt();
+      _is.insert(TermList(b.header), mainLit, rwCl);
+    }
+  }
+  if (templ->finalize()) {
+    if (env.options->showInduction()){
+      env.beginOutput();
+      env.out() << "[Induction] " << (isLit ? "predicate " : "function ") << symb->name() << endl;
+      env.out() << ", with induction template: " << templ->toString() << endl;
+      env.endOutput();
+    }
+    ALWAYS(_templates.insert(make_pair(make_pair(fn,true), templ)).second);
+  }
+}
+
+FunctionDefinitionHandler::Branch FunctionDefinitionHandler::substituteBoundVariable(unsigned var, TermList t, const Branch& b, TermList body)
+{
+  Substitution subst;
+  subst.bind(var, t);
+
+  auto bn = b;
+  bn.body = SubstHelper::apply(body, subst);
+  bn.header = SubstHelper::apply(bn.header, subst);
+  for (auto& lit : bn.literals) {
+    lit = SubstHelper::apply(lit, subst);
+  }
+  return bn;
+}
+
+FunctionDefinitionHandler::Branch FunctionDefinitionHandler::addCondition(Literal* lit, const Branch& b, TermList body)
+{
+  if (lit->isEquality() && lit->isNegative()) {
+    TermList lhs = *lit->nthArgument(0);
+    TermList rhs = *lit->nthArgument(1);
+    if (lhs.isVar() || rhs.isVar()) {
+      if (lhs.isTerm() && rhs.isVar()) {
+        swap(lhs,rhs);
+      }
+      return substituteBoundVariable(lhs.var(), rhs, b, body);
+    }
+  }
+  auto bn = b;
+  bn.body = body;
+  bn.literals.push(lit);
+  return bn;
 }
 
 ostream& operator<<(ostream& out, const InductionTemplate::Branch& branch)
@@ -141,7 +252,7 @@ void InductionTemplate::checkWellDefinedness()
   if (!missingCases.empty()) {
     if (env.options->showInduction()) {
       env.beginOutput();
-      env.out() << "% Warning: adding missing cases to template " << *this;
+      env.out() << "% Warning: adding missing cases to template " << toString();
     }
     for (const auto& m : missingCases) {
       Stack<TermList> args;
@@ -158,7 +269,7 @@ void InductionTemplate::checkWellDefinedness()
       addBranch(vvector<Term*>(), std::move(t));
     }
     if (env.options->showInduction()) {
-      env.out() << ". New template is " << *this << endl;
+      env.out() << ". New template is " << toString() << endl;
       env.endOutput();
     }
   }
@@ -278,7 +389,7 @@ InductionTemplate::InductionTemplate(const Term* t)
                  : env.signature->getFunction(_functor)->fnType()),
     _branches(), _indPos(_arity, false) {}
 
-void InductionTemplate::addBranch(vvector<Term*>&& recursiveCalls, Term*&& header)
+void InductionTemplate::addBranch(vvector<Term*>&& recursiveCalls, Term* header)
 {
   CALL("InductionTemplate::addBranch");
 
@@ -296,47 +407,30 @@ void InductionTemplate::addBranch(vvector<Term*>&& recursiveCalls, Term*&& heade
   _branches.push_back(std::move(branch));
 }
 
-ostream& operator<<(ostream& out, const InductionTemplate& templ)
+vstring InductionTemplate::toString() const
 {
-  out << "Branches: ";
+  vstringstream str;
+  str << "Branches: ";
   unsigned n = 0;
-  for (const auto& b : templ._branches) {
-    out << b;
-    if (++n < templ._branches.size()) {
-      out << "; ";
+  for (const auto& b : _branches) {
+    str << b;
+    if (++n < _branches.size()) {
+      str << "; ";
     }
   }
-  out << " with positions: (";
-  for (unsigned i = 0; i < templ._arity; i++) {
-    if (templ._indPos[i]) {
-      out << "i";
+  str << " with positions: (";
+  for (unsigned i = 0; i < _arity; i++) {
+    if (_indPos[i]) {
+      str << "i";
     } else {
-      out << "0";
+      str << "0";
     }
-    if (i+1 < templ._arity) {
-      out << ",";
-    }
-  }
-  out << ")";
-  return out;
-}
-
-void InductionPreprocessor::processCase(const unsigned fn, TermList body, vvector<Term*>& recursiveCalls)
-{
-  CALL("InductionPreprocessor::processCase");
-
-  // If we arrived at a variable, nothing to do
-  if (!body.isTerm()) {
-    return;
-  }
-
-  NonVariableIterator it(body.term(), true);
-  while (it.hasNext()) {
-    auto st = it.next();
-    if (st.term()->functor() == fn) {
-      recursiveCalls.push_back(st.term());
+    if (i+1 < _arity) {
+      str << ",";
     }
   }
+  str << ")";
+  return str.str();
 }
 
 bool checkWellFoundednessHelper(const vvector<pair<Term*,Term*>>& relatedTerms,

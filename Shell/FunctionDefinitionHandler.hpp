@@ -8,12 +8,12 @@
  * and in the source directory
  */
 /**
- * @file InductionPreprocessor.hpp
+ * @file FunctionDefinitionHandler.hpp
  * Defines helper classes for induction templates and preprocessing
  */
 
-#ifndef __InductionPreprocessor__
-#define __InductionPreprocessor__
+#ifndef __FunctionDefinitionHandler__
+#define __FunctionDefinitionHandler__
 
 #include "Forwards.hpp"
 #include "Indexing/TermSubstitutionTree.hpp"
@@ -37,7 +37,7 @@ struct InductionTemplate {
   USE_ALLOCATOR(InductionTemplate);
   InductionTemplate(const Term* t);
 
-  void addBranch(vvector<Term*>&& recursiveCalls, Term*&& header);
+  void addBranch(vvector<Term*>&& recursiveCalls, Term* header);
   bool finalize();
   const vvector<bool>& inductionPositions() const { return _indPos; }
   bool matchesTerm(Term* t, vvector<Term*>& inductionTerms) const;
@@ -61,14 +61,14 @@ struct InductionTemplate {
 
   const vvector<Branch>& branches() const { return _branches; }
 
+  vstring toString() const;
+
   const unsigned _functor;
   const unsigned _arity;
   const bool _isLit;
   const OperatorType* _type;
 
 private:
-  friend ostream& operator<<(ostream& out, const InductionTemplate& templ);
-
   bool checkUsefulness() const;
   bool checkWellFoundedness();
   void checkWellDefinedness();
@@ -77,35 +77,36 @@ private:
   vvector<bool> _indPos;
 };
 
-ostream& operator<<(ostream& out, const InductionTemplate::Branch& branch);
-ostream& operator<<(ostream& out, const InductionTemplate& templ);
-
-class FnDefHandler
+class FunctionDefinitionHandler
 {
 public:
-  CLASS_NAME(FnDefHandler);
-  USE_ALLOCATOR(FnDefHandler);
+  CLASS_NAME(FunctionDefinitionHandler);
+  USE_ALLOCATOR(FunctionDefinitionHandler);
 
-  FnDefHandler()
-    : _is(new TermSubstitutionTree()) {}
+  struct Branch {
+    Term* header;
+    TermList body;
+    LiteralStack literals;
+  };
 
-  void handleClause(Clause* c, unsigned i, bool reversed);
-  void finalize();
+  void preprocess(Problem& prb);
+  bool preprocess(Formula* f, Stack<Branch>& branches);
+  void addFunction(const Stack<Branch>& branches, Unit* unit);
 
   TermQueryResultIterator getGeneralizations(TermList t) {
-    return _is->getGeneralizations(t, true);
-  }
-
-  bool hasInductionTemplate(unsigned fn, bool trueFun) const {
-    return _templates.count(make_pair(fn, trueFun));
+    return _is.getGeneralizations(t, true);
   }
 
   InductionTemplate* getInductionTemplate(unsigned fn, bool trueFun) {
-    return _templates.at(make_pair(fn, trueFun));
+    auto it = _templates.find(make_pair(fn, trueFun));
+    return it == _templates.end() ? nullptr : it->second;
   }
 
 private:
-  unique_ptr<TermIndexingStructure> _is;
+  Branch substituteBoundVariable(unsigned var, TermList t, const Branch& b, TermList body);
+  Branch addCondition(Literal* lit, const Branch& b, TermList body);
+
+  TermSubstitutionTree _is;
   vmap<pair<unsigned, bool>, InductionTemplate*> _templates;
 };
 
@@ -114,7 +115,6 @@ private:
  * the marked recursive function definitions from the parser.
  */
 struct InductionPreprocessor {
-  static void processCase(const unsigned fn, TermList body, vvector<Term*>& recursiveCalls);
   static bool checkWellFoundedness(const vvector<pair<Term*,Term*>>& relatedTerms);
   static bool checkWellDefinedness(const vvector<Term*>& cases, vvector<vvector<TermList>>& missingCases);
 };
