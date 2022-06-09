@@ -136,12 +136,11 @@ void FunctionDefinitionHandler::addFunction(const Stack<Branch>& branches, Unit*
   CALL("FunctionDefinitionHandler::addFunction");
   ASS_REP(branches.isNonEmpty(), unit->toString());
 
-  auto header = branches[0].header;
-  auto fn = header->functor();
-  auto isLit = header->isLiteral();
+  auto fn = branches[0].header->functor();
+  auto isLit = branches[0].header->isLiteral();
   auto symb = isLit ? env.signature->getPredicate(fn) : env.signature->getFunction(fn);
   auto sort = isLit ? symb->predType()->result() : symb->fnType()->result();
-  auto templ = new InductionTemplate(header);
+  auto templ = new InductionTemplate(branches[0].header);
   for (auto& b : branches) {
     // handle for induction
     vvector<Term*> recursiveCalls;
@@ -150,6 +149,9 @@ void FunctionDefinitionHandler::addFunction(const Stack<Branch>& branches, Unit*
         if (!lit->isEquality() && fn == lit->functor()) {
           recursiveCalls.push_back(lit->isPositive() ? lit : Literal::complementaryLiteral(lit));
         }
+      }
+      if (static_cast<Literal*>(b.header)->isNegative()) {
+        b.header = Literal::complementaryLiteral(static_cast<Literal*>(b.header));
       }
     } else {
       if (b.body.isTerm()) {

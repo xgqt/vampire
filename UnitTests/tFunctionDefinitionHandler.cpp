@@ -11,240 +11,275 @@
 #include "Test/UnitTesting.hpp"
 #include "Test/SyntaxSugar.hpp"
 
+#include "Kernel/FormulaUnit.hpp"
+
 #include "Shell/FunctionDefinitionHandler.hpp"
 
 using namespace Shell;
 
-// #define MY_SYNTAX_SUGAR                                                                    \
-//   DECL_DEFAULT_VARS                                                                        \
-//   DECL_VAR(x2, 2)                                                                          \
-//   DECL_VAR(x3, 3)                                                                          \
-//   DECL_VAR(x4, 4)                                                                          \
-//   DECL_VAR(x5, 5)                                                                          \
-//   DECL_VAR(x6, 6)                                                                          \
-//   DECL_VAR(x7, 7)                                                                          \
-//   DECL_VAR(x8, 8)                                                                          \
-//   DECL_VAR(x9, 9)                                                                          \
-//   DECL_VAR(x10, 10)                                                                        \
-//   DECL_VAR(x11, 11)                                                                        \
-//   DECL_SORT(s)                                                                             \
-//   DECL_SORT(u)                                                                             \
-//   DECL_CONST(b, s)                                                                         \
-//   DECL_FUNC(r, {s}, s)                                                                     \
-//   DECL_TERM_ALGEBRA(s, {b, r})                                                             \
-//   DECL_CONST(b1, u)                                                                        \
-//   DECL_CONST(b2, u)                                                                        \
-//   DECL_FUNC(r1, {s, u}, u)                                                                 \
-//   DECL_FUNC(r2, {u, s}, u)                                                                 \
-//   DECL_TERM_ALGEBRA(u, {b1, b2, r1, r2})                                                   \
-//   DECL_FUNC(f, {s, s}, s)                                                                  \
-//   DECL_FUNC(g, {s}, s)                                                                     \
-//   DECL_FUNC(h, {s, s, u}, u)                                                               \
-//   DECL_PRED(p, {s})                                                                        \
-//   DECL_PRED(q, {u, s})
+#define MY_SYNTAX_SUGAR                                                                    \
+  DECL_DEFAULT_VARS                                                                        \
+  DECL_VAR(x2, 2)                                                                          \
+  DECL_VAR(x3, 3)                                                                          \
+  DECL_VAR(x4, 4)                                                                          \
+  DECL_VAR(x5, 5)                                                                          \
+  DECL_VAR(x6, 6)                                                                          \
+  DECL_VAR(x7, 7)                                                                          \
+  DECL_VAR(x8, 8)                                                                          \
+  DECL_VAR(x9, 9)                                                                          \
+  DECL_VAR(x10, 10)                                                                        \
+  DECL_VAR(x11, 11)                                                                        \
+  DECL_SORT(s)                                                                             \
+  DECL_SORT(u)                                                                             \
+  DECL_CONST(b, s)                                                                         \
+  DECL_FUNC(r, {s}, s)                                                                     \
+  DECL_TERM_ALGEBRA(s, {b, r})                                                             \
+  DECL_CONST(b1, u)                                                                        \
+  DECL_CONST(b2, u)                                                                        \
+  DECL_FUNC(r1, {s, u}, u)                                                                 \
+  DECL_FUNC(r2, {u, s}, u)                                                                 \
+  DECL_TERM_ALGEBRA(u, {b1, b2, r1, r2})                                                   \
+  DECL_FUNC(f, {s, s}, s)                                                                  \
+  DECL_FUNC(g, {s}, s)                                                                     \
+  DECL_FUNC(h, {s, s, u}, u)                                                               \
+  DECL_PRED(p, {s})                                                                        \
+  DECL_PRED(q, {u, s})
 
-// inline void checkTemplateBranches(const PredSugar& p, const vvector<pair<Term*, vvector<Term*>>>& v) {
-//   FunctionDefinitionHandler handler;
-//   ASS(env.signature->getFnDefHandler()->hasInductionTemplate(p.functor(), false));
-//   auto templ = env.signature->getFnDefHandler()->getInductionTemplate(p.functor(), false);
-//   auto b = templ->branches();
-//   ASS_EQ(b.size(), v.size());
-//   TermList t;
-//   for (unsigned i = 0; i < b.size(); i++) {
-//     ASS_EQ(b[i]._header, v[i].first);
-//     auto r = b[i]._recursiveCalls;
-//     ASS_EQ(r.size(), v[i].second.size());
-//     for (unsigned j = 0; j < r.size(); j++) {
-//       ASS_EQ(r[j], v[i].second[j]);
-//     }
-//   }
-// }
+using FunctionDefs = std::initializer_list<std::initializer_list<std::tuple<
+    TermSugar,TermSugar,std::initializer_list<Lit>>>>;
 
-// inline void checkTemplateBranches(const FuncSugar& f, const vvector<pair<TermSugar, vvector<TermSugar>>>& p) {
-//   ASS(env.signature->getFnDefHandler()->hasInductionTemplate(f.functor(), true));
-//   auto templ = env.signature->getFnDefHandler()->getInductionTemplate(f.functor(), true);
-//   auto b = templ->branches();
-//   ASS_EQ(b.size(), p.size());
-//   TermList t;
-//   for (unsigned i = 0; i < b.size(); i++) {
-//     ASS_EQ(b[i]._header, p[i].first.toTerm().term());
-//     auto r = b[i]._recursiveCalls;
-//     ASS_EQ(r.size(), p[i].second.size());
-//     for (unsigned j = 0; j < r.size(); j++) {
-//       ASS_EQ(r[j], p[i].second[j].toTerm().term());
-//     }
-//   }
-// }
+inline void addFunctionDefs(FunctionDefinitionHandler& handler, FunctionDefs functionDefs) {
+  auto fu = new FormulaUnit(nullptr, FromInput(UnitInputType::AXIOM));
+  for (const auto& fd : functionDefs) {
+    Stack<FunctionDefinitionHandler::Branch> st;
+    for (const auto& t : fd) {
+      LiteralStack lits;
+      for (const auto& l : get<2>(t)) {
+        lits.push(l);
+      }
+      st.push({ get<0>(t).toTerm().term(), get<1>(t).toTerm(), lits });
+    }
+    handler.addFunction(st, fu);
+  }
+}
 
-// // not well-founded functions
-// TEST_FUN(test_01) {
-//   __ALLOW_UNUSED(MY_SYNTAX_SUGAR)
-//   DECL_FUNC_DEFS({ { clause({ f(r(x), r(y)) == f(f(x, r(r(y))), y) }),          0, false },   \
-//                    { clause({ g(r(x)) == g(f(x,x)) }),                          0, false },   \
-//                    { clause({ h(x, y, r1(x, z)) == h(y, y, z) }),               0, false },   \
-//                    { clause({ h(r(x), y, z) == h(x, x, r2(y,z)) }),             0, false },   \
-//                    { clause({ ~p(r(r(x))), ~p(y) }),                            0, false },   \
-//                    { clause({ q(r1(x,y),r(z)), ~q(y,r(z)), g(b) == b, q(z,b) }),0, false } })
+inline void checkTemplateBranches(FunctionDefinitionHandler& handler, const PredSugar& p, const vvector<pair<Term*, vvector<Term*>>>& v) {
+  auto templ = handler.getInductionTemplate(p.functor(), false);
+  ASS(templ);
+  auto b = templ->branches();
+  ASS_EQ(b.size(), v.size());
+  TermList t;
+  for (unsigned i = 0; i < b.size(); i++) {
+    ASS_REP(b[i]._header == v[i].first, b[i]._header->toString() + " " + v[i].first->toString());
+    auto r = b[i]._recursiveCalls;
+    ASS_EQ(r.size(), v[i].second.size());
+    for (unsigned j = 0; j < r.size(); j++) {
+      ASS_REP(r[j] == v[i].second[j], r[j]->toString() + " " + v[i].second[j]->toString());
+    }
+  }
+}
 
-//   ASS(!env.signature->getFnDefHandler()->hasInductionTemplate(f.functor(), true));
-//   ASS(!env.signature->getFnDefHandler()->hasInductionTemplate(g.functor(), true));
-//   ASS(!env.signature->getFnDefHandler()->hasInductionTemplate(h.functor(), true));
-//   ASS(!env.signature->getFnDefHandler()->hasInductionTemplate(p.functor(), false));
-//   ASS(!env.signature->getFnDefHandler()->hasInductionTemplate(q.functor(), false));
-// }
+inline void checkTemplateBranches(FunctionDefinitionHandler& handler, const FuncSugar& f, const vvector<pair<TermSugar, vvector<TermSugar>>>& p) {
+  auto templ = handler.getInductionTemplate(f.functor(), true);
+  ASS(templ);
+  auto b = templ->branches();
+  ASS_EQ(b.size(), p.size());
+  TermList t;
+  for (unsigned i = 0; i < b.size(); i++) {
+    ASS_EQ(b[i]._header, p[i].first.toTerm().term());
+    auto r = b[i]._recursiveCalls;
+    ASS_EQ(r.size(), p[i].second.size());
+    for (unsigned j = 0; j < r.size(); j++) {
+      ASS_EQ(r[j], p[i].second[j].toTerm().term());
+    }
+  }
+}
 
-// // not useful functions (either no recursive calls or no argument changes in any recursive call)
-// TEST_FUN(test_02) {
-//   __ALLOW_UNUSED(MY_SYNTAX_SUGAR)
-//   DECL_FUNC_DEFS({ { clause({ g(f(x, r(y))) == f(x, r(y)) }),                0, true  },   \
-//                    { clause({ f(x, b) == b }),                               0, false },   \
-//                    { clause({ g(x) == b }),                                  0, false } })
+// not well-founded functions
+TEST_FUN(test_01) {
+  __ALLOW_UNUSED(MY_SYNTAX_SUGAR)
+  FunctionDefinitionHandler handler;
+  addFunctionDefs(handler, {
+    { { f(r(x), r(y)), f(f(x, r(r(y))), y), { } } },
+    { { g(r(x)), g(f(x,x)), { } } },
+    { { h(x, y, r1(x, z)), h(y, y, z), { } },
+      { h(r(x), y, z), h(x, x, r2(y,z)), { } } },
+    { { p(r(r(x))).wrapInTerm(), /*unused*/b(), { p(y) } } },
+    { { q(r1(x,y),r(z)).wrapInTerm(), /*unused*/b(), { q(y,r(z)), g(b) == b, q(z,b) } } },
+  });
 
-//   ASS(!env.signature->getFnDefHandler()->hasInductionTemplate(f.functor(), true));
-//   ASS(!env.signature->getFnDefHandler()->hasInductionTemplate(g.functor(), true));
-// }
+  ASS(!handler.getInductionTemplate(f.functor(), true));
+  ASS(!handler.getInductionTemplate(g.functor(), true));
+  ASS(!handler.getInductionTemplate(h.functor(), true));
+  ASS(!handler.getInductionTemplate(p.functor(), false));
+  ASS(!handler.getInductionTemplate(q.functor(), false));
+}
 
-// // adds missing cases
-// TEST_FUN(test_03) {
-//   __ALLOW_UNUSED(MY_SYNTAX_SUGAR)
+// not useful functions (either no recursive calls or no argument changes in any recursive call)
+TEST_FUN(test_02) {
+  __ALLOW_UNUSED(MY_SYNTAX_SUGAR)
+  FunctionDefinitionHandler handler;
+  addFunctionDefs(handler, {
+    { { f(x, r(y)), g(f(x, r(y))), { } },
+      { f(x, b), b, { } } },
+    { { g(x), b, { } } }
+  });
 
-//   DECL_FUNC_DEFS({ { clause({ f(x,y) == f(r(x), r(y)) }),                    0, true  },   \
-//                    { clause({ f(x,b) == b }),                                0, false },   \
-//                                                                                            \
-//                    { clause({ g(r(r(x))) == g(x) }),                         0, false },   \
-//                                                                                            \
-//                    { clause({ h(b, x, y) == b1 }),                           0, false },   \
-//                    { clause({ h(r(x), b, y) == b2 }),                        0, false },   \
-//                    { clause({ h(r(x), b, r1(y,z)) == h(x, b, z) }),          0, false },   \
-//                                                                                            \
-//                    { clause({ p(r(r(x))), ~p(x) }),                          0, false },   \
-//                    { clause({ p(b), f(b,b) == b }),                          0, false },   \
-//                                                                                            \
-//                    { clause({ q(y,r(r(x))), ~q(y,x) }),                      0, false },   \
-//                    { clause({ ~q(r2(r1(x,y),z),b) }),                        0, false } })
+  ASS(!handler.getInductionTemplate(f.functor(), true));
+  ASS(!handler.getInductionTemplate(g.functor(), true));
+}
 
-//   checkTemplateBranches(f, {
-//     { f(r(x),r(y)), { f(x,y) } },
-//     { f(x,b),       { } },
-//     { f(b,r(x4)),   { } } // added
-//   });
+// adds missing cases
+TEST_FUN(test_03) {
+  __ALLOW_UNUSED(MY_SYNTAX_SUGAR)
+  FunctionDefinitionHandler handler;
+  addFunctionDefs(handler, {
+    { { f(r(x), r(y)), f(x,y), { } },
+      { f(x,b), b, { } } },
 
-//   checkTemplateBranches(g, {
-//     { g(r(r(x))),   { g(x) } },
-//     { g(b),         { } }, // added
-//     { g(r(b)),      { } }, // added
-//   });
+    { { g(r(r(x))), g(x), { } } },
 
-//   checkTemplateBranches(h, {
-//     { h(b, x, y),    { } },
-//     { h(r(x), b, y), { } },
-//     { h(r(x), b, r1(y,z)), { h(x, b, z) } },
-//     { h(r(x3), r(x4), x2), { } } // added
-//   });
+    { { h(b, x, y), b1, { } },
+      { h(r(x), b, y), b2, { } },
+      { h(r(x), b, r1(y,z)), h(x, b, z), { } } },
 
-//   checkTemplateBranches(p, {
-//     { p(r(r(x))), { p(x) } },
-//     { p(b),       { } },
-//     { p(r(b)),    { } } // added
-//   });
+    { { p(r(r(x))).wrapInTerm(), /*unused*/b(), { ~p(x) } },
+      { p(b).wrapInTerm(), /*unused*/b(), { f(b,b) == b } } },
 
-//   checkTemplateBranches(q, {
-//     { q(y,r(r(x))),            { q(y,x) } },
-//     { q(r2(r1(x,y),z),b),      { } },
-//     { q(b1,b),                 { } }, // added
-//     { q(b2,b),                 { } }, // added
-//     { q(r1(x4,x5),b),          { } }, // added
-//     { q(r2(b1,x7),b),          { } }, // added
-//     { q(r2(b2,x7),b),          { } }, // added
-//     { q(r2(r2(x10,x11),x7),b), { } }, // added
-//     { q(x,r(b)),               { } }  // added
-//   });
-// }
+    { { q(y,r(r(x))).wrapInTerm(), /*unused*/b(), { ~q(y,x) } },
+      { (~q(r2(r1(x,y),z),b)).wrapInTerm(), /*unused*/b(), { } } }
+  });
 
-// // correctly merges branches
-// TEST_FUN(test_04) {
-//   __ALLOW_UNUSED(MY_SYNTAX_SUGAR)
+  checkTemplateBranches(handler, f, {
+    { f(r(x),r(y)), { f(x,y) } },
+    { f(x,b),       { } },
+    { f(b,r(x4)),   { } } // added
+  });
 
-//   DECL_FUNC_DEFS({ { clause({ f(x,y) == f(r(x), r(y)) }),                    0, true  },   \
-//                    { clause({ f(r(x),r(x)) == f(x,x) }),                     0, false },   \
-//                    { clause({ b == f(b,x) }),                                0, true  },   \
-//                    { clause({ f(r(x),b) == g(x) }),                          0, false },   \
-//                                                                                            \
-//                    { clause({ g(r(r(x))) == g(r(x)) }),                      0, false },   \
-//                    { clause({ g(r(r(x))) == g(x) }),                         0, false },   \
-//                    { clause({ g(r(b)) == b }),                               0, false },   \
-//                    { clause({ g(b) == b }),                                  0, false },   \
-//                                                                                            \
-//                    { clause({ h(b, x, y) == b1 }),                           0, false },   \
-//                    { clause({ h(r(x), y, z) == h(x, y, z) }),                0, false },   \
-//                    { clause({ h(r(x), z, y) == h(x, z, y) }),                0, false },   \
-//                                                                                            \
-//                    { clause({ p(r(r(x))), ~p(x) }),                          0, false },   \
-//                    { clause({ p(r(r(x))), ~p(r(x)) }),                       0, false },   \
-//                    { clause({ p(b) }),                                       0, false },   \
-//                                                                                            \
-//                    { clause({ ~q(y,r(x)), ~q(y,x) }),                        0, false },   \
-//                    { clause({ ~q(y,b) }),                                    0, false },   \
-//                    { clause({ q(z,r(b)), q(z,b) }),                          0, false } })
+  checkTemplateBranches(handler, g, {
+    { g(r(r(x))),   { g(x) } },
+    { g(b),         { } }, // added
+    { g(r(b)),      { } }, // added
+  });
 
-//   checkTemplateBranches(f, {
-//     { f(r(x),r(y)), { f(x,y) } },
-//     { f(b,x),       { } },
-//     { f(r(x),b),    { } },
-//   });
+  checkTemplateBranches(handler, h, {
+    { h(b, x, y),    { } },
+    { h(r(x), b, y), { } },
+    { h(r(x), b, r1(y,z)), { h(x, b, z) } },
+    { h(r(x3), r(x4), x2), { } } // added
+  });
 
-//   checkTemplateBranches(g, {
-//     { g(r(r(x))),   { g(r(x)) } },
-//     { g(r(r(x))),   { g(x) } },
-//     { g(r(b)),      { } },
-//     { g(b),         { } },
-//   });
+  checkTemplateBranches(handler, p, {
+    { p(r(r(x))), { p(x) } },
+    { p(b),       { } },
+    { p(r(b)),    { } } // added
+  });
 
-//   checkTemplateBranches(h, {
-//     { h(b, x, y),    { } },
-//     { h(r(x), y, z), { h(x, y, z) } }
-//   });
+  checkTemplateBranches(handler, q, {
+    { q(y,r(r(x))),            { q(y,x) } },
+    { q(r2(r1(x,y),z),b),      { } },
+    { q(b1,b),                 { } }, // added
+    { q(b2,b),                 { } }, // added
+    { q(r1(x4,x5),b),          { } }, // added
+    { q(r2(b1,x7),b),          { } }, // added
+    { q(r2(b2,x7),b),          { } }, // added
+    { q(r2(r2(x10,x11),x7),b), { } }, // added
+    { q(x,r(b)),               { } }  // added
+  });
+}
 
-//   checkTemplateBranches(p, {
-//     { p(r(r(x))), { p(x) } },
-//     { p(r(r(x))), { p(r(x)) } },
-//     { p(b),       { } },
-//     { p(r(b)),    { } }
-//   });
+// correctly merges branches
+TEST_FUN(test_04) {
+  __ALLOW_UNUSED(MY_SYNTAX_SUGAR)
+  FunctionDefinitionHandler handler;
+  addFunctionDefs(handler, {
+    { { f(r(x), r(y)), f(x,y), { } },
+      { f(r(x),r(x)), f(x,x), { } },
+      { f(b,x), b, { } },
+      { f(r(x),b), g(x), { } } },
 
-//   checkTemplateBranches(q, {
-//     { q(y,r(x)), { q(y,x) } },
-//     { q(y,b),    { } }
-//   });
-// }
+    { { g(r(r(x))), g(r(x)), { } },
+      { g(r(r(x))), g(x), { } },
+      { g(r(b)), b, { } },
+      { g(b), b, { } } },
 
-// // non-term-algebra sorts are ignored
-// TEST_FUN(test_05) {
-//   __ALLOW_UNUSED(MY_SYNTAX_SUGAR)
-//   DECL_SORT(t)                                                                             \
-//   DECL_FUNC(f1, {t}, t)                                                                    \
-//   DECL_PRED(p1, {t})                                                                       \
-//   DECL_FUNC_DEFS({ { clause({ f1(f1(x)) == f1(x) }),                         0, false  },  \
-//                    { clause({ p1(f1(x)), p1(x) }),                           0, false  } })
+    { { h(b, x, y), b1, { } },
+      { h(r(x), y, z), h(x, y, z), { } },
+      { h(r(x), z, y), h(x, z, y), { } } },
 
-//   ASS(!env.signature->getFnDefHandler()->hasInductionTemplate(f1.functor(), true));
-//   ASS(!env.signature->getFnDefHandler()->hasInductionTemplate(p1.functor(), false));
-// }
+    { { p(r(r(x))).wrapInTerm(), /*unused*/b(), { ~p(x) } },
+      { p(r(r(x))).wrapInTerm(), /*unused*/b(), { ~p(r(x)) } },
+      { p(b).wrapInTerm(), /*unused*/b(), { } } },
 
-// // headers with non-term-algebra arguments are not discarded
-// // but trivial headers are added to ensure well-definedness
-// TEST_FUN(test_06) {
-//   __ALLOW_UNUSED(MY_SYNTAX_SUGAR)
-//   DECL_FUNC_DEFS({ { clause({ p(g(x)), p(x) }),                              0, false  },  \
-//                    { clause({ f(r(x),g(y)) == f(x,g(y)) }),                  0, false } })
+    { { (~q(y,r(x))).wrapInTerm(), /*unused*/b(), { ~q(y,x) } },
+      { (~q(y,b)).wrapInTerm(), /*unused*/b(), { } },
+      { q(z,r(b)).wrapInTerm(), /*unused*/b(), { q(z,b) } } }
+  });
 
-//   checkTemplateBranches(p, {
-//     { p(g(x)), { p(x) } },
-//     { p(x),    { } },
-//   });
+  checkTemplateBranches(handler, f, {
+    { f(r(x),r(y)), { f(x,y) } },
+    { f(b,x),       { } },
+    { f(r(x),b),    { } },
+  });
 
-//   checkTemplateBranches(f, {
-//     { f(r(x),g(y)), { f(x,g(y)) } },
-//     { f(x,y),       { } },
-//   });
-// }
+  checkTemplateBranches(handler, g, {
+    { g(r(r(x))),   { g(r(x)) } },
+    { g(r(r(x))),   { g(x) } },
+    { g(r(b)),      { } },
+    { g(b),         { } },
+  });
+
+  checkTemplateBranches(handler, h, {
+    { h(b, x, y),    { } },
+    { h(r(x), y, z), { h(x, y, z) } }
+  });
+
+  checkTemplateBranches(handler, p, {
+    { p(r(r(x))), { p(x) } },
+    { p(r(r(x))), { p(r(x)) } },
+    { p(b),       { } },
+    { p(r(b)),    { } }
+  });
+
+  checkTemplateBranches(handler, q, {
+    { q(y,r(x)), { q(y,x) } },
+    { q(y,b),    { } }
+  });
+}
+
+// non-term-algebra sorts are ignored
+TEST_FUN(test_05) {
+  __ALLOW_UNUSED(MY_SYNTAX_SUGAR)
+  DECL_SORT(t)                     \
+  DECL_FUNC(f1, {t}, t)            \
+  DECL_PRED(p1, {t})
+  FunctionDefinitionHandler handler;
+  addFunctionDefs(handler, {
+    { { f1(f1(x)), f1(x), { } } },
+    { { p1(f1(x)).wrapInTerm(), /*unused*/b(), { p1(x) } } }
+  });
+
+  ASS(!handler.getInductionTemplate(f1.functor(), true));
+  ASS(!handler.getInductionTemplate(p1.functor(), false));
+}
+
+// headers with non-term-algebra arguments are not discarded
+// but trivial headers are added to ensure well-definedness
+TEST_FUN(test_06) {
+  __ALLOW_UNUSED(MY_SYNTAX_SUGAR)
+  FunctionDefinitionHandler handler;
+  addFunctionDefs(handler, {
+    { { p(g(x)).wrapInTerm(), /*unused*/b(), { p(x) } } },
+    { { f(r(x),g(y)), f(x,g(y)), { } } }
+  });
+
+  checkTemplateBranches(handler, p, {
+    { p(g(x)), { p(x) } },
+    { p(x),    { } },
+  });
+
+  checkTemplateBranches(handler, f, {
+    { f(r(x),g(y)), { f(x,g(y)) } },
+    { f(x,y),       { } },
+  });
+}

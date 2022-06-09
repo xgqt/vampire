@@ -46,6 +46,7 @@ using namespace Lib;
 using namespace Kernel;
 using namespace Indexing;
 using namespace Inferences;
+using namespace Shell;
 
 class SaturationAlgorithm : public MainLoop
 {
@@ -122,6 +123,7 @@ public:
 
   Splitter* getSplitter() { return _splitter; }
   FunctionDefinitionHandler* getFunctionDefinitionHandler() { return _fnDefHandler.ptr(); }
+  void setFunctionDefinitionHandler(FunctionDefinitionHandler* fnDefHandler);
 
 protected:
   virtual void init();

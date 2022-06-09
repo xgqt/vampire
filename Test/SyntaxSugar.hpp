@@ -320,10 +320,13 @@ public:
   TermList toTerm() const { return _trm;} 
 
   static TermSugar createConstant(const char* name, SortSugar s, bool skolem) {
-    unsigned f = env.signature->addFunction(name,0);                                                                
-    env.signature->getFunction(f)->setType(OperatorType::getFunctionType({}, s.sortId()));
-    if (skolem) {
-      env.signature->getFunction(f)->markSkolem();
+    bool added;
+    unsigned f = env.signature->addFunction(name,0,added);
+    if (added) {
+      env.signature->getFunction(f)->setType(OperatorType::getFunctionType({}, s.sortId()));
+      if (skolem) {
+        env.signature->getFunction(f)->markSkolem();
+      }
     }
     return TermSugar(TermList(Term::createConstant(f)));                                                          
   }                                                                                                                 
@@ -346,6 +349,11 @@ public:
   {
     l._selected = true;
     return l;
+  }
+
+  TermSugar wrapInTerm()
+  {
+    return TermSugar(TermList(_lit));
   }
 };
 
@@ -443,10 +451,11 @@ public:
     bool added = false;
     _functor = env.signature->addFunction(name, as.size(), added);
     _arity = as.size();
-    if (added)
+    if (added) {
       env.signature
         ->getFunction(_functor)
-        ->setType(OperatorType::getFunctionType(as.size(), as.begin(), result.sortId()));    
+        ->setType(OperatorType::getFunctionType(as.size(), as.begin(), result.sortId()));
+    }
   }
 
   FuncSugar dtor(unsigned i) const {
@@ -498,10 +507,13 @@ public:
     for (auto a : args) {
       as.push(a.sortId());
     }
-    _functor = env.signature->addPredicate(name, as.size());
-    env.signature
-      ->getPredicate(_functor)
-      ->setType(OperatorType::getPredicateType(as.size(), &as[0]));    
+    bool added;
+    _functor = env.signature->addPredicate(name, as.size(), added);
+    if (added) {
+      env.signature
+        ->getPredicate(_functor)
+        ->setType(OperatorType::getPredicateType(as.size(), &as[0]));
+    }
   }
 
   template<class... As>
@@ -547,6 +559,10 @@ inline Stack<Clause*> clauses(std::initializer_list<std::initializer_list<Lit>> 
 }
 
 inline void createTermAlgebra(SortSugar sort, initializer_list<FuncSugar> fs) {
+  // avoid redeclaration
+  if (env.signature->isTermAlgebraSort(sort.sortId())) {
+    return;
+  }
 
   using namespace Shell;
 
@@ -574,17 +590,6 @@ inline void createTermAlgebra(SortSugar sort, initializer_list<FuncSugar> fs) {
   }
   auto ta = new TermAlgebra(sort.sortId(), cons.size(), cons.begin());
   env.signature->addTermAlgebra(ta);
-}
-
-inline void createFunctionDefinitions(std::initializer_list<tuple<Clause*,unsigned,bool>> cls)
-{
-  for (const auto& t : cls) {
-    auto cl = get<0>(t);
-    auto i = get<1>(t);
-    // env.signature->getFnDefHandler()->handleClause(cl, i,
-    //   get<2>(t) ^ (*cl)[i]->isOrientedReversed());
-  }
-  // env.signature->getFnDefHandler()->finalize();
 }
 
 #endif // __TEST__SYNTAX_SUGAR__H__
