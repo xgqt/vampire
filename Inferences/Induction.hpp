@@ -31,6 +31,8 @@
 #include "Lib/DHSet.hpp"
 #include "Lib/List.hpp"
 
+#include "Saturation/SaturationAlgorithm.hpp"
+
 #include "Shell/FunctionDefinitionHandler.hpp"
 
 #include "InductionHelper.hpp"
@@ -88,8 +90,8 @@ struct InductionContext {
     : _indTerms(ts) {}
   explicit InductionContext(const vvector<Term*>& ts)
     : _indTerms(ts) {}
-  InductionContext(vvector<Term*>&& ts, Literal* l, Clause* cl)
-    : InductionContext(std::move(ts))
+  InductionContext(const vvector<Term*>& ts, Literal* l, Clause* cl)
+    : InductionContext(ts)
   {
     insert(cl, l);
   }
@@ -208,11 +210,10 @@ class InductionClauseIterator
 {
 public:
   // all the work happens in the constructor!
-  InductionClauseIterator(Clause* premise, InductionHelper helper, const Options& opt,
-    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex,
-    InductionFormulaIndex& recFormulaIndex, SaturationAlgorithm* salg)
-      : _helper(helper), _opt(opt), _structInductionTermIndex(structInductionTermIndex),
-      _formulaIndex(formulaIndex), _recFormulaIndex(recFormulaIndex), _salg(salg)
+  InductionClauseIterator(Clause* premise, InductionHelper helper, SaturationAlgorithm* salg,
+    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex)
+      : _helper(helper), _opt(salg->getOptions()), _structInductionTermIndex(structInductionTermIndex),
+      _formulaIndex(formulaIndex), _fnDefHandler(salg->getFunctionDefinitionHandler())
   {
     processClause(premise);
   }
@@ -251,8 +252,7 @@ private:
   const Options& _opt;
   TermIndex* _structInductionTermIndex;
   InductionFormulaIndex& _formulaIndex;
-  InductionFormulaIndex& _recFormulaIndex;
-  SaturationAlgorithm* _salg;
+  FunctionDefinitionHandler* _fnDefHandler;
 };
 
 };

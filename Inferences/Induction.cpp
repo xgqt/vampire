@@ -417,8 +417,8 @@ ClauseIterator Induction::generateClauses(Clause* premise)
 {
   CALL("Induction::generateClauses");
 
-  return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex), getOptions(),
-    _structInductionTermIndex, _formulaIndex, _recFormulaIndex, _salg));
+  return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex),
+    _salg, _structInductionTermIndex, _formulaIndex));
 }
 
 void InductionClauseIterator::processClause(Clause* premise)
@@ -456,13 +456,18 @@ struct InductionContextFn
 {
   InductionContextFn(Clause* premise, Literal* lit) : _premise(premise), _lit(lit) {}
 
-  VirtualIterator<InductionContext> operator()(pair<Term*, VirtualIterator<TermQueryResult>> arg) {
+  VirtualIterator<InductionContext> operator()(pair<vvector<Term*>, VirtualIterator<TermQueryResult>> arg) {
     auto indDepth = _premise->inference().inductionDepth();
     // heuristic 2
     if (indDepth) {
       auto res = VirtualIterator<InductionContext>::getEmpty();
+      // TODO make this work for multiple induction terms
+      if (arg.first.size() > 1) {
+        return res;
+      }
+      auto indTerm = arg.first[0];
       // check for complex term and non-equality
-      if (_lit->isEquality() || !arg.first->arity()) {
+      if (_lit->isEquality() || !indTerm->arity()) {
         return res;
       }
       while (arg.second.hasNext()) {
@@ -486,8 +491,8 @@ struct InductionContextFn
             // - no other non-equal pair of terms have been processed (match)
             // - one of them contains the other and the contained one is the induction term
             if (match ||
-              !((st1.containsSubterm(st2) && st2.term() == arg.first) ||
-                (st2.containsSubterm(st1) && st1.term() == arg.first)))
+              !((st1.containsSubterm(st2) && st2.term() == indTerm) ||
+                (st2.containsSubterm(st1) && st1.term() == indTerm)))
             {
               match = false;
               break;
@@ -500,14 +505,14 @@ struct InductionContextFn
         if (!match) {
           continue;
         }
-        InductionContext ctx({ arg.first }, _lit, _premise);
+        InductionContext ctx(arg.first, _lit, _premise);
         ctx.insert(tqr.clause, tqr.literal);
         res = pvi(getConcatenatedIterator(res, getSingletonIterator(ctx)));
       }
       return res;
     // heuristic 1
     } else {
-      InductionContext ctx({ arg.first }, _lit, _premise);
+      InductionContext ctx(arg.first, _lit, _premise);
       Set<Literal*> lits;
       lits.insert(_lit);
       while (arg.second.hasNext()) {
@@ -542,45 +547,47 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
   }
 
   if (lit->ground()) {
-      Set<Term*> ta_terms;
       Set<Term*> int_terms;
-      vmap<vvector<Term*>,vvector<const InductionTemplate*>> fn_terms;
+      vmap<vvector<Term*>,vvector<const InductionTemplate*>> ta_terms;
 
-      auto fnDefHandler = _salg->getFunctionDefinitionHandler();
-      auto templ = fnDefHandler ?
-        fnDefHandler->getInductionTemplate(lit->functor(), false) : nullptr;
+      auto templ = _fnDefHandler ?
+        _fnDefHandler->getInductionTemplate(lit->functor(), false) : nullptr;
       if (templ) {
         vvector<Term*> indTerms;
         if (templ->matchesTerm(lit, indTerms)) {
-          auto it = fn_terms.find(indTerms);
-          if (it == fn_terms.end()) {
-            it = fn_terms.insert(make_pair(indTerms,vvector<const InductionTemplate*>())).first;
+          auto it = ta_terms.find(indTerms);
+          if (it == ta_terms.end()) {
+            it = ta_terms.insert(make_pair(indTerms,vvector<const InductionTemplate*>())).first;
           }
           it->second.push_back(templ);
         }
       }
 
-      // NonVariableNonTypeIterator it(lit);
-      ActiveOccurrenceIterator it(lit, fnDefHandler);
+      NonVariableNonTypeIterator it(lit);
+      // ActiveOccurrenceIterator it(lit, _fnDefHandler);
       while(it.hasNext()){
         TermList ts = it.next();
         unsigned f = ts.term()->functor(); 
         if(InductionHelper::isInductionTermFunctor(f)){
           if(InductionHelper::isStructInductionOn() && InductionHelper::isStructInductionFunctor(f)){
-            ta_terms.insert(ts.term());
+            vvector<Term*> indTerms = { ts.term() };
+            auto it = ta_terms.find(indTerms);
+            if (it == ta_terms.end()) {
+              ta_terms.insert(make_pair(indTerms,vvector<const InductionTemplate*>()));
+            }
           }
           if(InductionHelper::isIntInductionOneOn() && InductionHelper::isIntInductionTermListInLiteral(ts, lit)){
             int_terms.insert(ts.term());
           }
         }
-        auto templ = fnDefHandler ?
-          fnDefHandler->getInductionTemplate(f, true) : nullptr;
+        auto templ = _fnDefHandler ?
+          _fnDefHandler->getInductionTemplate(f, true) : nullptr;
         if (templ) {
           vvector<Term*> indTerms;
           if (templ->matchesTerm(ts.term(), indTerms)) {
-            auto it = fn_terms.find(indTerms);
-            if (it == fn_terms.end()) {
-              it = fn_terms.insert(make_pair(indTerms,vvector<const InductionTemplate*>())).first;
+            auto it = ta_terms.find(indTerms);
+            if (it == ta_terms.end()) {
+              it = ta_terms.insert(make_pair(indTerms,vvector<const InductionTemplate*>())).first;
             }
             it->second.push_back(templ);
           }
@@ -640,11 +647,18 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       }
     }
     // collect term queries for each induction term
-    auto sideLitsIt = VirtualIterator<pair<Term*, TermQueryResultIterator>>::getEmpty();
+    auto sideLitsIt = VirtualIterator<pair<vvector<Term*>,TermQueryResultIterator>>::getEmpty();
     if (_opt.nonUnitInduction()) {
-      sideLitsIt = pvi(iterTraits(Set<Term*>::Iterator(ta_terms))
-        .map([this](Term* arg) {
-          return make_pair(arg, _structInductionTermIndex->getGeneralizations(TermList(arg), true));
+      sideLitsIt = pvi(iterTraits(getSTLIterator(ta_terms.begin(), ta_terms.end()))
+        .map([](pair<vvector<Term*>,vvector<const InductionTemplate*>> kv){
+          return kv.first;
+        })
+        .map([this](vvector<Term*> ts) {
+          auto res = TermQueryResultIterator::getEmpty();
+          for (const auto& t : ts) {
+            res = pvi(getConcatenatedIterator(res, _structInductionTermIndex->getGeneralizations(TermList(t), false)));
+          }
+          return make_pair(ts, res);
         }));
     }
     // put clauses from queries into contexts alongside with the given clause and induction term
@@ -667,9 +681,9 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
         return hasPremise && cnt > 1;
       });
     // collect contexts for single-literal induction with given clause
-    auto indCtxSingle = iterTraits(Set<Term*>::Iterator(ta_terms))
-      .map([&lit,&premise](Term* arg) {
-        return InductionContext({ arg }, lit, premise);
+    auto indCtxSingle = iterTraits(getSTLIterator(ta_terms.begin(), ta_terms.end()))
+      .map([&lit,&premise](pair<vvector<Term*>,vvector<const InductionTemplate*>> arg) {
+        return InductionContext(arg.first, lit, premise);
       })
       // generalize all contexts if needed
       .flatMap([this](const InductionContext& arg) {
@@ -695,47 +709,31 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
                         _opt.structInduction() == Options::StructuralInductionKind::ALL;
       static bool three = _opt.structInduction() == Options::StructuralInductionKind::THREE ||
                         _opt.structInduction() == Options::StructuralInductionKind::ALL;
+      static bool rec = _opt.structInduction() == Options::StructuralInductionKind::RECURSION ||
+                        _opt.structInduction() == Options::StructuralInductionKind::ALL;
       InductionFormulaIndex::Entry* e;
       // generate formulas and add them to index if not done already
       if (_formulaIndex.findOrInsert(ctx, e)) {
-        if(one){
-          performStructInductionOne(ctx,e);
+        if (ctx._indTerms.size() == 1) {
+          if(one){
+            performStructInductionOne(ctx,e);
+          }
+          if(two){
+            performStructInductionTwo(ctx,e);
+          }
+          if(three){
+            performStructInductionThree(ctx,e);
+          }
         }
-        if(two){
-          performStructInductionTwo(ctx,e);
-        }
-        if(three){
-          performStructInductionThree(ctx,e);
+        if (rec) {
+          for (const auto& templ : ta_terms.at(ctx._indTerms)) {
+            performRecursionInduction(ctx, templ, e);
+          }
         }
       }
       // resolve the formulas with the premises
       for (auto& kv : e->get()) {
         resolveClauses(kv.first, ctx, kv.second);
-      }
-    }
-    if (!InductionHelper::isInductionLiteral(lit)) {
-      return;
-    }
-    static bool rec = _opt.structInduction() == Options::StructuralInductionKind::RECURSION ||
-                      _opt.structInduction() == Options::StructuralInductionKind::ALL;
-    if (!rec) {
-      return;
-    }
-    for (const auto& kv : fn_terms) {
-      InductionContext context(kv.first);
-      context.insert(premise, lit);
-      auto cr = vi(ContextSubsetReplacement::instance(context, _opt));
-      while (cr.hasNext()) {
-        auto ctx = cr.next();
-        InductionFormulaIndex::Entry* e;
-        if (_recFormulaIndex.findOrInsert(ctx, e)) {
-          for (const auto& templ : kv.second) {
-            performRecursionInduction(ctx, templ, e);
-          }
-        }
-        for (auto& kv2 : e->get()) {
-          resolveClauses(kv2.first, ctx, kv2.second);
-        }
       }
     }
   }
@@ -821,7 +819,10 @@ ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, Inferen
   cnf.clausify(NNF::ennf(fu), hyp_clauses);
 
   switch (rule) {
-    case InferenceRule::STRUCT_INDUCTION_AXIOM:
+    case InferenceRule::STRUCT_INDUCTION_AXIOM_ONE:
+    case InferenceRule::STRUCT_INDUCTION_AXIOM_TWO:
+    case InferenceRule::STRUCT_INDUCTION_AXIOM_THREE:
+    case InferenceRule::STRUCT_INDUCTION_AXIOM_RECURSION:
       env.statistics->structInduction++;
       break;
     case InferenceRule::INT_INF_UP_INDUCTION_AXIOM:
@@ -1274,7 +1275,7 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
                             Formula::quantify(indPremise),
                             Formula::quantify(conclusion));
 
-  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context);
+  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM_ONE, context);
   e->add(std::move(cls), std::move(subst));
 }
 
@@ -1351,7 +1352,7 @@ void InductionClauseIterator::performStructInductionTwo(const InductionContext& 
   FormulaList* orf = FormulaList::cons(exists,FormulaList::singleton(Formula::quantify(conclusion)));
   Formula* hypothesis = new JunctionFormula(Connective::OR,orf);
 
-  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context);
+  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM_TWO, context);
   e->add(std::move(cls), std::move(subst));
 }
 
@@ -1458,7 +1459,7 @@ void InductionClauseIterator::performStructInductionThree(const InductionContext
   FormulaList* orf = FormulaList::cons(exists,FormulaList::singleton(Formula::quantify(conclusion)));
   Formula* hypothesis = new JunctionFormula(Connective::OR,orf);
 
-  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context);
+  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM_THREE, context);
   e->add(std::move(cls), std::move(subst));
 }
 
@@ -1506,7 +1507,7 @@ void InductionClauseIterator::performRecursionInduction(const InductionContext& 
   auto conclusion = context.getFormula(ts, true, &subst);
   Formula* hypothesis = new BinaryFormula(Connective::IMP, Formula::quantify(indPremise), Formula::quantify(conclusion));
 
-  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context);
+  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM_RECURSION, context);
   e->add(std::move(cls), std::move(subst));
 }
 

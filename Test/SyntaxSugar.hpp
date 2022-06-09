@@ -184,7 +184,6 @@
   )
 
 #define DECL_TERM_ALGEBRA(...) createTermAlgebra(__VA_ARGS__);
-#define DECL_FUNC_DEFS(...) createFunctionDefinitions(__VA_ARGS__);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // implementation

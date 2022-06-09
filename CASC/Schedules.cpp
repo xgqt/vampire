@@ -3032,6 +3032,7 @@ void Schedules::getIntegerInductionSchedule(const Shell::Property& property, Sch
 // ---------- ---------- ---------- ---------- ---------- ---------- ---------- ---------- ----------
 
 void Schedules::getStructInductionSchedule(const Shell::Property& property, Schedule& quick, Schedule& fallback) {
+  // Empirically sorted (order somewhat guessed)
   quick.push("lrs+10_1_ind=struct:sos=theory:sstl=1_89");
   quick.push("dis+1002_1_aac=none:anc=all:ind=struct:sos=theory:sac=on:sstl=1:to=lpo_30");
   quick.push("lrs+10_1_ind=struct:sos=theory:sstl=1:to=lpo_89");
