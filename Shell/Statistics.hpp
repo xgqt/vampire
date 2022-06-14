@@ -152,6 +152,8 @@ public:
   unsigned inductionApplicationInProof;
   unsigned generalizedInductionApplication;
   unsigned generalizedInductionApplicationInProof;
+  unsigned vacuousInductionFormulaDiscarded;
+  unsigned vacuousInductionFormulaDiscardedStatically;
   /** number of argument congruences */
   unsigned argumentCongruence;
   unsigned narrow;

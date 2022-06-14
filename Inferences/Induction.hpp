@@ -155,6 +155,7 @@ public:
   CLASS_NAME(Induction);
   USE_ALLOCATOR(Induction);
 
+  Induction() {} // for testing
   Induction(const Problem &problem);
   void attach(SaturationAlgorithm* salg) override;
   void detach() override;
@@ -216,6 +217,7 @@ private:
   void performStructInductionThree(const InductionContext& context, InductionFormulaIndex::Entry* e);
 
   bool notDoneInt(InductionContext context, Literal* bound1, Literal* bound2, InductionFormulaIndex::Entry*& e);
+  bool checkForVacuousness(const InductionContext& ctx);
 
   Stack<Clause*> _clauses;
   InductionHelper _helper;

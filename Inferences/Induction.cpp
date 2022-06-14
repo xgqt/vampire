@@ -283,7 +283,7 @@ static bool shouldDiscardBasedOnConclusion(Formula *conclusion)
   }
   z3::check_result result = z3solver.check(assumptions);
 
-  std::cout << result << "\t" << conclusion << std::endl;
+  // std::cout << result << "\t" << conclusion << std::endl;
   return result == z3::unsat;
 }
 
@@ -660,6 +660,48 @@ private:
   Literal* _lit;
 };
 
+// returns true if the context is vacuous by these checks
+// TODO enable check for more complex conclusions
+// TODO add check that the induction term datatype contains at least two ctors
+bool InductionClauseIterator::checkForVacuousness(const InductionContext& ctx) {
+  CALL("InductionClauseIterator::checkForVacuousness");
+  if (ctx._cls.size() != 1 || ctx._cls.begin()->second.size() != 1) {
+    return true;
+  }
+  // context is vacuous if all of these conditions hold:
+  // * context contains only one negative equality
+  // * only one side contains the induction term 
+  // * there is an occurrence of the induction term
+  //   which has only term algebra ctor/dtor superterms
+  auto lit = ctx._cls.begin()->second[0];
+  if (!lit->isEquality() || lit->isPositive()) {
+    return true;
+  }
+  auto lhs = lit->nthArgument(0)->term();
+  auto rhs = lit->nthArgument(1)->term();
+  auto ph = getPlaceholderForTerm(ctx._indTerm);
+  auto lhsc = lhs->containsSubterm(TermList(ph));
+  if (!lhsc || !rhs->containsSubterm(TermList(ph))) {
+    auto side = lhsc ? lhs : rhs;
+    Stack<Term*> todo;
+    todo.push(side);
+    while (todo.isNonEmpty()) {
+      auto t = todo.pop();
+      if (t == ph) {
+        return false;
+      }
+      auto symb = env.signature->getFunction(t->functor());
+      if (symb->termAlgebraCons() || symb->termAlgebraDest()) {
+        for (unsigned i = 0; i < t->arity(); i++) {
+          todo.push((*t)[i].term());
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
 void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
 {
   CALL("Induction::ClauseIterator::processLiteral");
@@ -799,14 +841,18 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       InductionFormulaIndex::Entry* e;
       // generate formulas and add them to index if not done already
       if (_formulaIndex.findOrInsert(ctx, e)) {
-        if(one){
-          performStructInductionOne(ctx,e);
-        }
-        if(two){
-          performStructInductionTwo(ctx,e);
-        }
-        if(three){
-          performStructInductionThree(ctx,e);
+        if (checkForVacuousness(ctx)) {
+          if(one){
+            performStructInductionOne(ctx,e);
+          }
+          if(two){
+            performStructInductionTwo(ctx,e);
+          }
+          if(three){
+            performStructInductionThree(ctx,e);
+          }
+        } else {
+          env.statistics->vacuousInductionFormulaDiscardedStatically++;
         }
       }
       // resolve the formulas with the premises
@@ -1339,8 +1385,10 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
   Formula* indPremise = JunctionFormula::generalJunction(Connective::AND,formulas);
   Substitution subst;
   auto conclusion = context.getFormulaWithSquashedSkolems(TermList(var++,false), true, var, nullptr, &subst);
-  if(shouldDiscardBasedOnConclusion(conclusion))
+  if(shouldDiscardBasedOnConclusion(conclusion)) {
+    env.statistics->vacuousInductionFormulaDiscarded++;
     return;
+  }
   Formula* hypothesis = new BinaryFormula(Connective::IMP,
                             Formula::quantify(indPremise),
                             Formula::quantify(conclusion));
