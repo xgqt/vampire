@@ -1418,6 +1418,12 @@ void Options::init()
     _nonUnitInduction.reliesOn(_induction.is(notEqual(Induction::NONE)));
     _lookup.insert(&_nonUnitInduction);
 
+    _inductionOnActiveOccurrences = BoolOptionValue("induction_on_active_occurrences","indao",false);
+    _inductionOnActiveOccurrences.description = "Only use induction terms from active occurrences, generalize over active occurrences";
+    _inductionOnActiveOccurrences.tag(OptionTag::INFERENCES);
+    _inductionOnActiveOccurrences.reliesOn(_induction.is(notEqual(Induction::NONE)));
+    _lookup.insert(&_inductionOnActiveOccurrences);
+
     _instantiation = ChoiceOptionValue<Instantiation>("instantiation","inst",Instantiation::OFF,{"off","on"});
     _instantiation.description = "Heuristically instantiate variables. Often wastes a lot of effort. Consider using thi instead.";
     _instantiation.tag(OptionTag::INFERENCES);

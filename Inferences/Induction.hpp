@@ -145,14 +145,29 @@ public:
 
 protected:
   InductionContext _context;
-private:
   bool _used;
+};
+
+class ActiveOccurrenceContextReplacement
+  : public ContextReplacement {
+public:
+  ActiveOccurrenceContextReplacement(const InductionContext& context, FunctionDefinitionHandler* fnDefHandler);
+  InductionContext next() override;
+  bool hasNonActive() const { return _hasNonActive; }
+
+protected:
+  TermList transformSubterm(TermList trm) override;
+
+private:
+  FunctionDefinitionHandler* _fnDefHandler;
+  vvector<unsigned> _iteration;
+  vvector<unsigned> _matchCount;
+  bool _hasNonActive;
 };
 
 class ContextSubsetReplacement
   : public ContextReplacement {
 public:
-  static ContextReplacement* instance(const InductionContext& context, const Options& opt);
   ContextSubsetReplacement(const InductionContext& context, const unsigned maxSubsetSize);
 
   bool hasNext() override;
@@ -164,13 +179,11 @@ protected:
 private:
   bool shouldSkipIteration() const;
   void stepIteration();
-  void getActiveOccurrences();
   // _iteration serves as a map of occurrences to replace
   vvector<unsigned> _iteration;
   vvector<unsigned> _maxIterations;
   // Counts how many occurrences were already encountered in one transformation
   vvector<unsigned> _matchCount;
-  vvector<unsigned> _activeOccurrences;
   const unsigned _maxOccurrences = 1 << 20;
   const unsigned _maxSubsetSize;
   bool _ready;

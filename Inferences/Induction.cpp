@@ -220,13 +220,90 @@ InductionContext ContextReplacement::next()
   return context;
 }
 
-ContextReplacement* ContextSubsetReplacement::instance(const InductionContext& context, const Options& opt)
+ActiveOccurrenceContextReplacement::ActiveOccurrenceContextReplacement(
+  const InductionContext& context, FunctionDefinitionHandler* fnDefHandler)
+  : ContextReplacement(context),
+    _fnDefHandler(fnDefHandler),
+    _iteration(_context._indTerms.size(),0),
+    _matchCount(_context._indTerms.size(),0),
+    _hasNonActive(false)
+{}
+
+TermList ActiveOccurrenceContextReplacement::transformSubterm(TermList trm)
+{
+  CALL("ActiveOccurrenceContextReplacement::transformSubterm");
+  if (trm.isTerm()) {
+    auto it = std::find(_context._indTerms.begin(), _context._indTerms.end(), trm.term());
+    if (it != _context._indTerms.end()) {
+      auto i = it - _context._indTerms.begin();
+      if (1 & (_iteration[i] >> _matchCount[i]++)) {
+        return _m.at(trm.term());
+      }
+    }
+  }
+  return trm;
+}
+
+InductionContext ActiveOccurrenceContextReplacement::next()
+{
+  CALL("ActiveOccurrenceContextReplacement::next");
+  ASS(hasNext());
+  _used = true;
+  InductionContext context(_context._indTerms);
+  for (const auto& kv : _context._cls) {
+    for (const auto& lit : kv.second) {
+      for (unsigned i = 0; i < _iteration.size(); i++) {
+        _iteration[i] = 0;
+        _matchCount[i] = 0;
+      }
+      Stack<pair<Term*,bool>> stack(8);
+      stack.push(make_pair(lit,true));
+      while (stack.isNonEmpty()) {
+        auto kv = stack.pop();
+        auto t = kv.first;
+        auto active = kv.second;
+        auto f = t->functor();
+        auto lit = t->isLiteral();
+        auto templ = _fnDefHandler->getInductionTemplate(f, !lit);
+        for (unsigned k = 0; k < t->arity(); k++) {
+          stack.push(make_pair(t->nthArgument(k)->term(),
+            active && templ ? templ->inductionPositions()[k] : active));
+        }
+        auto it = std::find(_context._indTerms.begin(), _context._indTerms.end(), t);
+        if (it != _context._indTerms.end()) {
+          auto idx = it - _context._indTerms.begin();
+          _iteration[idx] = (_iteration[idx] << 1) | active;
+          if (!active) {
+            _hasNonActive = true;
+          }
+        }
+      }
+      auto tlit = transform(lit);
+      if (tlit != lit) {
+        context.insert(kv.first, tlit);
+      }
+    }
+  }
+  return context;
+}
+
+VirtualIterator<InductionContext> contextReplacementInstance(const InductionContext& context, const Options& opt, FunctionDefinitionHandler* fnDefHandler)
 {
   CALL("ContextSubsetReplacement::instance");
-  if (opt.inductionGen()) {
-    return new ContextSubsetReplacement(context, opt.maxInductionGenSubsetSize());
+  auto ctx = context;
+  auto res = VirtualIterator<InductionContext>::getEmpty();
+  if (opt.inductionOnActiveOccurrences()) {
+    ActiveOccurrenceContextReplacement aor(context, fnDefHandler);
+    ASS(aor.hasNext());
+    ctx = aor.next();
+    res = pvi(getSingletonIterator(ctx));
+    if (!aor.hasNonActive()) {
+      return res;
+    }
   }
-  return new ContextReplacement(context);
+  return pvi(getConcatenatedIterator(res, vi(opt.inductionGen()
+    ? new ContextSubsetReplacement(ctx, opt.maxInductionGenSubsetSize())
+    : new ContextReplacement(ctx))));
 }
 
 ContextSubsetReplacement::ContextSubsetReplacement(const InductionContext& context, const unsigned maxSubsetSize)
@@ -234,7 +311,6 @@ ContextSubsetReplacement::ContextSubsetReplacement(const InductionContext& conte
     _iteration(context._indTerms.size(),1), // we want to exclude empty subset, so set all to 1
     _maxIterations(context._indTerms.size(),0),
     _matchCount(context._indTerms.size(),0),
-    _activeOccurrences(),
     _maxSubsetSize(maxSubsetSize),
     _ready(false), _done(false)
 {
@@ -254,7 +330,6 @@ ContextSubsetReplacement::ContextSubsetReplacement(const InductionContext& conte
     stepIteration();
   }
   _ready = true;
-  // getActiveOccurrences();
 }
 
 TermList ContextSubsetReplacement::transformSubterm(TermList trm)
@@ -296,7 +371,15 @@ InductionContext ContextSubsetReplacement::next() {
   for (const auto& kv : _context._cls) {
     for (const auto& lit : kv.second) {
       auto tlit = transform(lit);
-      if (tlit != lit) {
+      // check if tlit has placeholders
+      bool found = false;
+      for (unsigned i = 0; i < _context._indTerms.size(); i++) {
+        if (tlit->containsSubterm(TermList(getPlaceholderForTerm(_context._indTerms,i)))) {
+          found = true;
+          break;
+        }
+      }
+      if (found) {
         context.insert(kv.first, tlit);
       }
     }
@@ -318,9 +401,6 @@ bool ContextSubsetReplacement::shouldSkipIteration() const
     if (subsetSizeCheck && setBits > _maxSubsetSize) {
       return true;
     }
-    // if (_iteration[i] != _activeOccurrences[i]) {
-    //   return true;
-    // }
   }
   return false;
 }
@@ -340,47 +420,6 @@ void ContextSubsetReplacement::stepIteration()
     }
   }
   _done = true;
-}
-
-void ContextSubsetReplacement::getActiveOccurrences()
-{
-  CALL("ContextSubsetReplacement::getActiveOccurrences");
-//   _activeOccurrences = vvector<unsigned>(_context._indTerms.size(),0);
-//   vvector<decltype(_context._cls.begin())> refs;
-//   for (auto it = _context._cls.begin(); it != _context._cls.end(); it++) {
-//     refs.push_back(it);
-//   }
-//   Stack<pair<Term*,bool>> stack(8);
-//   for (int i = refs.size()-1; i >= 0; i--) {
-//     for (int j = refs[i]->second.size()-1; j >= 0; j--) {
-//       stack.reset();
-//       stack.push(make_pair(refs[i]->second[j],true));
-//       while (stack.isNonEmpty()) {
-//         auto kv = stack.pop();
-//         auto t = kv.first;
-//         auto active = kv.second;
-//         auto f = t->functor();
-//         auto lit = t->isLiteral();
-//         auto templ = 
-//         if (active && env.signature->getFnDefHandler()->hasInductionTemplate(f, !lit)) {
-//           auto& actPos = env.signature->getFnDefHandler()->getInductionTemplate(f, !lit)->inductionPositions();
-//           for (int k = t->arity()-1; k >= 0; k--) {
-//             stack.push(make_pair(t->nthArgument(k)->term(), actPos[k]));
-//           }
-//         } else {
-//           for (int k = t->arity()-1; k >= 0; k--) {
-//             stack.push(make_pair(t->nthArgument(k)->term(), active));
-//           }
-//         }
-//         auto it = std::find(_context._indTerms.begin(), _context._indTerms.end(), t);
-//         if (it != _context._indTerms.end()) {
-//           auto idx = _context._indTerms.end() - it;
-//           _activeOccurrences[idx] <<= 1;
-//           _activeOccurrences[idx] = _activeOccurrences[idx] & active;
-//         }
-//       }
-//     }
-//   }
 }
 
 void Induction::attach(SaturationAlgorithm* salg) {
@@ -563,8 +602,12 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
         }
       }
 
-      NonVariableNonTypeIterator it(lit);
-      // ActiveOccurrenceIterator it(lit, _fnDefHandler);
+      VirtualIterator<TermList> it;
+      if (_opt.inductionOnActiveOccurrences()) {
+        it = vi(new ActiveOccurrenceIterator(lit, _fnDefHandler));
+      } else {
+        it = vi(new NonVariableNonTypeIterator(lit));
+      }
       while(it.hasNext()){
         TermList ts = it.next();
         unsigned f = ts.term()->functor(); 
@@ -600,7 +643,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
         Term* t = citer1.next();
         auto leBound = iterTraits(_helper.getLess(t)).collect<Stack>();
         auto grBound = iterTraits(_helper.getGreater(t)).collect<Stack>();
-        auto indLitsIt = vi(ContextSubsetReplacement::instance(InductionContext({ t }, lit, premise), _opt));
+        auto indLitsIt = contextReplacementInstance(InductionContext({ t }, lit, premise), _opt, _fnDefHandler);
         while (indLitsIt.hasNext()) {
           auto ctx = indLitsIt.next();
           // process lower bounds
@@ -666,7 +709,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       .flatMap(InductionContextFn(premise, lit))
       // generalize all contexts if needed
       .flatMap([this](const InductionContext& arg) {
-        return vi(ContextSubsetReplacement::instance(arg, _opt));
+        return contextReplacementInstance(arg, _opt, _fnDefHandler);
       })
       // filter out the ones without the premise, or only one literal
       .filter([&premise](const InductionContext& arg) {
@@ -687,7 +730,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       })
       // generalize all contexts if needed
       .flatMap([this](const InductionContext& arg) {
-        return vi(ContextSubsetReplacement::instance(arg, _opt));
+        return contextReplacementInstance(arg, _opt, _fnDefHandler);
       });
     auto indCtxIt = iterTraits(getConcatenatedIterator(sideLitsIt2, indCtxSingle))
       // filter out the ones without an induction literal
@@ -764,7 +807,7 @@ void InductionClauseIterator::processIntegerComparison(Clause* premise, Literal*
         return InductionContext({ indt }, tqr.literal, tqr.clause);
       })
       .flatMap([this](const InductionContext& arg) {
-        return vi(ContextSubsetReplacement::instance(arg, _opt));
+        return contextReplacementInstance(arg, _opt, _fnDefHandler);
       });
     TermQueryResult b(bound, lit, premise);
     // loop over literals containing the current induction term
