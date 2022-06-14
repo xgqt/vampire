@@ -25,6 +25,7 @@
 #include "Kernel/FormulaUnit.hpp"
 #include "Kernel/RobSubstitution.hpp"
 #include "Kernel/TermIterators.hpp"
+#include "Kernel/Problem.hpp"
 
 #include "Saturation/SaturationAlgorithm.hpp"
 
@@ -33,6 +34,263 @@
 #include "Shell/Rectify.hpp"
 
 #include "Induction.hpp"
+
+// QuickCheck style testing of induction schema conclusions
+// idea: add universally-quantified axioms to Z3
+// when given a conclusion, generate a few instances of it
+// test if it generates unsat when added to Z3 with a short timeout
+// if so, vacuous in some way, reject it
+
+// TODO if it's not a really simple term algebra problem this will break
+// need to handle e.g. non-term-algebra sorts, non-equality literals, etc.
+// TODO keep getting SEGV in Z3 somewhere...not sure if my fault
+
+#if VZ3
+#include "z3++.h"
+
+// generate a pseudo-random of a given sort
+// TODO anything other than term algebras
+static Term *randomTermOf(Random &state, TermList sort) {
+  ASS(env.signature->isTermAlgebraSort(sort));
+  TermAlgebra *algebra = env.signature->getTermAlgebraOfSort(sort);
+  unsigned constructor_index = state.getInteger() % algebra->nConstructors();
+  TermAlgebraConstructor *constructor = algebra->constructor(constructor_index);
+  Stack<TermList> args;
+  for(int i = 0; i < constructor->arity(); i++)
+    args.push(TermList(randomTermOf(state, constructor->argSort(i))));
+  return Term::create(constructor->functor(), constructor->arity(), args.begin());
+}
+
+// convert Vampire sorts/terms/literals/clauses/formulae to Z3 decls/expressions
+// TODO adapt Z3Interfacing to do this for us
+static z3::context z3context;
+static z3::solver z3solver(z3context);
+static bool z3initialised(false);
+static Map<TermList, z3::sort> z3sorts;
+static Map<unsigned, z3::func_decl> z3constrs;
+static Map<unsigned, z3::func_decl> z3destrs;
+
+// this is the most effort, everything else is kinda easy
+static z3::sort sort2z3(TermList sort) {
+  ASS(env.signature->isTermAlgebraSort(sort))
+  z3::sort cached(z3context);
+  if(z3sorts.find(sort, cached))
+    return cached;
+
+  TermAlgebra *algebra = env.signature->getTermAlgebraOfSort(sort);
+  Stack<Z3_constructor> constructors;
+  for(int i = 0; i < algebra->nConstructors(); i++) {
+    TermAlgebraConstructor *constructor = algebra->constructor(i);
+    Z3_symbol constructorName = Z3_mk_string_symbol(
+      z3context,
+      env.signature->getFunction(constructor->functor())->name().c_str()
+    );
+    unsigned discriminator = constructor->createDiscriminator();
+    Z3_symbol discriminatorName = Z3_mk_string_symbol(
+      z3context,
+      env.signature->getFunction(discriminator)->name().c_str()
+    );
+
+    Stack<Z3_symbol> argNames;
+    Stack<Z3_sort> argSorts;
+    Stack<unsigned> argSortIndices;
+    for(int j = 0; j < constructor->arity(); j++) {
+      TermList argSort = constructor->argSort(j);
+      // TODO handle other types of argument
+      ASS_EQ(argSort, sort);
+
+      const char *name = env.signature->functionName(constructor->destructorFunctor(j)).c_str();
+      // TODO deal with recursive sorts properly
+      argNames.push(Z3_mk_string_symbol(z3context, name));
+      argSorts.push(nullptr);
+      argSortIndices.push(0);
+    }
+
+    constructors.push(Z3_mk_constructor(
+      z3context,
+      constructorName,
+      discriminatorName,
+      constructor->arity(),
+      constructor->arity() ? argNames.begin() : nullptr,
+      constructor->arity() ? argSorts.begin() : nullptr,
+      constructor->arity() ? argSortIndices.begin() : nullptr
+    ));
+  }
+
+  // TODO cleanup resources somehow
+  Z3_constructor_list constructorList = Z3_mk_constructor_list(
+    z3context,
+    algebra->nConstructors(),
+    constructors.begin()
+  );
+  Z3_symbol sortName = Z3_mk_string_symbol(z3context, sort.toString().c_str());
+  Z3_sort datatype;
+
+  Z3_mk_datatypes(z3context, 1, &sortName, &datatype, &constructorList);
+
+  for(int i = 0; i < algebra->nConstructors(); i++) {
+    TermAlgebraConstructor *constructor = algebra->constructor(i);
+    Z3_func_decl internal_constructor_decl;
+    Z3_func_decl destructors[constructor->arity()];
+    Z3_query_constructor(z3context, constructors[i], constructor->arity(), &internal_constructor_decl, nullptr, destructors);
+    z3::func_decl constructor_decl(z3context, internal_constructor_decl);
+    z3constrs.insert(constructor->functor(), constructor_decl);
+    for(int i = 0; i < constructor->arity(); i++)
+      z3destrs.insert(constructor->destructorFunctor(i), z3::func_decl(z3context, destructors[i]));
+  }
+
+  z3::sort result(z3context, datatype);
+  z3sorts.insert(sort, result);
+
+  return result;
+}
+
+// TODO should cache types/functions/variables
+static std::pair<z3::sort_vector, z3::sort> type2z3(OperatorType *t) {
+  z3::sort_vector domain(z3context);
+  for(int i = 0; i < t->arity(); i++)
+    domain.push_back(sort2z3(t->arg(i)));
+  z3::sort range = sort2z3(t->result());
+  return std::make_pair(domain, range);
+}
+
+static z3::func_decl function2z3(unsigned functor) {
+  Kernel::Signature::Symbol *symbol = env.signature->getFunction(functor);
+  auto domain_and_range = type2z3(symbol->fnType());
+
+  z3::func_decl decl(z3context);
+  if(z3constrs.find(functor, decl) || z3destrs.find(functor, decl))
+    return decl;
+
+  z3::symbol name = z3context.str_symbol(symbol->name().c_str());
+  return z3context.function(name, domain_and_range.first, domain_and_range.second);
+}
+
+static z3::expr variable2z3(unsigned variable, TermList sort) {
+  return z3context.constant(z3context.int_symbol(variable), sort2z3(sort));
+}
+
+static z3::expr termlist2z3(TermList tl, const DHMap<unsigned, TermList> &sorts);
+
+static z3::expr term2z3(Term *t, const DHMap<unsigned, TermList> &sorts) {
+    z3::func_decl f = function2z3(t->functor());
+    z3::expr_vector args(z3context);
+    for(int i = 0; i < t->arity(); i++)
+      args.push_back(termlist2z3((*t)[i], sorts));
+    return f(args);
+}
+
+static z3::expr termlist2z3(TermList tl, const DHMap<unsigned, TermList> &sorts) {
+  if(tl.isTerm()) {
+    Term *t = tl.term();
+    return term2z3(t, sorts);
+  }
+  else {
+    unsigned var = tl.var();
+    return variable2z3(var, sorts.get(var));
+  }
+}
+
+static z3::expr literal2z3(Literal *l, const DHMap<unsigned, TermList> &sorts) {
+  z3::expr result(z3context);
+  if(l->isEquality()) {
+    z3::expr left = termlist2z3((*l)[0], sorts);
+    z3::expr right = termlist2z3((*l)[1], sorts);
+    result = left == right;
+  }
+  else {
+    ASSERTION_VIOLATION;
+  }
+  if(!l->polarity())
+    result = !result;
+  return result;
+}
+
+static z3::expr clause2z3(Clause *c, const DHMap<unsigned, TermList> &sorts) {
+  z3::expr_vector lits(z3context);
+  for(int i = 0; i < c->length(); i++)
+    lits.push_back(literal2z3(c->literals()[i], sorts));
+  z3::expr disjunction = z3::mk_or(lits);
+  if(c->isGround())
+    return disjunction;
+
+  z3::expr_vector bound(z3context);
+  auto sort_it = sorts.items();
+  while(sort_it.hasNext()) {
+    auto item = sort_it.next();
+    bound.push_back(variable2z3(item.first, item.second));
+  }
+  return z3::forall(bound, disjunction);
+}
+
+static z3::expr formula2z3(Formula *f, const DHMap<unsigned, TermList> &sorts) {
+  ASS_EQ(f->connective(), LITERAL);
+  return literal2z3(f->literal(), sorts);
+}
+
+// register axiom clauses to get e.g. function definitions
+static void registerClauseForDiscarder(Clause *c) {
+  if(c->derivedFromGoal() || c->isTheoryAxiom())
+    return;
+
+  DHMap<unsigned, TermList> sorts;
+  SortHelper::collectVariableSorts(c, sorts);
+
+  BYPASSING_ALLOCATOR;
+  z3::expr f = clause2z3(c, sorts);
+  z3solver.add(f);
+}
+
+// should we discard induction schemas with this conclusion?
+static bool shouldDiscardBasedOnConclusion(Formula *conclusion)
+{
+  BYPASSING_ALLOCATOR;
+
+  // setup a Z3 solver instance
+  if(!z3initialised) {
+    z3initialised = true;
+    z3solver.set("auto-config", false);
+    z3solver.set("smt.mbqi", false);
+    // 10ms timeout
+    z3solver.set("timeout", 10u);
+  }
+
+  DHMap<unsigned, TermList> sorts;
+  SortHelper::collectVariableSorts(conclusion, sorts, true);
+  // formula we will make instances from
+  z3::expr f = formula2z3(conclusion, sorts);
+  z3::expr_vector assumptions(z3context);
+
+  Random state;
+  state.setSeed(0);
+  // create 10 instances of the formula
+  for(int i = 0; i < 10; i++) {
+    z3::expr_vector src(z3context), dest(z3context);
+    // might have multiple variables if e.g. indstrhyp=on
+    auto items = sorts.items();
+    while(items.hasNext()) {
+      auto item = items.next();
+      unsigned variable = item.first;
+      TermList sort = item.second;
+
+      DHMap<unsigned, TermList> dummy;
+      Term *term = randomTermOf(state, sort);
+      src.push_back(variable2z3(variable, sort));
+      dest.push_back(term2z3(term, dummy));
+    }
+    z3::expr instance = f.substitute(src, dest);
+    assumptions.push_back(instance);
+  }
+  z3::check_result result = z3solver.check(assumptions);
+
+  std::cout << result << "\t" << conclusion << std::endl;
+  return result == z3::unsat;
+}
+
+#else
+static void registerClauseForDiscarder(Clause *c) {}
+static bool shouldDiscardBasedOnConclusion(Formula *conclusion) { return false; }
+#endif
 
 using std::pair;
 using std::make_pair;
@@ -245,6 +503,13 @@ InductionContext ContextSubsetReplacement::next() {
   }
   _ready = false;
   return context;
+}
+
+Induction::Induction(const Problem &problem) {
+  CALL("Induction::Induction(const Problem &)");
+  auto clauses = problem.clauseIterator();
+  while(clauses.hasNext())
+    registerClauseForDiscarder(clauses.next());
 }
 
 void Induction::attach(SaturationAlgorithm* salg) {
@@ -1074,6 +1339,8 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
   Formula* indPremise = JunctionFormula::generalJunction(Connective::AND,formulas);
   Substitution subst;
   auto conclusion = context.getFormulaWithSquashedSkolems(TermList(var++,false), true, var, nullptr, &subst);
+  if(shouldDiscardBasedOnConclusion(conclusion))
+    return;
   Formula* hypothesis = new BinaryFormula(Connective::IMP,
                             Formula::quantify(indPremise),
                             Formula::quantify(conclusion));

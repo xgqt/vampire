@@ -155,6 +155,7 @@ public:
   CLASS_NAME(Induction);
   USE_ALLOCATOR(Induction);
 
+  Induction(const Problem &problem);
   void attach(SaturationAlgorithm* salg) override;
   void detach() override;
 

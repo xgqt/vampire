@@ -1507,7 +1507,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
 
   //TODO here induction is last, is that right?
   if(opt.induction()!=Options::Induction::NONE){
-    gie->addFront(new Induction());
+    gie->addFront(new Induction(prb));
   }
 
   if(opt.instantiation()!=Options::Instantiation::OFF){
