@@ -359,9 +359,7 @@ VS_OBJ = Shell/AnswerExtractor.o\
          Shell/Grounding.o\
          Shell/InequalitySplitting.o\
          Shell/InterpolantMinimizer.o\
-         Shell/InterpolantMinimizerNew.o\
          Shell/Interpolants.o\
-         Shell/InterpolantsNew.o\
          Shell/InterpretedNormalizer.o\
          Shell/LambdaElimination.o\
          Shell/LaTeX.o\
@@ -378,7 +376,6 @@ VS_OBJ = Shell/AnswerExtractor.o\
          Shell/Skolem.o\
          Shell/SimplifyFalseTrue.o\
          Shell/SineUtils.o\
-         Shell/SMTFormula.o\
          Shell/FOOLElimination.o\
          Shell/Statistics.o\
          Shell/SubexpressionIterator.o\
@@ -389,6 +386,7 @@ VS_OBJ = Shell/AnswerExtractor.o\
          Shell/TheoryAxioms.o\
          Shell/TheoryFinder.o\
          Shell/TheoryFlattening.o\
+         Shell/TweeGoalTransformation.o\
          Shell/BlockedClauseElimination.o\
          Shell/Token.o\
          Shell/TPTPPrinter.o\
