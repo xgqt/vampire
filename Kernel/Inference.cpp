@@ -730,6 +730,12 @@ vstring Kernel::ruleName(InferenceRule rule)
     return "trivial inequality removal";
   case InferenceRule::FACTORING:
     return "factoring";
+  case InferenceRule::INDUCTION_REMODULATION:
+    return "induction remodulation";
+  case InferenceRule::INDUCTION_FORWARD_REWRITING:
+    return "induction forward rewriting";
+  case InferenceRule::INDUCTION_INJECTIVITY:
+    return "induction injectivity";
   case InferenceRule::CONSTRAINED_FACTORING:
     return "constrained factoring";
   case InferenceRule::SUBSUMPTION_RESOLUTION:

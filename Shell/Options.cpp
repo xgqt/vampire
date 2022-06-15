@@ -145,6 +145,7 @@ void Options::init()
          "casc_sat",
          "casc_sat_2019",
          "casc_hol_2020",
+         "file",
          "induction",
          "integer_induction",
          "ltb_default_2017",
@@ -155,9 +156,14 @@ void Options::init()
          "smtcomp",
          "smtcomp_2018",
          "struct_induction"});
-    _schedule.description = "Schedule to be run by the portfolio mode. casc and smtcomp usually point to the most recent schedule in that category. Note that some old schedules may contain option values that are no longer supported - see ignore_missing.";
+    _schedule.description = "Schedule to be run by the portfolio mode. casc and smtcomp usually point to the most recent schedule in that category. file loads the schedule from a file specified in --schedule_file. Note that some old schedules may contain option values that are no longer supported - see ignore_missing.";
     _lookup.insert(&_schedule);
     _schedule.reliesOn(UsingPortfolioTechnology());
+
+    _scheduleFile = StringOptionValue("schedule_file", "", "");
+    _scheduleFile.description = "Path to the input schedule file. Each line contains an encoded strategy. Disabled unless `--schedule file` is set.";
+    _lookup.insert(&_scheduleFile);
+    _scheduleFile.onlyUsefulWith(_schedule.is(equal(Schedule::FILE)));
 
     _multicore = UnsignedOptionValue("cores","",1);
     _multicore.description = "When running in portfolio modes (including casc or smtcomp modes) specify the number of cores, set to 0 to use maximum";
@@ -1424,6 +1430,19 @@ void Options::init()
     _inductionOnActiveOccurrences.reliesOn(_induction.is(notEqual(Induction::NONE)));
     _lookup.insert(&_inductionOnActiveOccurrences);
 
+    _inductionConsequenceGeneration = ChoiceOptionValue<InductionConsequenceGeneration>("induction_consequence_generation","indcg",
+                                        InductionConsequenceGeneration::OFF, {"off", "unit_only", "on"});
+    _inductionConsequenceGeneration.description = "Generate consequences (without ordering constraints) for induction goals";
+    _inductionConsequenceGeneration.tag(OptionTag::INFERENCES);
+    _inductionConsequenceGeneration.reliesOn(_induction.is(notEqual(Induction::NONE)));
+    _lookup.insert(&_inductionConsequenceGeneration);
+
+    _inductionRemodulationRedundancyCheck = BoolOptionValue("induction_remodulation_redundancy_check","indrrc",true);
+    _inductionRemodulationRedundancyCheck.description = "Try to do only non-redundant inductions";
+    _inductionRemodulationRedundancyCheck.tag(OptionTag::INFERENCES);
+    _inductionRemodulationRedundancyCheck.reliesOn(_inductionConsequenceGeneration.is(notEqual(InductionConsequenceGeneration::OFF)));
+    _lookup.insert(&_inductionRemodulationRedundancyCheck);
+
     _instantiation = ChoiceOptionValue<Instantiation>("instantiation","inst",Instantiation::OFF,{"off","on"});
     _instantiation.description = "Heuristically instantiate variables. Often wastes a lot of effort. Consider using thi instead.";
     _instantiation.tag(OptionTag::INFERENCES);
@@ -1492,8 +1511,7 @@ void Options::init()
     _binaryResolution.onlyUsefulWith(InferencingSaturationAlgorithm());
     _binaryResolution.tag(OptionTag::INFERENCES);
     // If urr is off then binary resolution should be on
-    _binaryResolution.addConstraint(
-      If(equal(false)).then(_unitResultingResolution.is(notEqual(URResolution::OFF))));
+    // _binaryResolution.addConstraint(If(equal(false)).then(_unitResultingResolution.is(notEqual(URResolution::OFF))));
     _binaryResolution.setRandomChoices(And(isRandSat(),saNotInstGen(),Or(hasEquality(),hasCat(Property::HNE))),{"on"});
     _binaryResolution.setRandomChoices({"on","off"});
 
@@ -2845,7 +2863,7 @@ bool Options::RatioOptionValue::readRatio(const char* val, char separator)
       return false;
     }
     char copy[COPY_SIZE];
-    strncpy(copy,val,COPY_SIZE);
+    strncpy(copy,val,COPY_SIZE - 1); // leave space for trailing NUL
     copy[colonIndex] = 0;
     int age;
     if (! Int::stringToInt(copy,age)) {
@@ -2996,7 +3014,7 @@ bool Options::TimeLimitOptionValue::setValue(const vstring& value)
   }
 
   char copy[COPY_SIZE];
-  strncpy(copy,value.c_str(),COPY_SIZE);
+  strncpy(copy,value.c_str(),COPY_SIZE - 1); // leave space for trailing NUL
   char* end = copy;
   // search for the end of the string for
   while (*end) {

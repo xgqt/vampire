@@ -127,6 +127,9 @@ public:
   /** number of theoryInstSimp application where an empty substitution was applied */
   unsigned theoryInstSimpEmptySubstitution;
   /** number of induction applications **/
+  unsigned inductionForwardRewriting;
+  unsigned inductionRemodulation;
+  unsigned inductionRedundant;
   unsigned maxInductionDepth;
   unsigned structInduction;
   unsigned structInductionInProof;

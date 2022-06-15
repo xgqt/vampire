@@ -66,6 +66,7 @@ Clause::Clause(unsigned length,const Inference& inf)
     _extensionality(false),
     _extensionalityTag(false),
     _component(false),
+    _inductionClause(0),
     _store(NONE),
     _numSelected(0),
     _weight(0),
@@ -707,6 +708,26 @@ unsigned Clause::numPositiveLiterals()
     }
   }
   return count;
+}
+
+bool Clause::isInductionClause()
+{
+  CALL("Clause::isInductionClause");
+  if (_inductionClause) {
+    return _inductionClause & 2;
+  }
+  for (unsigned i = 0; i < _length; i++) {
+    NonVariableIterator nvi((*this)[i]);
+    while (nvi.hasNext()) {
+      auto t = nvi.next().term();
+      if (t->getPointedTerm()) {
+        _inductionClause = 3;
+        return true;
+      }
+    }
+  }
+  _inductionClause = 1;
+  return false;
 }
 
 /**

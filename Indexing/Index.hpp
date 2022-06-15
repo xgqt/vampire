@@ -22,6 +22,7 @@
 #include "Lib/VirtualIterator.hpp"
 #include "Saturation/ClauseContainer.hpp"
 #include "ResultSubstitution.hpp"
+#include "Kernel/Clause.hpp"
 
 #include "Lib/Allocator.hpp"
 
@@ -127,11 +128,18 @@ public:
 protected:
   Index() {}
 
-  void onAddedToContainer(Clause* c)
-  { handleClause(c, true); }
-  void onRemovedFromContainer(Clause* c)
-  { handleClause(c, false); }
-
+  virtual void onAddedToContainer(Clause* c)
+  {
+    if (!c->isInductionClause()) {
+      handleClause(c, true);
+    }
+  }
+  virtual void onRemovedFromContainer(Clause* c)
+  {
+    if (!c->isInductionClause()) {
+      handleClause(c, false);
+    }
+  }
   virtual void handleClause(Clause* c, bool adding) {}
 
   //TODO: postponing index modifications during iteration (methods isBeingIterated() etc...)

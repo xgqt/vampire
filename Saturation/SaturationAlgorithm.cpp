@@ -85,6 +85,9 @@
 #include "Inferences/Instantiation.hpp"
 #include "Inferences/TheoryInstAndSimp.hpp"
 #include "Inferences/Induction.hpp"
+#include "Inferences/InductionForwardRewriting.hpp"
+#include "Inferences/InductionRemodulation.hpp"
+#include "Inferences/InductionInjectivity.hpp"
 #include "Inferences/ArithmeticSubtermGeneralization.hpp"
 #include "Inferences/TautologyDeletionISE.hpp"
 #include "Inferences/CombinatorDemodISE.hpp"
@@ -1513,8 +1516,17 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   CompositeGIE* gie=new CompositeGIE();
 
   //TODO here induction is last, is that right?
+  Induction* induction = nullptr;
+  InductionRemodulation* inductionRemodulation = nullptr;
   if(opt.induction()!=Options::Induction::NONE){
-    gie->addFront(new Induction());
+    if (env.options->inductionConsequenceGeneration()!=Options::InductionConsequenceGeneration::OFF) {
+      inductionRemodulation = new InductionRemodulation();
+      gie->addFront(inductionRemodulation);
+      gie->addFront(new InductionForwardRewriting());
+      gie->addFront(new InductionInjectivity());
+    }
+    induction = new Induction();
+    gie->addFront(induction);
   }
 
   if(opt.instantiation()!=Options::Instantiation::OFF){
@@ -1633,7 +1645,11 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   }
 #endif
 
-  res->setGeneratingInferenceEngine(sgi);
+  if (env.options->inductionConsequenceGeneration()!=Options::InductionConsequenceGeneration::OFF) {
+    res->setGeneratingInferenceEngine(new InductionSGIWrapper(induction, inductionRemodulation, sgi));
+  } else {
+    res->setGeneratingInferenceEngine(sgi);
+  }
 
   res->setImmediateSimplificationEngine(createISE(prb, opt, res->getOrdering()));
 

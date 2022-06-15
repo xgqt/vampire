@@ -128,6 +128,78 @@ private:
   const Options& _opt;
 };
 
+class RemodulationSubtermIndex
+: public TermIndex
+{
+public:
+  CLASS_NAME(RemodulationSubtermIndex);
+  USE_ALLOCATOR(RemodulationSubtermIndex);
+
+  RemodulationSubtermIndex(TermIndexingStructure* is)
+  : TermIndex(is) {}
+
+  void onAddedToContainer(Clause* c) override
+  { handleClause(c, true); }
+
+  void onRemovedFromContainer(Clause* c) override
+  { handleClause(c, false); }
+
+protected:
+  void handleClause(Clause* c, bool adding) override;
+};
+
+/**
++ * Term index for remodulation (i.e. doing the reverse of demodulation)
++ */
+class RemodulationLHSIndex
+: public TermIndex
+{
+public:
+  CLASS_NAME(RemodulationLHSIndex);
+  USE_ALLOCATOR(RemodulationLHSIndex);
+
+  RemodulationLHSIndex(TermIndexingStructure* is, Ordering& ord)
+  : TermIndex(is), _ord(ord) {};
+protected:
+  void handleClause(Clause* c, bool adding) override;
+private:
+  Ordering& _ord;
+};
+
+/**
+ * Term index for general rewriting
+ */
+class RewritingLHSIndex
+: public TermIndex
+{
+public:
+  CLASS_NAME(RewritingLHSIndex);
+  USE_ALLOCATOR(RewritingLHSIndex);
+
+  RewritingLHSIndex(TermIndexingStructure* is, Ordering& ord)
+  : TermIndex(is), _ord(ord) {}
+protected:
+  void handleClause(Clause* c, bool adding) override;
+private:
+  Ordering& _ord;
+};
+
+/**
+ * Term index for general rewriting
+ */
+class RewritingSubtermIndex
+: public TermIndex
+{
+public:
+  CLASS_NAME(RewritingSubtermIndex);
+  USE_ALLOCATOR(RewritingSubtermIndex);
+
+  RewritingSubtermIndex(TermIndexingStructure* is)
+  : TermIndex(is) {}
+private:
+  void handleClause(Clause* c, bool adding) override;
+};
+
 /**
  * Term index for induction
  */
@@ -157,6 +229,12 @@ public:
 
   StructInductionTermIndex(TermIndexingStructure* is)
   : TermIndex(is) {}
+
+  void onAddedToContainer(Clause* c) override
+  { handleClause(c, true); }
+
+  void onRemovedFromContainer(Clause* c) override
+  { handleClause(c, false); }
 
 protected:
   void handleClause(Clause* c, bool adding);

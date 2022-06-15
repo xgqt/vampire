@@ -216,7 +216,7 @@ private:
   TermIndex* _inductionTermIndex = nullptr;
   TermIndex* _structInductionTermIndex = nullptr;
   InductionFormulaIndex _formulaIndex;
-  InductionFormulaIndex _recFormulaIndex;
+  TermIndex* _demodulationLhsIndex = nullptr;
 };
 
 class InductionClauseIterator
@@ -224,9 +224,11 @@ class InductionClauseIterator
 public:
   // all the work happens in the constructor!
   InductionClauseIterator(Clause* premise, InductionHelper helper, SaturationAlgorithm* salg,
-    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex)
+    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex,
+    TermIndex* demodulationLhsIndex)
       : _helper(helper), _opt(salg->getOptions()), _structInductionTermIndex(structInductionTermIndex),
-      _formulaIndex(formulaIndex), _fnDefHandler(salg->getFunctionDefinitionHandler())
+      _formulaIndex(formulaIndex), _fnDefHandler(salg->getFunctionDefinitionHandler()),
+      _demodulationLhsIndex(demodulationLhsIndex), _ord(salg->getOrdering())
   {
     processClause(premise);
   }
@@ -260,12 +262,16 @@ private:
 
   bool notDoneInt(InductionContext context, Literal* bound1, Literal* bound2, InductionFormulaIndex::Entry*& e);
 
+  bool isRedundant(Literal* lit);
+
   Stack<Clause*> _clauses;
   InductionHelper _helper;
   const Options& _opt;
   TermIndex* _structInductionTermIndex;
   InductionFormulaIndex& _formulaIndex;
   FunctionDefinitionHandler* _fnDefHandler;
+  TermIndex* _demodulationLhsIndex;
+  const Ordering& _ord;
 };
 
 };

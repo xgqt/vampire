@@ -16,6 +16,7 @@
 #include "Lib/DHMap.hpp"
 
 #include "Inferences/InductionHelper.hpp"
+#include "Inferences/InductionRemodulation.hpp"
 
 #include "Kernel/ApplicativeHelper.hpp"
 #include "Kernel/Clause.hpp"
@@ -186,6 +187,139 @@ void DemodulationLHSIndex::handleClause(Clause* c, bool adding)
   }
 }
 
+void RemodulationLHSIndex::handleClause(Clause* c, bool adding)
+{
+  CALL("RemodulationLHSIndex::handleClause");
+
+  TimeCounter tc(TC_INDUCTION_REMODULATION_INDEX_MAINTENANCE);
+
+  if (!canUseForRewrite(c)) {
+    return;
+  }
+
+  for (unsigned i = 0; i < c->length(); i++) {
+    Literal* lit=(*c)[i];
+    if (!canUseForRewrite(lit, c)) {
+      continue;
+    }
+    TermIterator lhsi=EqHelper::getLHSIterator(lit, _ord);
+    while (lhsi.hasNext()) {
+      auto lhs = lhsi.next();
+      auto rhs = EqHelper::getOtherEqualitySide(lit, lhs);
+      // check if rhs contains all vars of clause
+      if (!termHasAllVarsOfClause(rhs, c)) {
+        continue;
+      }
+      if (env.options->inductionRemodulationRedundancyCheck() && !hasTermToInductOn(lhs.term(), lit)) {
+        continue;
+      }
+      if (adding) {
+        _is->insert(rhs, lit, c);
+      }
+      else {
+        _is->remove(rhs, lit, c);
+      }
+    }
+  }
+}
+
+void RewritingLHSIndex::handleClause(Clause* c, bool adding)
+{
+  CALL("RewritingLHSIndex::handleClause");
+
+  TimeCounter tc(TC_INDUCTION_REWRITING_INDEX_MAINTENANCE);
+
+  if (!canUseForRewrite(c)) {
+    return;
+  }
+
+  for (unsigned i = 0; i < c->length(); i++) {
+    Literal* lit=(*c)[i];
+    if (!canUseForRewrite(lit, c)) {
+      continue;
+    }
+    TermIterator lhsi=EqHelper::getLHSIterator(lit, _ord);
+    while (lhsi.hasNext()) {
+      auto lhs = lhsi.next();
+      if (!termHasAllVarsOfClause(lhs, c)) {
+        continue;
+      }
+      if (adding) {
+        _is->insert(lhs, lit, c);
+      }
+      else {
+        _is->remove(lhs, lit, c);
+      }
+    }
+  }
+}
+
+void RewritingSubtermIndex::handleClause(Clause* c, bool adding)
+{
+  CALL("RewritingSubtermIndex::handleClause");
+
+  TimeCounter tc(TC_INDUCTION_REWRITING_INDEX_MAINTENANCE);
+
+  if (!canUseForRewrite(c) || InductionHelper::isInductionClause(c)) {
+    return;
+  }
+
+  unsigned ns = c->numSelected();
+
+  for (unsigned i = 0; i < c->length(); i++) {
+    Literal* lit=(*c)[i];
+    if (!canUseForRewrite(lit, c) && !InductionHelper::isInductionLiteral(lit)) {
+      continue;
+    }
+    NonVariableIterator it(lit);
+    // auto it = EqHelper::getSmallerOrBothSideSubtermIterator(lit,_ord,i<ns);
+    while (it.hasNext()) {
+      auto t = it.next();
+      if (adding) {
+        _is->insert(t, lit, c);
+      }
+      else {
+        _is->remove(t, lit, c);
+      }
+    }
+  }
+}
+
+void RemodulationSubtermIndex::handleClause(Clause* c, bool adding)
+{
+  CALL("RemodulationSubtermIndex::handleClause");
+
+  TimeCounter tc(TC_INDUCTION_REMODULATION_INDEX_MAINTENANCE);
+
+  if (!InductionHelper::isInductionClause(c)) {
+    return;
+  }
+
+  static DHSet<TermList> inserted;
+
+  for (unsigned i=0;i<c->length();i++) {
+    Literal* lit = (*c)[i];
+    if (!InductionHelper::isInductionLiteral(lit)) {
+      continue;
+    }
+    inserted.reset();
+    PointedTermIterator it(lit);
+    while (it.hasNext()) {
+      TermList tl = it.next();
+      if (!inserted.insert(tl)) {
+        it.right();
+        continue;
+      }
+      ASS(tl.isTerm());
+      if (adding) {
+        _is->insert(tl, lit, c);
+      } else {
+        _is->remove(tl, lit, c);
+      }
+    }
+  }
+}
+
 void InductionTermIndex::handleClause(Clause* c, bool adding)
 {
   CALL("InductionTermIndex::handleClause");
@@ -225,10 +359,11 @@ void StructInductionTermIndex::handleClause(Clause* c, bool adding)
     return;
   }
   static DHSet<TermList> inserted;
+  PointerTermReplacement ptr;
   // Iterate through literals & check if the literal is suitable for induction
   for (unsigned i=0;i<c->length();i++) {
     inserted.reset();
-    Literal* lit = (*c)[i];
+    Literal* lit = ptr.transform((*c)[i]);
     if (!lit->ground()) {
       continue;
     }

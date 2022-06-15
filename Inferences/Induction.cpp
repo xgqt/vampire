@@ -33,6 +33,7 @@
 #include "Shell/Rectify.hpp"
 
 #include "Induction.hpp"
+#include "InductionRemodulation.hpp"
 
 using std::pair;
 using std::make_pair;
@@ -430,6 +431,7 @@ void Induction::attach(SaturationAlgorithm* salg) {
     _comparisonIndex = static_cast<LiteralIndex*>(_salg->getIndexManager()->request(UNIT_INT_COMPARISON_INDEX));
     _inductionTermIndex = static_cast<TermIndex*>(_salg->getIndexManager()->request(INDUCTION_TERM_INDEX));
   }
+  _demodulationLhsIndex = static_cast<TermIndex*>(_salg->getIndexManager()->request(DEMODULATION_LHS_SUBST_TREE));
   if (InductionHelper::isNonUnitStructInductionOn()) {
     _structInductionTermIndex = static_cast<TermIndex*>(
       _salg->getIndexManager()->request(STRUCT_INDUCTION_TERM_INDEX));
@@ -439,6 +441,8 @@ void Induction::attach(SaturationAlgorithm* salg) {
 void Induction::detach() {
   CALL("Induction::detach");
 
+  _demodulationLhsIndex = nullptr;
+  _salg->getIndexManager()->release(DEMODULATION_LHS_SUBST_TREE);
   if (InductionHelper::isNonUnitStructInductionOn()) {
     _structInductionTermIndex = nullptr;
     _salg->getIndexManager()->release(STRUCT_INDUCTION_TERM_INDEX);
@@ -457,7 +461,7 @@ ClauseIterator Induction::generateClauses(Clause* premise)
   CALL("Induction::generateClauses");
 
   return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex),
-    _salg, _structInductionTermIndex, _formulaIndex));
+    _salg, _structInductionTermIndex, _formulaIndex, _demodulationLhsIndex));
 }
 
 void InductionClauseIterator::processClause(Clause* premise)
@@ -466,13 +470,14 @@ void InductionClauseIterator::processClause(Clause* premise)
 
   // The premise should either contain a literal on which we want to apply induction,
   // or it should be an integer constant comparison we use as a bound.
+  PointerTermReplacement tr;
   if (InductionHelper::isInductionClause(premise)) {
     for (unsigned i=0;i<premise->length();i++) {
-      processLiteral(premise,(*premise)[i]);
+      processLiteral(premise,tr.transform((*premise)[i]));
     }
   }
   if (InductionHelper::isIntInductionOneOn() && InductionHelper::isIntegerComparison(premise)) {
-    processIntegerComparison(premise, (*premise)[0]);
+    processIntegerComparison(premise, tr.transform((*premise)[0]));
   }
 }
 
@@ -743,6 +748,17 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
           }
         }
         return false;
+      })
+      .filter([this](const InductionContext& arg) {
+        for (const auto& kv : arg._cls) {
+          for (const auto& lit : kv.second) {
+            if (isRedundant(lit)) {
+              env.statistics->inductionRedundant++;
+              return false;
+            }
+          }
+        }
+        return true;
       });
     while (indCtxIt.hasNext()) {
       auto ctx = indCtxIt.next();
@@ -843,7 +859,7 @@ void InductionClauseIterator::processIntegerComparison(Clause* premise, Literal*
 
 ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context)
 {
-  CALL("InductionClauseIterator::produceClauses");
+  CALL("InductionClauseIterator::produceClauses/2");
   NewCNF cnf(0);
   cnf.setForInduction();
   Stack<Clause*> hyp_clauses;
@@ -1092,7 +1108,8 @@ Clause* resolveClausesHelper(const InductionContext& context, const Stack<Clause
       for (const auto& lit : kv.second) {
         TermReplacement tr(getContextReplacementMap(context, /*inverse=*/true));
         auto rlit = tr.transform(lit);
-        if (rlit == (*kv.first)[i]) {
+        PointerTermReplacement ptr;
+        if (rlit == ptr.transform((*kv.first)[i])) {
           copyCurr = false;
           break;
         }
@@ -1581,6 +1598,88 @@ bool InductionClauseIterator::notDoneInt(InductionContext context, Literal* boun
       bound2->polarity() ? *bound2->nthArgument(1) : ph);
   }
   return _formulaIndex.findOrInsert(context, e, b1, b2);
+}
+
+bool InductionClauseIterator::isRedundant(Literal* lit)
+{
+  CALL("InductionClauseIterator::isRedundant");
+  if (!_opt.inductionRemodulationRedundancyCheck()) {
+    return false;
+  }
+  // cout << "checking lit " << *lit << endl;
+  NonVariableNonTypeIterator it(lit);
+  while(it.hasNext()) {
+    TermList trm=it.next();
+
+    TermList querySort = SortHelper::getTermSort(trm, lit);
+
+    bool toplevelCheck=_opt.demodulationRedundancyCheck() && lit->isEquality() &&
+      (trm==*lit->nthArgument(0) || trm==*lit->nthArgument(1));
+
+    TermQueryResultIterator git=_demodulationLhsIndex->getGeneralizations(trm, true);
+    while(git.hasNext()) {
+      TermQueryResult qr=git.next();
+      ASS_EQ(qr.clause->length(),1);
+      // cout << "candidate " << *qr.clause << endl;
+
+      static RobSubstitution subst;
+      bool resultTermIsVar = qr.term.isVar();
+      if(resultTermIsVar){
+        TermList eqSort = SortHelper::getEqualityArgumentSort(qr.literal);
+        subst.reset();
+        if(!subst.match(eqSort, 0, querySort, 1)){
+          continue;
+        }
+      }
+
+      TermList rhs=EqHelper::getOtherEqualitySide(qr.literal,qr.term);
+      TermList rhsS;
+      if(!qr.substitution->isIdentityOnQueryWhenResultBound()) {
+        //When we apply substitution to the rhs, we get a term, that is
+        //a variant of the term we'd like to get, as new variables are
+        //produced in the substitution application.
+        TermList lhsSBadVars=qr.substitution->applyToResult(qr.term);
+        TermList rhsSBadVars=qr.substitution->applyToResult(rhs);
+        Renaming rNorm, qNorm, qDenorm;
+        rNorm.normalizeVariables(lhsSBadVars);
+        qNorm.normalizeVariables(trm);
+        qDenorm.makeInverse(qNorm);
+        ASS_EQ(trm,qDenorm.apply(rNorm.apply(lhsSBadVars)));
+        rhsS=qDenorm.apply(rNorm.apply(rhsSBadVars));
+      } else {
+        rhsS=qr.substitution->applyToBoundResult(rhs);
+      }
+      if(resultTermIsVar){
+        rhsS = subst.apply(rhsS, 0);
+      }
+
+      Ordering::Result argOrder = _ord.getEqualityArgumentOrder(qr.literal);
+      bool preordered = argOrder==Ordering::LESS || argOrder==Ordering::GREATER;
+#if VDEBUG
+      if(preordered) {
+        if(argOrder==Ordering::LESS) {
+          ASS_EQ(rhs, *qr.literal->nthArgument(0));
+        }
+        else {
+          ASS_EQ(rhs, *qr.literal->nthArgument(1));
+        }
+      }
+#endif
+      if(!preordered && (_opt.forwardDemodulation()==Options::Demodulation::PREORDERED || _ord.compare(trm,rhsS)!=Ordering::GREATER) ) {
+        continue;
+      }
+
+      if(toplevelCheck) {
+        TermList other=EqHelper::getOtherEqualitySide(lit, trm);
+        Ordering::Result tord=_ord.compare(rhsS, other);
+        if(tord!=Ordering::LESS && tord!=Ordering::LESS_EQ) {
+          continue;
+        }
+      }
+      return true;
+    }
+  }
+  return false;
 }
 
 }

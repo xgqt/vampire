@@ -259,6 +259,11 @@ public:
     INTERPRETED_CONSTANT,
     NO_SKOLEMS
   };
+  enum class InductionConsequenceGeneration : unsigned {
+    OFF,
+    UNIT_ONLY,
+    ON,
+  };
 
   enum class PredicateSineLevels : unsigned int {
     NO,   // no means 1) the reverse of "on", 2) use with caution, it is predicted to be the worse value
@@ -405,6 +410,7 @@ public:
     CASC_SAT,
     CASC_SAT_2019,
     CASC_HOL_2020,
+    FILE,
     INDUCTION,
     INTEGER_INDUCTION,
     LTB_DEFAULT_2017,
@@ -2091,6 +2097,7 @@ public:
   Schedule schedule() const { return _schedule.actualValue; }
   vstring scheduleName() const { return _schedule.getStringOfValue(_schedule.actualValue); }
   void setSchedule(Schedule newVal) {  _schedule.actualValue = newVal; }
+  vstring scheduleFile() const { return _scheduleFile.actualValue; }
   unsigned multicore() const { return _multicore.actualValue; }
   void setMulticore(unsigned newVal) { _multicore.actualValue = newVal; }
   float slowness() const {return _slowness.actualValue; }
@@ -2328,6 +2335,8 @@ public:
   IntegerInductionTermStrictness integerInductionStrictnessTerm() const {return _integerInductionStrictnessTerm.actualValue; }
   bool nonUnitInduction() const { return _nonUnitInduction.actualValue; }
   bool inductionOnActiveOccurrences() const { return _inductionOnActiveOccurrences.actualValue; }
+  InductionConsequenceGeneration inductionConsequenceGeneration() const { return _inductionConsequenceGeneration.actualValue; }
+  bool inductionRemodulationRedundancyCheck() const { return _inductionRemodulationRedundancyCheck.actualValue; }
 
   float instGenBigRestartRatio() const { return _instGenBigRestartRatio.actualValue; }
   bool instGenPassiveReactivation() const { return _instGenPassiveReactivation.actualValue; }
@@ -2634,6 +2643,8 @@ private:
   ChoiceOptionValue<IntegerInductionTermStrictness> _integerInductionStrictnessTerm;
   BoolOptionValue _nonUnitInduction;
   BoolOptionValue _inductionOnActiveOccurrences;
+  ChoiceOptionValue<InductionConsequenceGeneration> _inductionConsequenceGeneration;
+  BoolOptionValue _inductionRemodulationRedundancyCheck;
 
   StringOptionValue _latexOutput;
   BoolOptionValue _latexUseDefaultSymbols;
@@ -2652,6 +2663,7 @@ private:
   UnsignedOptionValue _memoryLimit; // should be size_t, making an assumption
   ChoiceOptionValue<Mode> _mode;
   ChoiceOptionValue<Schedule> _schedule;
+  StringOptionValue _scheduleFile;
   UnsignedOptionValue _multicore;
   FloatOptionValue _slowness;
 
