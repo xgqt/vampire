@@ -193,6 +193,35 @@ protected:
   void handleClause(Clause* c, bool adding);
 };
 
+class InductionUnitLiteralIndex
+: public LiteralIndex
+{
+public:
+  CLASS_NAME(InductionUnitLiteralIndex);
+  USE_ALLOCATOR(InductionUnitLiteralIndex);
+
+  InductionUnitLiteralIndex(LiteralIndexingStructure* is)
+  : LiteralIndex(is) {}
+
+protected:
+  void handleClause(Clause* c, bool adding);
+};
+
+class InductionNonGroundLiteralIndex
+: public LiteralIndex
+{
+public:
+  CLASS_NAME(InductionNonGroundLiteralIndex);
+  USE_ALLOCATOR(InductionNonGroundLiteralIndex);
+
+  InductionNonGroundLiteralIndex(LiteralIndexingStructure* is)
+  : LiteralIndex(is) {}
+
+protected:
+  void handleClause(Clause* c, bool adding);
+};
+
+
 };
 
 #endif /* __LiteralIndex__ */

@@ -1432,6 +1432,13 @@ void Options::init()
     _inductionRemodulationRedundancyCheck.reliesOn(_inductionConsequenceGeneration.is(notEqual(InductionConsequenceGeneration::OFF)));
     _lookup.insert(&_inductionRemodulationRedundancyCheck);
 
+    _maxRemodulationDepth = UnsignedOptionValue("max_remodulation_depth","maxremd",0);
+    _maxRemodulationDepth.description = "Set maximum number of remodulations that can be applied on a literal";
+    _maxRemodulationDepth.tag(OptionTag::INFERENCES);
+    _maxRemodulationDepth.onlyUsefulWith(_inductionConsequenceGeneration.is(notEqual(InductionConsequenceGeneration::OFF)));
+    _maxRemodulationDepth.addHardConstraint(lessThan(256u));
+    _lookup.insert(&_maxRemodulationDepth);
+
     _instantiation = ChoiceOptionValue<Instantiation>("instantiation","inst",Instantiation::OFF,{"off","on"});
     _instantiation.description = "Heuristically instantiate variables. Often wastes a lot of effort. Consider using thi instead.";
     _instantiation.tag(OptionTag::INFERENCES);

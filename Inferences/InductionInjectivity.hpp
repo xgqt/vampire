@@ -33,7 +33,12 @@ public:
   CLASS_NAME(InductionInjectivity);
   USE_ALLOCATOR(InductionInjectivity);
 
+  void attach(SaturationAlgorithm* salg) override;
+  void detach() override;
+
   ClauseIterator generateClauses(Clause* premise) override;
+private:
+  LiteralIndex* _index = nullptr;
 };
 
 }

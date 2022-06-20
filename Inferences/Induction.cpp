@@ -1005,6 +1005,7 @@ void InductionClauseIterator::resolveClauses(const ClauseStack& cls, const Induc
       env.out() << "[Induction] generate " << _clauses.top()->toString() << endl;
       env.endOutput();
     }
+    _clauses.top()->inference().setRemodulationDepth(0);
   }
 }
 

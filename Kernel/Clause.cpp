@@ -430,6 +430,7 @@ vstring Clause::toString() const
 
     if(env.options->induction() != Shell::Options::Induction::NONE){
       result += vstring(",inD:") + Int::toString(_inference.inductionDepth());
+      result += vstring(",remD:") + Int::toString(_inference.remodulationDepth());
     }
     result += ",thAx:" + Int::toString((int)(_inference.th_ancestors));
     result += ",allAx:" + Int::toString((int)(_inference.all_ancestors));

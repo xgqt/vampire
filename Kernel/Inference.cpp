@@ -228,11 +228,14 @@ void Inference::updateStatistics()
         */
       } else if (_ptr2 == nullptr) {
         _inductionDepth = static_cast<Unit*>(_ptr1)->inference().inductionDepth();
+        _remodulationDepth = static_cast<Unit*>(_ptr1)->inference()._remodulationDepth;
         _XXNarrows = static_cast<Unit*>(_ptr1)->inference().xxNarrows();
         _reductions = static_cast<Unit*>(_ptr1)->inference().reductions();
       } else {
         _inductionDepth = max(static_cast<Unit*>(_ptr1)->inference().inductionDepth(),
             static_cast<Unit*>(_ptr2)->inference().inductionDepth());
+        _remodulationDepth = max(static_cast<Unit*>(_ptr1)->inference()._remodulationDepth,
+            static_cast<Unit*>(_ptr2)->inference()._remodulationDepth);
         _XXNarrows = max(static_cast<Unit*>(_ptr1)->inference().xxNarrows(),
             static_cast<Unit*>(_ptr2)->inference().xxNarrows());
         _reductions = max(static_cast<Unit*>(_ptr1)->inference().reductions(),
@@ -243,9 +246,11 @@ void Inference::updateStatistics()
     case Kind::INFERENCE_MANY:
     case Kind::INFERENCE_FROM_SAT_REFUTATION:
       _inductionDepth = 0;
+      _remodulationDepth = 0;
       UnitList* it= static_cast<UnitList*>(_ptr1);
       while(it) {
         _inductionDepth = max(_inductionDepth,it->head()->inference().inductionDepth());
+        _remodulationDepth = max(_remodulationDepth,it->head()->inference()._remodulationDepth);
         _XXNarrows = max(_XXNarrows,it->head()->inference().inductionDepth());
         _reductions = max(_reductions,it->head()->inference().inductionDepth());
         it=it->tail();
@@ -286,6 +291,7 @@ vstring Inference::toString() const
     result += ", had: " + Int::toString(_holAxiomsDescendant);
   }
   result += ", id: " + Int::toString(_inductionDepth);
+  result += ", remD: " + Int::toString(_remodulationDepth);
   if(env.options->maxXXNarrows() > 0){
     result += ", xxNarrs " + Int::toString(_XXNarrows);
   }
@@ -927,6 +933,8 @@ vstring Kernel::ruleName(InferenceRule rule)
     return "integer induction hypothesis (up, default bound)";
   case InferenceRule::INT_DB_DOWN_INDUCTION_AXIOM:
     return "integer induction hypothesis (down, default bound)";
+  case InferenceRule::INDUCTION_RESOLUTION:
+    return "induction resolution";
   case InferenceRule::INDUCTION_HYPERRESOLUTION:
     return "induction hyperresolution";
   case InferenceRule::GEN_INDUCTION_HYPERRESOLUTION:
