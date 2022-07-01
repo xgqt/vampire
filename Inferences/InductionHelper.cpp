@@ -175,6 +175,21 @@ bool InductionHelper::isInductionLiteral(Literal* l) {
          );
 }
 
+bool InductionHelper::isStructuralInductionTerm(Term* t) {
+  return isStructInductionFunctor(t->functor());
+  // if (!isStructInductionFunctor(t->functor())) {
+  //   return false;
+  // }
+  // NonVariableIterator it(t, true);
+  // while (it.hasNext()) {
+  //   auto st = it.next();
+  //   if (env.signature->getFunction(st.term()->functor())->skolem()) {
+  //     return true;
+  //   }
+  // }
+  // return false;
+}
+
 bool InductionHelper::isInductionTermFunctor(unsigned f) {
   CALL("InductionHelper::isInductionTermFunctor");
   static Options::InductionChoice kind = env.options->inductionChoice();

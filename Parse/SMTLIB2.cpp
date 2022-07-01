@@ -172,6 +172,33 @@ void SMTLIB2::readBenchmark(LExprList* bench)
       continue;
     }
 
+    if (ibRdr.tryAcceptAtom("injective")) {
+      vstring name = ibRdr.readAtom();
+      LExprList* values = ibRdr.readList();
+
+      unsigned fn = env.signature->getFunctionNumber(name, LExprList::length(values));
+      LExprList::Iterator it(LExprList::reverse(values));
+      unsigned i = 0;
+      while (it.hasNext()) {
+        auto v = it.next();
+        auto fs = getBuiltInFormulaSymbol(v->str);
+        i <<= 1;
+        if (fs == FS_TRUE) {
+          i = i | 1;
+        } else if (fs == FS_FALSE) {
+          continue;
+        } else {
+          USER_ERROR("injective must contain a list of booleans after name");
+        }
+      }
+      env.signature->getFunction(fn)->setInjective(i);
+      cout << name << " injective " << i << endl;
+
+      ibRdr.acceptEOL();
+
+      continue;
+    }
+
     if (ibRdr.tryAcceptAtom("declare-datatype")) {
       LExpr *sort = ibRdr.readNext();
       LExprList *datatype = ibRdr.readList();

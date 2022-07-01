@@ -325,6 +325,7 @@ VSAT_OBJ=SAT/DIMACS.o\
 	 SAT/FallbackSolverWrapper.o
 
 VST_OBJ= Saturation/AWPassiveClauseContainer.o\
+         Saturation/InductionAWPassiveClauseContainer.o\
          Saturation/PredicateSplitPassiveClauseContainer.o\
          Saturation/ClauseContainer.o\
          Saturation/ConsequenceFinder.o\

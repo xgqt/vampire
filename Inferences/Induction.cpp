@@ -124,7 +124,7 @@ Formula* InductionContext::getFormulaWithSquashedSkolems(TermList r, bool opposi
   CALL("InductionContext::getFormulaWithSquashedSkolems");
 
   const bool strengthenHyp = env.options->inductionStrengthenHypothesis();
-  if (!strengthenHyp) {
+  if (!_strengthenHyp && !strengthenHyp) {
     return getFormula(r, opposite, subst);
   }
   SkolemSquashingTermReplacement tr(getPlaceholderForTerm(_indTerm), r, var);
@@ -395,6 +395,178 @@ private:
   Literal* _lit;
 };
 
+// returns true if the context is vacuous by these checks
+// TODO enable check for more complex conclusions
+// TODO add check that the induction term datatype contains at least two ctors
+bool InductionClauseIterator::checkForVacuousness(const InductionContext& ctx)
+{
+  CALL("InductionClauseIterator::checkForVacuousness");
+  if (ctx._cls.size() != 1 || ctx._cls.begin()->second.size() != 1) {
+    return true;
+  }
+  TimeCounter tc(TC_RAND_OPT);
+  // context is vacuous if all of these conditions hold:
+  // * context contains only one negative equality
+  // * only one side contains the induction term 
+  // * there is an occurrence of the induction term
+  //   which has only term algebra ctor/dtor superterms
+  auto lit = ctx._cls.begin()->second[0];
+  auto ph = getPlaceholderForTerm(ctx._indTerm);
+  return Induction::checkForVacuousness(lit, ph);
+}
+
+bool Induction::checkForVacuousness(Literal* lit, Term* t)
+{
+  CALL("Induction::checkForVacuousness");
+  if (!lit->isEquality() || lit->isPositive()) {
+    return true;
+  }
+  auto lhs = lit->nthArgument(0)->term();
+  auto rhs = lit->nthArgument(1)->term();
+  auto lhsc = lhs->containsSubterm(TermList(t));
+  if (!lhsc || !rhs->containsSubterm(TermList(t))) {
+    auto side = lhsc ? lhs : rhs;
+    enum BranchType {
+      NORMAL,
+      INJECTIVE,
+      INJECTIVE_BRANCH,
+    };
+    Stack<pair<Term*,BranchType>> todo;
+    vvector<unsigned> bs(3,0);
+    todo.push(make_pair(side,INJECTIVE));
+    while (todo.isNonEmpty()) {
+      auto kv = todo.pop();
+      if (kv.first == t) {
+        bs[kv.second]++;
+      }
+      auto symb = env.signature->getFunction(kv.first->functor());
+      if (kv.second == NORMAL) {
+        bs[kv.second] += kv.first->countSubtermOccurrences(TermList(t));
+      } else if (kv.second == INJECTIVE) {
+        if (symb->termAlgebraCons() || symb->termAlgebraDest() || (symb->arity() == 1 && symb->injective())) {
+          for (unsigned i = 0; i < kv.first->arity(); i++) {
+            todo.push(make_pair((*kv.first)[i].term(), INJECTIVE));
+          }
+        } else {
+          auto inj = symb->injective();
+          for (unsigned i = 0; i < kv.first->arity(); i++) {
+            todo.push(make_pair((*kv.first)[i].term(), inj & 1 ? INJECTIVE_BRANCH : NORMAL));
+            inj >>= 1;
+          }
+        }
+      } else {
+        if (symb->termAlgebraCons() || symb->termAlgebraDest()) {
+          for (unsigned i = 0; i < kv.first->arity(); i++) {
+            todo.push(make_pair((*kv.first)[i].term(), INJECTIVE_BRANCH));
+          }
+        } else {
+          auto inj = symb->injective();
+          for (unsigned i = 0; i < kv.first->arity(); i++) {
+            todo.push(make_pair((*kv.first)[i].term(), inj & 1 ? INJECTIVE_BRANCH : NORMAL));
+            inj >>= 1;
+          }
+        }
+      }
+    }
+    auto res = (bs[NORMAL] || bs[INJECTIVE_BRANCH] > 1);
+    // cout << ctx.toString() << endl
+    //      << "normal " << bs[NORMAL] << endl
+    //      << "injective " << bs[INJECTIVE] << endl
+    //      << "injective branch " << bs[INJECTIVE_BRANCH] << endl
+    //      << "value " << res << endl;
+    return res;
+  }
+
+  return true;
+}
+
+bool isFunctionHeader(TermList ts) {
+  if (ts.isVar()) {
+    return false;
+  }
+  auto t = ts.term();
+  auto sym = env.signature->getFunction(t->functor());
+  if (sym->termAlgebraCons() || sym->termAlgebraDest() || sym->interpreted() || sym->introduced()) {
+    return false;
+  }
+  NonVariableIterator nvi(t);
+  while (nvi.hasNext()) {
+    auto st = nvi.next();
+    auto sts = env.signature->getFunction(st.term()->functor());
+    if (!sts->termAlgebraCons() && !sts->termAlgebraDest()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void Induction::preprocess(const Problem& prb)
+{
+  UnitList::Iterator uit(prb.units());
+  while(uit.hasNext()) {
+    auto unit = uit.next();
+    Clause* cl=static_cast<Clause*>(unit);
+    ASS(cl->isClause());
+    MultiCounter preds;
+    MultiCounter funcs;
+    Set<unsigned> funcsAtTop;
+    for (unsigned i = 0; i < cl->length(); i++) {
+      auto lit = (*cl)[i];
+      if (lit->isEquality()) {
+        if (lit->isPositive()) {
+          for (unsigned j = 0; j <= 1; j++) {
+            auto side = *lit->nthArgument(j);
+            if (side.isVar()) {
+              continue;
+            }
+            auto fn = side.term()->functor();
+            funcsAtTop.insert(fn);
+            auto other = *lit->nthArgument(1-j);
+            if (!isFunctionHeader(side) || other.isVar()) {
+              continue;
+            }
+            NonVariableIterator nvi(other.term(), true);
+            while (nvi.hasNext()) {
+              auto st = nvi.next();
+              if (st.term()->functor() != fn) {
+                continue;
+              }
+              unsigned cnt = 0;
+              for (unsigned k = 0; k < side.term()->arity(); k++) {
+                if (*side.term()->nthArgument(k) != *st.term()->nthArgument(k)) {
+                  cnt++;
+                }
+              }
+              if (cnt > 1) {
+                env.signature->getFunction(fn)->markSuggestsMultiTermInduction();
+              }
+            }
+          }
+        }
+      } else {
+        preds.inc(lit->functor());
+      }
+      NonVariableIterator nvi(lit);
+      while (nvi.hasNext()) {
+        auto t = nvi.next().term();
+        funcs.inc(t->functor());
+      }
+    }
+    // for (unsigned i = 0; i < preds.lastCounter(); i++) {
+    //   if (preds.get(i) > 2) {
+    //     env.signature->getPredicate(i)->markSuggestsInduction();
+    //     cout << "predicate " << env.signature->getPredicate(i)->name() << " suggests induction" << endl;
+    //   }
+    // }
+    // for (unsigned i = 0; i < funcs.lastCounter(); i++) {
+    //   if (funcsAtTop.contains(i) && funcs.get(i) > 2) {
+    //     env.signature->getFunction(i)->markSuggestsInduction();
+    //     cout << "function " << env.signature->getFunction(i)->name() << " suggests induction" << endl;
+    //   }
+    // }
+  }
+}
+
 void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
 {
   CALL("Induction::ClauseIterator::processLiteral");
@@ -415,7 +587,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
         if(!ts.isTerm()){ continue; }
         unsigned f = ts.term()->functor(); 
         if(InductionHelper::isInductionTermFunctor(f)){
-          if(InductionHelper::isStructInductionOn() && InductionHelper::isStructInductionFunctor(f)){
+          if(InductionHelper::isStructInductionOn() && InductionHelper::isStructuralInductionTerm(ts.term())){
             ta_terms.insert(ts.term());
           }
           if(InductionHelper::isIntInductionOneOn() && InductionHelper::isIntInductionTermListInLiteral(ts, lit)){
@@ -526,6 +698,18 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       });
     while (indCtxIt.hasNext()) {
       auto ctx = indCtxIt.next();
+      for (const auto& kv : ctx._cls) {
+        for (const auto& lit : kv.second) {
+          NonVariableIterator nvi(lit);
+          while (nvi.hasNext()) {
+            auto fn = nvi.next().term()->functor();
+            if (env.signature->getFunction(fn)->suggestsMultiTermInduction()) {
+              ctx._strengthenHyp = true;
+              break;
+            }
+          }
+        }
+      }
       static bool one = _opt.structInduction() == Options::StructuralInductionKind::ONE ||
                         _opt.structInduction() == Options::StructuralInductionKind::ALL;
       static bool two = _opt.structInduction() == Options::StructuralInductionKind::TWO ||
@@ -535,14 +719,19 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       InductionFormulaIndex::Entry* e;
       // generate formulas and add them to index if not done already
       if (_formulaIndex.findOrInsert(ctx, e)) {
-        if(one){
-          performStructInductionOne(ctx,e);
-        }
-        if(two){
-          performStructInductionTwo(ctx,e);
-        }
-        if(three){
-          performStructInductionThree(ctx,e);
+        if (checkForVacuousness(ctx)) {
+          // cout << ctx.toString() << endl;
+          if(one){
+            performStructInductionOne(ctx,e);
+          }
+          if(two){
+            performStructInductionTwo(ctx,e);
+          }
+          if(three){
+            performStructInductionThree(ctx,e);
+          }
+        } else {
+          env.statistics->vacuousInductionFormulaDiscardedStatically++;
         }
       }
       // resolve the formulas with the premises

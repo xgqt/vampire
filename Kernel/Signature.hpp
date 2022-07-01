@@ -151,6 +151,9 @@ class Signature
     unsigned _skolem : 1;
     /** if tuple sort */
     unsigned _tuple : 1;
+    unsigned _injective;
+    unsigned _suggestsInduction : 1;
+    unsigned _suggestsMultiTermInduction : 1;
     /** proxy type */
     Proxy _prox;
     /** combinator type */
@@ -248,6 +251,15 @@ class Signature
 
     inline void markTuple(){ _tuple = 1; }
     inline bool tupleSort(){ return _tuple; }
+
+    inline void setInjective(unsigned i){ _injective = i; }
+    inline unsigned injective(){ return _injective; }
+
+    inline void markSuggestsInduction(){ _suggestsInduction = 1; }
+    inline bool suggestsInduction(){ return _suggestsInduction; }
+
+    inline void markSuggestsMultiTermInduction(){ _suggestsMultiTermInduction = 1; }
+    inline bool suggestsMultiTermInduction(){ return _suggestsMultiTermInduction; }
 
     inline void setProxy(Proxy prox){ _prox = prox; }
     inline Proxy proxy(){ return _prox; }

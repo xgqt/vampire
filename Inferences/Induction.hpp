@@ -24,12 +24,15 @@
 #include "Indexing/LiteralIndex.hpp"
 #include "Indexing/TermIndex.hpp"
 
+#include "Kernel/Problem.hpp"
+#include "Kernel/TermIterators.hpp"
 #include "Kernel/TermTransformer.hpp"
 #include "Kernel/Theory.hpp"
 
 #include "Lib/DHMap.hpp"
 #include "Lib/DHSet.hpp"
 #include "Lib/List.hpp"
+#include "Lib/MultiCounter.hpp"
 
 #include "InductionHelper.hpp"
 #include "InferenceEngine.hpp"
@@ -101,6 +104,7 @@ struct InductionContext {
   // would be storing indices but then we need to pass around the
   // clause as well.
   vunordered_map<Clause*, LiteralStack> _cls;
+  bool _strengthenHyp = false;
 private:
   Formula* getFormula(TermReplacement& tr, bool opposite) const;
 };
@@ -160,6 +164,10 @@ public:
 
   ClauseIterator generateClauses(Clause* premise) override;
 
+  static bool checkForVacuousness(Literal* lit, Term* t);
+
+  static void preprocess(const Problem& prb);
+
 #if VDEBUG
   void setTestIndices(const Stack<Index*>& indices) override {
     _comparisonIndex = static_cast<LiteralIndex*>(indices[0]);
@@ -215,6 +223,7 @@ private:
   void performStructInductionThree(const InductionContext& context, InductionFormulaIndex::Entry* e);
 
   bool notDoneInt(InductionContext context, Literal* bound1, Literal* bound2, InductionFormulaIndex::Entry*& e);
+  bool checkForVacuousness(const InductionContext& ctx);
 
   Stack<Clause*> _clauses;
   InductionHelper _helper;

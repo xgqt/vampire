@@ -524,6 +524,7 @@ set(VAMPIRE_SATURATION_SOURCES
     Saturation/ConsequenceFinder.cpp
     Saturation/Discount.cpp
     Saturation/ExtensionalityClauseContainer.cpp
+    Saturation/InductionAWPassiveClauseContainer.cpp
     Saturation/LabelFinder.cpp
     Saturation/LRS.cpp
     Saturation/Otter.cpp
@@ -537,6 +538,7 @@ set(VAMPIRE_SATURATION_SOURCES
     Saturation/ConsequenceFinder.hpp
     Saturation/Discount.hpp
     Saturation/ExtensionalityClauseContainer.hpp
+    Saturation/InductionAWPassiveClauseContainer.hpp
     Saturation/LabelFinder.hpp
     Saturation/LRS.hpp
     Saturation/Otter.hpp

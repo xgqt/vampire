@@ -108,6 +108,7 @@
 #include "SaturationAlgorithm.hpp"
 #include "ManCSPassiveClauseContainer.hpp"
 #include "AWPassiveClauseContainer.hpp"
+#include "InductionAWPassiveClauseContainer.hpp"
 #include "PredicateSplitPassiveClauseContainer.hpp"
 #include "Discount.hpp"
 #include "LRS.hpp"
@@ -130,6 +131,9 @@ SaturationAlgorithm* SaturationAlgorithm::s_instance = 0;
 
 std::unique_ptr<PassiveClauseContainer> makeLevel0(bool isOutermost, const Options& opt, vstring name)
 {
+  if (opt.induction()!=Options::Induction::NONE) {
+    return std::make_unique<InductionAWPassiveClauseContainer>(isOutermost, opt, name + "IndAWQ");
+  }
   return std::make_unique<AWPassiveClauseContainer>(isOutermost, opt, name + "AWQ");
 }
 
