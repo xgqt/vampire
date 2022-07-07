@@ -28,6 +28,7 @@
 
 #include "Saturation/SaturationAlgorithm.hpp"
 
+#include "Shell/InductionCNF.hpp"
 #include "Shell/NewCNF.hpp"
 #include "Shell/NNF.hpp"
 #include "Shell/Rectify.hpp"
@@ -805,11 +806,13 @@ float computeGoalness() {
   return 1.0f;
 }
 
-ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context)
+ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, const TermStack& hyps)
 {
   CALL("InductionClauseIterator::produceClauses");
-  NewCNF cnf(0);
-  cnf.setForInduction();
+  TimeCounter tc(TC_RAND_OPT);
+  InductionCNF cnf;
+  // NewCNF cnf(0);
+  // cnf.setForInduction();
   Stack<Clause*> hyp_clauses;
   Inference inf = NonspecificInference0(UnitInputType::AXIOM,rule);
   unsigned maxInductionDepth = 0;
@@ -824,7 +827,8 @@ ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, Inferen
     env.out() << "[Induction] formula " << fu->toString() << endl;
     env.endOutput();
   }
-  cnf.clausify(NNF::ennf(fu), hyp_clauses);
+  // cnf.clausify(NNF::ennf(fu), hyp_clauses);
+  cnf.clausify(fu, hyps, hyp_clauses);
 
   switch (rule) {
     case InferenceRule::STRUCT_INDUCTION_AXIOM:
@@ -1212,7 +1216,8 @@ void InductionClauseIterator::performIntInduction(const InductionContext& contex
           : (increasing ? (hasBound2 ? InferenceRule::INT_FIN_UP_INDUCTION_AXIOM : InferenceRule::INT_INF_UP_INDUCTION_AXIOM)
                         : (hasBound2 ? InferenceRule::INT_FIN_DOWN_INDUCTION_AXIOM : InferenceRule::INT_INF_DOWN_INDUCTION_AXIOM));
 
-  auto cls = produceClauses(hyp, rule, context);
+  TermStack hyps;
+  auto cls = produceClauses(hyp, rule, context, hyps);
   e->add(std::move(cls), std::move(subst));
 }
 
@@ -1233,6 +1238,7 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
   FormulaList* formulas = FormulaList::empty();
 
   unsigned var = 0;
+  TermStack hyps;
 
   // first produce the formula
   for(unsigned i=0;i<ta->nConstructors();i++){
@@ -1245,6 +1251,7 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
         var++;
         if(con->argSort(j) == ta_sort){
           ta_vars.push(x);
+          hyps.push(x);
         }
         argTerms.push(x);
       }
@@ -1273,7 +1280,7 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
                             Formula::quantify(indPremise),
                             Formula::quantify(conclusion));
 
-  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context);
+  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, hyps);
   e->add(std::move(cls), std::move(subst));
 }
 
@@ -1349,7 +1356,8 @@ void InductionClauseIterator::performStructInductionTwo(const InductionContext& 
   FormulaList* orf = FormulaList::cons(exists,FormulaList::singleton(Formula::quantify(conclusion)));
   Formula* hypothesis = new JunctionFormula(Connective::OR,orf);
 
-  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context);
+  TermStack hyps;
+  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, hyps);
   e->add(std::move(cls), std::move(subst));
 }
 
@@ -1455,7 +1463,8 @@ void InductionClauseIterator::performStructInductionThree(const InductionContext
   FormulaList* orf = FormulaList::cons(exists,FormulaList::singleton(Formula::quantify(conclusion)));
   Formula* hypothesis = new JunctionFormula(Connective::OR,orf);
 
-  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context);
+  TermStack hyps;
+  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, hyps);
   e->add(std::move(cls), std::move(subst));
 }
 

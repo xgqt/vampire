@@ -554,6 +554,7 @@ set(VAMPIRE_SHELL_SOURCES
     Shell/AnswerExtractor.cpp
     Shell/CommandLine.cpp
     Shell/CNF.cpp
+    Shell/InductionCNF.cpp
     Shell/NewCNF.cpp
     Shell/NameReuse.cpp
     Shell/DistinctProcessor.cpp
@@ -607,6 +608,7 @@ set(VAMPIRE_SHELL_SOURCES
     Shell/AnswerExtractor.hpp
     Shell/CommandLine.hpp
     Shell/CNF.hpp
+    Shell/InductionCNF.hpp
     Shell/NewCNF.hpp
     Shell/NameReuse.hpp
     Shell/DistinctProcessor.hpp
