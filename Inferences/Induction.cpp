@@ -582,8 +582,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       Set<Term*> ta_terms;
       Set<Term*> int_terms;
       Set<Term*> preferred_terms;
-      //TODO this should be a non-variable non-type iterator it seems
-      SubtermIterator it(lit);
+      NonVariableNonTypeIterator it(lit);
       while(it.hasNext()){
         TermList ts = it.next();
         if(!ts.isTerm()){ continue; }
@@ -1511,17 +1510,19 @@ bool InductionClauseIterator::notDoneInt(InductionContext context, Literal* boun
 {
   CALL("InductionClauseIterator::notDoneInt");
   TermList ph(getPlaceholderForTerm(context._indTerm));
+  Literal* b1 = nullptr;
+  Literal* b2 = nullptr;
   if (bound1) {
-    context.insert(nullptr, Literal::create2(bound1->functor(), bound1->polarity(),
+    b1 = Literal::create2(bound1->functor(), bound1->polarity(),
       bound1->polarity() ? *bound1->nthArgument(0) : ph,
-      bound1->polarity() ? ph : *bound1->nthArgument(1)));
+      bound1->polarity() ? ph : *bound1->nthArgument(1));
   }
   if (bound2) {
-    context.insert(nullptr, Literal::create2(bound2->functor(), bound2->polarity(),
+    b2 = Literal::create2(bound2->functor(), bound2->polarity(),
       bound2->polarity() ? ph : *bound2->nthArgument(0),
-      bound2->polarity() ? *bound2->nthArgument(1) : ph));
+      bound2->polarity() ? *bound2->nthArgument(1) : ph);
   }
-  return _formulaIndex.findOrInsert(context, e);
+  return _formulaIndex.findOrInsert(context, e, b1, b2);
 }
 
 }

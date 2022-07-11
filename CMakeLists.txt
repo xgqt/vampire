@@ -569,9 +569,7 @@ set(VAMPIRE_SHELL_SOURCES
     Shell/Grounding.cpp
     Shell/InequalitySplitting.cpp
     Shell/InterpolantMinimizer.cpp
-    Shell/InterpolantMinimizerNew.cpp
     Shell/Interpolants.cpp
-    Shell/InterpolantsNew.cpp    
     Shell/InterpretedNormalizer.cpp
     Shell/LaTeX.cpp
     Shell/Lexer.cpp
@@ -588,7 +586,6 @@ set(VAMPIRE_SHELL_SOURCES
     Shell/Skolem.cpp
     Shell/SimplifyFalseTrue.cpp
     Shell/SineUtils.cpp
-    Shell/SMTFormula.cpp
     Shell/FOOLElimination.cpp
     Shell/Statistics.cpp
     Shell/SymbolDefinitionInlining.cpp
@@ -601,6 +598,7 @@ set(VAMPIRE_SHELL_SOURCES
     Shell/BlockedClauseElimination.cpp
     Shell/Token.cpp
     Shell/TPTPPrinter.cpp
+    Shell/TweeGoalTransformation.cpp
     Shell/UIHelper.cpp
     Shell/VarManager.cpp
     Shell/Lexer.cpp
@@ -622,9 +620,7 @@ set(VAMPIRE_SHELL_SOURCES
     Shell/Grounding.hpp
     Shell/InequalitySplitting.hpp
     Shell/InterpolantMinimizer.hpp
-    Shell/InterpolantMinimizerNew.hpp    
     Shell/Interpolants.hpp
-    Shell/InterpolantsNew.hpp
     Shell/InterpretedNormalizer.hpp
     Shell/LaTeX.hpp
     Shell/Lexer.hpp
@@ -641,7 +637,6 @@ set(VAMPIRE_SHELL_SOURCES
     Shell/Skolem.hpp
     Shell/SimplifyFalseTrue.hpp
     Shell/SineUtils.hpp
-    Shell/SMTFormula.hpp
     Shell/SMTLIBLogic.hpp
     Shell/FOOLElimination.hpp
     Shell/Statistics.hpp
@@ -655,6 +650,7 @@ set(VAMPIRE_SHELL_SOURCES
     Shell/BlockedClauseElimination.hpp
     Shell/Token.hpp
     Shell/TPTPPrinter.hpp
+    Shell/TweeGoalTransformation.hpp
     Shell/UnificationWithAbstractionConfig.hpp
     Shell/UnificationWithAbstractionConfig.cpp
     Shell/UIHelper.hpp
@@ -704,12 +700,10 @@ source_group(smt_comp_source_files FILES ${VAMPIRE_SMTCOMP_SOURCES})
 set(VAMPIRE_CASC_SOURCES
     CASC/PortfolioMode.cpp
     CASC/Schedules.cpp
-    CASC/ScheduleExecutor.cpp
     CASC/CLTBMode.cpp
     CASC/CLTBModeLearning.cpp
     CASC/PortfolioMode.hpp
     CASC/Schedules.hpp
-    CASC/ScheduleExecutor.hpp
     CASC/CLTBMode.hpp
     CASC/CLTBModeLearning.hpp
     )
@@ -731,6 +725,7 @@ set(UNIT_TESTS
     UnitTests/tImplicationSetClosure.cpp
     UnitTests/tUnificationWithAbstraction.cpp
     UnitTests/tGaussianElimination.cpp
+    UnitTests/tPushUnaryMinus.cpp
     UnitTests/tArithmeticSubtermGeneralization.cpp
     UnitTests/tInterpretedFunctions.cpp
     UnitTests/tRebalance.cpp
@@ -742,7 +737,6 @@ set(UNIT_TESTS
     UnitTests/tArithCompare.cpp
     UnitTests/tSyntaxSugar.cpp
     UnitTests/tSkipList.cpp
-    UnitTests/tfork.cpp
     UnitTests/tBinaryHeap.cpp
     UnitTests/tSafeRecursion.cpp
     UnitTests/tKBO.cpp

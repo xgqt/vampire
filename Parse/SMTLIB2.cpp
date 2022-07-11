@@ -1553,8 +1553,7 @@ void SMTLIB2::parseLetEnd(LExpr* exp)
     LOG2("BOUND name  ",cName);
     LOG2("BOUND term  ",boundExpr.toString());
 
-    SortedTerm term;
-    ALWAYS(lookup->find(cName,term));
+    SortedTerm term = lookup->get(cName);
     TermList exprTerm = term.first;
     TermList exprSort = term.second;
 
@@ -1597,7 +1596,7 @@ void SMTLIB2::parseMatchBegin(LExpr *exp)
   LispListReader lRdr(exp->list);
 
   // the match atom
-  const vstring &theMatchAtom = lRdr.readAtom();
+  DEBUG_CODE(const vstring &theMatchAtom =) lRdr.readAtom();
   ASS_EQ(theMatchAtom, MATCH);
 
   // next is the matched term
@@ -1729,7 +1728,7 @@ void SMTLIB2::parseMatchEnd(LExpr *exp)
 
   ASS(exp->isList());
   LispListReader lRdr(exp->list);
-  const vstring &theMatchAtom = lRdr.readAtom();
+  DEBUG_CODE(const vstring &theMatchAtom =) lRdr.readAtom();
   ASS_EQ(getBuiltInTermSymbol(theMatchAtom), TS_MATCH);
 
   vstring matched = lRdr.readAtom();

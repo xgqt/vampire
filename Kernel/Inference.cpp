@@ -243,11 +243,13 @@ void Inference::updateStatistics()
     case Kind::INFERENCE_MANY:
     case Kind::INFERENCE_FROM_SAT_REFUTATION:
       _inductionDepth = 0;
+      _XXNarrows = 0;
+      _reductions = 0;
       UnitList* it= static_cast<UnitList*>(_ptr1);
       while(it) {
         _inductionDepth = max(_inductionDepth,it->head()->inference().inductionDepth());
-        _XXNarrows = max(_XXNarrows,it->head()->inference().inductionDepth());
-        _reductions = max(_reductions,it->head()->inference().inductionDepth());
+        _XXNarrows = max(_XXNarrows,it->head()->inference().xxNarrows());
+        _reductions = max(_reductions,it->head()->inference().reductions());
         it=it->tail();
       }
       break;
@@ -781,6 +783,8 @@ vstring Kernel::ruleName(InferenceRule rule)
     return "definition unfolding";
   case InferenceRule::DEFINITION_FOLDING:
     return "definition folding";
+  case InferenceRule::FUNCTION_DEFINITION: 
+    return "function definition";
   case InferenceRule::PREDICATE_DEFINITION:
     return "predicate definition introduction";
   case InferenceRule::PREDICATE_DEFINITION_UNFOLDING:
