@@ -33,7 +33,7 @@ using namespace Kernel;
 
 namespace Shell {
 
-void InductionCNF::clausify(FormulaUnit* unit,const TermStack& hyps, Stack<Clause*>& output)
+void InductionCNF::clausify(FormulaUnit* unit, Stack<Clause*>& output)
 {
   CALL("InductionCNF::clausify");
 

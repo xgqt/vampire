@@ -97,6 +97,7 @@ Statistics::Statistics()
     generalizedInductionApplication(0),
     generalizedInductionApplicationInProof(0),
     vacuousInductionFormulaDiscardedStatically(0),
+    inductionSkippedHeuristic1(0),
     argumentCongruence(0),
     narrow(0),
     forwardSubVarSup(0),
@@ -416,6 +417,7 @@ void Statistics::print(ostream& out)
   COND_OUT("GeneralizedInductionApplications",generalizedInductionApplication);
   COND_OUT("GeneralizedInductionApplicationsInProof",generalizedInductionApplicationInProof);
   COND_OUT("VacuousInductionFormulaDiscardedStatically",vacuousInductionFormulaDiscardedStatically);
+  COND_OUT("InductionSkippedHeuristic1",inductionSkippedHeuristic1);
   COND_OUT("Argument congruence", argumentCongruence);
   COND_OUT("Negative extensionality", negativeExtensionality);
   COND_OUT("Primitive substitutions", primitiveInstantiations);

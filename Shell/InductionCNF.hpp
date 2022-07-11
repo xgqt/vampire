@@ -49,7 +49,8 @@ public:
   InductionCNF()
     : _collectedVarSorts(false) {}
 
-  void clausify(FormulaUnit* unit, const TermStack& hyps, Stack<Clause*>& output);
+  void clausify(FormulaUnit* unit, Stack<Clause*>& output);
+  const Substitution& subst() { return _globalSubst; }
 private:
 
   FormulaUnit* _beingClausified;

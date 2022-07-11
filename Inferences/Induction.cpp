@@ -283,7 +283,7 @@ ClauseIterator Induction::generateClauses(Clause* premise)
   CALL("Induction::generateClauses");
 
   return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex), getOptions(),
-    _structInductionTermIndex, _formulaIndex));
+    _structInductionTermIndex, _formulaIndex, _restrictions));
 }
 
 void InductionClauseIterator::processClause(Clause* premise)
@@ -581,11 +581,26 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
   if (lit->ground()) {
       Set<Term*> ta_terms;
       Set<Term*> int_terms;
+      Set<Term*> preferred_terms;
       //TODO this should be a non-variable non-type iterator it seems
       SubtermIterator it(lit);
       while(it.hasNext()){
         TermList ts = it.next();
         if(!ts.isTerm()){ continue; }
+        if (_restrictions.find(ts.term()) && lit->isEquality()) {
+          auto& st = _restrictions.get(ts.term());
+          auto lhs = *lit->nthArgument(0);
+          auto rhs = *lit->nthArgument(1);
+          NonVariableIterator nvi(st);
+          while (nvi.hasNext()) {
+            auto argt = nvi.next();
+            if (argt != ts && argt.containsSubterm(ts)) {
+              if (lhs.containsSubterm(argt) && rhs.containsSubterm(argt)) {
+                preferred_terms.insert(argt.term());
+              }
+            }
+          }
+        }
         unsigned f = ts.term()->functor(); 
         if(InductionHelper::isInductionTermFunctor(f)){
           if(InductionHelper::isStructInductionOn() && InductionHelper::isStructuralInductionTerm(ts.term())){
@@ -699,6 +714,10 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       });
     while (indCtxIt.hasNext()) {
       auto ctx = indCtxIt.next();
+      if (ctx._indTerm->arity()>0 && !preferred_terms.contains(ctx._indTerm)) {
+        env.statistics->inductionSkippedHeuristic1++;
+        continue;
+      }
       for (const auto& kv : ctx._cls) {
         for (const auto& lit : kv.second) {
           NonVariableIterator nvi(lit);
@@ -806,7 +825,7 @@ float computeGoalness() {
   return 1.0f;
 }
 
-ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, const TermStack& hyps)
+ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, const vmap<unsigned,Literal*>& hyps)
 {
   CALL("InductionClauseIterator::produceClauses");
   TimeCounter tc(TC_RAND_OPT);
@@ -828,7 +847,15 @@ ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, Inferen
     env.endOutput();
   }
   // cnf.clausify(NNF::ennf(fu), hyp_clauses);
-  cnf.clausify(fu, hyps, hyp_clauses);
+  cnf.clausify(fu, hyp_clauses);
+  auto subst = cnf.subst();
+  // cout << "hyps" << endl;
+  for (const auto& kv : hyps) {
+    TermList t;
+    ALWAYS(subst.findBinding(kv.first, t));
+    ASS(t.isTerm());
+    _restrictions.insert(t.term(), kv.second->apply(subst));
+  }
 
   switch (rule) {
     case InferenceRule::STRUCT_INDUCTION_AXIOM:
@@ -1216,7 +1243,7 @@ void InductionClauseIterator::performIntInduction(const InductionContext& contex
           : (increasing ? (hasBound2 ? InferenceRule::INT_FIN_UP_INDUCTION_AXIOM : InferenceRule::INT_INF_UP_INDUCTION_AXIOM)
                         : (hasBound2 ? InferenceRule::INT_FIN_DOWN_INDUCTION_AXIOM : InferenceRule::INT_INF_DOWN_INDUCTION_AXIOM));
 
-  TermStack hyps;
+  vmap<unsigned, Literal*> hyps;
   auto cls = produceClauses(hyp, rule, context, hyps);
   e->add(std::move(cls), std::move(subst));
 }
@@ -1238,7 +1265,7 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
   FormulaList* formulas = FormulaList::empty();
 
   unsigned var = 0;
-  TermStack hyps;
+  vmap<unsigned, Literal*> hyps;
 
   // first produce the formula
   for(unsigned i=0;i<ta->nConstructors();i++){
@@ -1251,7 +1278,6 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
         var++;
         if(con->argSort(j) == ta_sort){
           ta_vars.push(x);
-          hyps.push(x);
         }
         argTerms.push(x);
       }
@@ -1262,7 +1288,11 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
       Stack<TermList>::Iterator tvit(ta_vars);
       while(tvit.hasNext()){
         auto hypVars = VList::empty();
-        auto hyp = context.getFormulaWithSquashedSkolems(tvit.next(),true,var,&hypVars);
+        auto tv = tvit.next();
+        auto hyp = context.getFormulaWithSquashedSkolems(tv,true,var,&hypVars);
+        if (hyp->connective() == LITERAL) {
+          hyps.insert(make_pair(tv.var(), hyp->literal()));
+        }
         // quantify each hypotheses with variables replacing Skolems explicitly
         if (hypVars) {
           hyp = new QuantifiedFormula(Connective::FORALL, hypVars, SList::empty(), hyp);
@@ -1356,7 +1386,7 @@ void InductionClauseIterator::performStructInductionTwo(const InductionContext& 
   FormulaList* orf = FormulaList::cons(exists,FormulaList::singleton(Formula::quantify(conclusion)));
   Formula* hypothesis = new JunctionFormula(Connective::OR,orf);
 
-  TermStack hyps;
+  vmap<unsigned,Literal*> hyps;
   auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, hyps);
   e->add(std::move(cls), std::move(subst));
 }
@@ -1463,7 +1493,7 @@ void InductionClauseIterator::performStructInductionThree(const InductionContext
   FormulaList* orf = FormulaList::cons(exists,FormulaList::singleton(Formula::quantify(conclusion)));
   Formula* hypothesis = new JunctionFormula(Connective::OR,orf);
 
-  TermStack hyps;
+  vmap<unsigned,Literal*> hyps;
   auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, hyps);
   e->add(std::move(cls), std::move(subst));
 }

@@ -182,6 +182,7 @@ private:
   TermIndex* _inductionTermIndex = nullptr;
   TermIndex* _structInductionTermIndex = nullptr;
   InductionFormulaIndex _formulaIndex;
+  DHMap<Term*, Literal*> _restrictions;
 };
 
 class InductionClauseIterator
@@ -189,9 +190,9 @@ class InductionClauseIterator
 public:
   // all the work happens in the constructor!
   InductionClauseIterator(Clause* premise, InductionHelper helper, const Options& opt,
-    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex)
+    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, DHMap<Term*, Literal*>& restrictions)
       : _helper(helper), _opt(opt), _structInductionTermIndex(structInductionTermIndex),
-      _formulaIndex(formulaIndex)
+      _formulaIndex(formulaIndex), _restrictions(restrictions)
   {
     processClause(premise);
   }
@@ -210,7 +211,7 @@ private:
   void processLiteral(Clause* premise, Literal* lit);
   void processIntegerComparison(Clause* premise, Literal* lit);
 
-  ClauseStack produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, const TermStack& hyps);
+  ClauseStack produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, const vmap<unsigned,Literal*>& hyps);
   void resolveClauses(InductionContext context, InductionFormulaIndex::Entry* e, const TermQueryResult* bound1, const TermQueryResult* bound2);
   void resolveClauses(const ClauseStack& cls, const InductionContext& context, Substitution& subst, bool applySubst = false);
 
@@ -230,6 +231,7 @@ private:
   const Options& _opt;
   TermIndex* _structInductionTermIndex;
   InductionFormulaIndex& _formulaIndex;
+  DHMap<Term*, Literal*>& _restrictions;
 };
 
 };
