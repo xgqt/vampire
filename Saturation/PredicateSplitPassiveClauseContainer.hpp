@@ -34,6 +34,11 @@ public:
   Clause* popSelected() override;
   bool isEmpty() const override; /** True if there are no passive clauses */
   unsigned sizeEstimate() const override;
+  void addInductionRestriction(Term* t, Literal* lit) {
+    for (const auto& q : _queues) {
+      q->addInductionRestriction(t,lit);
+    }
+  }
 
 private:
   Lib::vvector<std::unique_ptr<PassiveClauseContainer>> _queues;

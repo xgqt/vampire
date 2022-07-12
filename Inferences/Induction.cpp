@@ -848,12 +848,15 @@ ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, Inferen
   // cnf.clausify(NNF::ennf(fu), hyp_clauses);
   cnf.clausify(fu, hyp_clauses);
   auto subst = cnf.subst();
+  auto container = _salg->getPassiveClauseContainer();
   // cout << "hyps" << endl;
   for (const auto& kv : hyps) {
     TermList t;
     ALWAYS(subst.findBinding(kv.first, t));
     ASS(t.isTerm());
-    _restrictions.insert(t.term(), kv.second->apply(subst));
+    auto nlit = kv.second->apply(subst);
+    _restrictions.insert(t.term(), nlit);
+    container->addInductionRestriction(t.term(), nlit);
   }
 
   switch (rule) {

@@ -74,6 +74,8 @@ public:
 
   void remove(Clause* cl) override;
 
+  void addInductionRestriction(Term* t, Literal* lit) override {}
+
   bool byWeight(int balance);
 
   Clause* popSelected() override;
