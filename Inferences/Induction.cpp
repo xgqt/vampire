@@ -249,6 +249,15 @@ InductionContext ContextSubsetReplacement::next() {
   return context;
 }
 
+Induction::~Induction()
+{
+  CALL("Induction::~Induction");
+  DHMap<Term*, CodeTreeTIS*>::Iterator it(_restrictions);
+  while (it.hasNext()) {
+    delete it.next();
+  }
+}
+
 void Induction::attach(SaturationAlgorithm* salg) {
   CALL("Induction::attach");
 
@@ -267,6 +276,7 @@ void Induction::attach(SaturationAlgorithm* salg) {
 void Induction::detach() {
   CALL("Induction::detach");
 
+  _salg->getPassiveClauseContainer()->setInductionRestrictions(nullptr);
   if (InductionHelper::isNonUnitStructInductionOn()) {
     _structInductionTermIndex = nullptr;
     _salg->getIndexManager()->release(STRUCT_INDUCTION_TERM_INDEX);
@@ -726,7 +736,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       });
     while (indCtxIt.hasNext()) {
       auto ctx = indCtxIt.next();
-      if (ctx._indTerm->arity()>0 && !preferred_terms.contains(ctx._indTerm)) {
+      if (ctx._indTerm->arity()>0 && preferred_terms.size() && !preferred_terms.contains(ctx._indTerm)) {
         env.statistics->inductionSkippedHeuristic1++;
         continue;
       }
@@ -837,7 +847,7 @@ float computeGoalness() {
   return 1.0f;
 }
 
-ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, const vmap<unsigned,Literal*>& hyps)
+ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, const vmap<unsigned,LiteralStack>& hyps)
 {
   CALL("InductionClauseIterator::produceClauses");
   TimeCounter tc(TC_RAND_OPT);
@@ -866,13 +876,15 @@ ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, Inferen
     TermList t;
     ALWAYS(subst.findBinding(kv.first, t));
     ASS(t.isTerm());
-    auto nlit = kv.second->apply(subst);
-    NonVariableNonTypeIterator nvi(nlit);
     auto ct = new CodeTreeTIS();
     ALWAYS(_restrictions.insert(t.term(), ct));
-    while (nvi.hasNext()) {
-      auto st = nvi.next();
-      ct->insert(st, nlit, nullptr);
+    for (const auto& lit : kv.second) {
+      auto tlit = lit->apply(subst);
+      NonVariableNonTypeIterator nvi(tlit);
+      while (nvi.hasNext()) {
+        auto st = nvi.next();
+        ct->insert(st, tlit, nullptr);
+      }
     }
   }
 
@@ -1203,7 +1215,10 @@ void InductionClauseIterator::performIntInduction(const InductionContext& contex
   Formula* Lb1 = context.getFormula(b1,true);
 
   // create L[X]
+  vmap<unsigned, LiteralStack> hyps;
+  auto& st = hyps.insert(make_pair(x.var(), LiteralStack())).first->second;
   Formula* Lx = context.getFormula(x,true);
+  Lx->collectAtoms(st);
 
   // create L[Y]
   Substitution subst;
@@ -1262,7 +1277,6 @@ void InductionClauseIterator::performIntInduction(const InductionContext& contex
           : (increasing ? (hasBound2 ? InferenceRule::INT_FIN_UP_INDUCTION_AXIOM : InferenceRule::INT_INF_UP_INDUCTION_AXIOM)
                         : (hasBound2 ? InferenceRule::INT_FIN_DOWN_INDUCTION_AXIOM : InferenceRule::INT_INF_DOWN_INDUCTION_AXIOM));
 
-  vmap<unsigned, Literal*> hyps;
   auto cls = produceClauses(hyp, rule, context, hyps);
   e->add(std::move(cls), std::move(subst));
 }
@@ -1284,7 +1298,7 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
   FormulaList* formulas = FormulaList::empty();
 
   unsigned var = 0;
-  vmap<unsigned, Literal*> hyps;
+  vmap<unsigned, LiteralStack> hyps;
 
   // first produce the formula
   for(unsigned i=0;i<ta->nConstructors();i++){
@@ -1309,9 +1323,8 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
         auto hypVars = VList::empty();
         auto tv = tvit.next();
         auto hyp = context.getFormulaWithSquashedSkolems(tv,true,var,&hypVars);
-        if (hyp->connective() == LITERAL) {
-          hyps.insert(make_pair(tv.var(), hyp->literal()));
-        }
+        auto& st = hyps.insert(make_pair(tv.var(), LiteralStack())).first->second;
+        hyp->collectAtoms(st);
         // quantify each hypotheses with variables replacing Skolems explicitly
         if (hypVars) {
           hyp = new QuantifiedFormula(Connective::FORALL, hypVars, SList::empty(), hyp);
@@ -1355,6 +1368,7 @@ void InductionClauseIterator::performStructInductionTwo(const InductionContext& 
   // for each constructor and destructor make
   // ![Z] : y = cons(Z,dec(y)) -> ( ~L[dec1(y)] & ~L[dec2(y)]
   FormulaList* formulas = FormulaList::empty();
+  vmap<unsigned,LiteralStack> hyps;
 
   for(unsigned i=0;i<ta->nConstructors();i++){
     TermAlgebraConstructor* con = ta->constructor(i);
@@ -1383,6 +1397,8 @@ void InductionClauseIterator::performStructInductionTwo(const InductionContext& 
         TermList djy = tit.next();
         auto hypVars = VList::empty();
         auto f = context.getFormulaWithSquashedSkolems(djy,true,var,&hypVars);
+        auto& st = hyps.insert(make_pair(djy.var(), LiteralStack())).first->second;
+        f->collectAtoms(st);
         if (hypVars) {
           f = new QuantifiedFormula(Connective::FORALL, hypVars, SList::empty(), f);
         }
@@ -1405,7 +1421,6 @@ void InductionClauseIterator::performStructInductionTwo(const InductionContext& 
   FormulaList* orf = FormulaList::cons(exists,FormulaList::singleton(Formula::quantify(conclusion)));
   Formula* hypothesis = new JunctionFormula(Connective::OR,orf);
 
-  vmap<unsigned,Literal*> hyps;
   auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, hyps);
   e->add(std::move(cls), std::move(subst));
 }
@@ -1439,6 +1454,8 @@ void InductionClauseIterator::performStructInductionThree(const InductionContext
   // make smallerThanY
   unsigned sty = env.signature->addFreshPredicate(1,"smallerThan");
   env.signature->getPredicate(sty)->setType(OperatorType::getPredicateType({ta_sort}));
+
+  vmap<unsigned,LiteralStack> hyps;
 
   // make ( y = con_i(..dec(y)..) -> smaller(dec(y)))  for each constructor 
   FormulaList* conjunction = FormulaList::singleton(Ly);
@@ -1512,7 +1529,6 @@ void InductionClauseIterator::performStructInductionThree(const InductionContext
   FormulaList* orf = FormulaList::cons(exists,FormulaList::singleton(Formula::quantify(conclusion)));
   Formula* hypothesis = new JunctionFormula(Connective::OR,orf);
 
-  vmap<unsigned,Literal*> hyps;
   auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, hyps);
   e->add(std::move(cls), std::move(subst));
 }

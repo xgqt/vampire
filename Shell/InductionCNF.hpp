@@ -39,10 +39,6 @@ namespace Kernel {
 
 namespace Shell {
 
-/**
- * Class implementing the InductionCNF transformation.
- * @since 19/11/2015 Manchester
- */
 class InductionCNF
 {
 public:
@@ -342,8 +338,7 @@ private:
 
   void enqueue(Formula* formula, SIGN s, Occurrences occurrences = Occurrences()) {
     CALL("InductionCNF::enqueue");
-    auto si = _signs.findOrInsert(formula, s);
-    ASS_EQ(s,si);
+    ALWAYS(s == _signs.findOrInsert(formula, s));
     if (formula->connective() == LITERAL) {
       ASS(formula->literal()->shared());
       return;

@@ -159,6 +159,8 @@ public:
   CLASS_NAME(Induction);
   USE_ALLOCATOR(Induction);
 
+  ~Induction() override;
+
   void attach(SaturationAlgorithm* salg) override;
   void detach() override;
 
@@ -211,7 +213,7 @@ private:
   void processLiteral(Clause* premise, Literal* lit);
   void processIntegerComparison(Clause* premise, Literal* lit);
 
-  ClauseStack produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, const vmap<unsigned,Literal*>& hyps);
+  ClauseStack produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, const vmap<unsigned,LiteralStack>& hyps);
   void resolveClauses(InductionContext context, InductionFormulaIndex::Entry* e, const TermQueryResult* bound1, const TermQueryResult* bound2);
   void resolveClauses(const ClauseStack& cls, const InductionContext& context, Substitution& subst, bool applySubst = false);
 

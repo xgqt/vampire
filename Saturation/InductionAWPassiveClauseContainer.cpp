@@ -45,7 +45,7 @@ float InductionQueue::calculateValue(Clause* cl)
     unsigned nonindlits = cl->length();
     for (unsigned i = 0; i < cl->length(); i++) {
       auto lit = (*cl)[i];
-      if (!indcl || !InductionHelper::isInductionLiteral(lit)) {
+      if (!indcl || !InductionHelper::isInductionLiteral(lit) || !_restrictions) {
         w += lit->weight();
         continue;
       }
@@ -56,10 +56,18 @@ float InductionQueue::calculateValue(Clause* cl)
       NonVariableNonTypeIterator it(lit);
       while(it.hasNext()){
         Term* t = it.next().term();
+        if (t->arity()) {
+          // only Skolem constants are stored (for now)
+          continue;
+        }
         auto l = static_cast<DHMap<Term*,CodeTreeTIS*>*>(_restrictions)->findPtr(t);
         if (l) {
           cts.insert(*l);
         }
+      }
+      if (!cts.size()) {
+        w += lit->weight();
+        continue;
       }
 
       // PointerTermReplacement tr;

@@ -27,7 +27,7 @@ class InductionQueue
 : public ClauseQueue
 {
 public:
-  InductionQueue(const Options& opt) : _opt(opt) {}
+  InductionQueue(const Options& opt) : _opt(opt), _restrictions(nullptr) {}
   bool lessThan(Clause* c1, Clause* c2) override;
   float calculateValue(Clause* cl);
   void setRestrictions(void* r) {
