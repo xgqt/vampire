@@ -129,58 +129,6 @@ void NewCNF::clausify(FormulaUnit* unit,Stack<Clause*>& output)
   ASS(_occurrences.isEmpty());
 }
 
-void NewCNF::clausify(const vvector<pair<FormulaUnit*, bool>>& fs,Stack<Stack<LiteralStack>>& output)
-{
-  CALL("NewCNF::clausify/2");
-
-  for (const auto& kv : fs) {
-    auto unit = kv.first;
-    _beingClausified = unit;
-    Formula* f = unit->formula();
-    ASS_NEQ(f->connective(), TRUE);
-    ASS_NEQ(f->connective(), FALSE);
-
-    ASS(_genClauses.empty());
-    ASS(_queue.isEmpty());
-    ASS(_occurrences.isEmpty());
-
-    enqueue(f);
-
-    introduceGenClause(GenLit(f, kv.second ? POSITIVE : NEGATIVE));
-
-    // process the generalized clauses until they contain only literals
-    while(_queue.isNonEmpty()) {
-      Formula* g;
-      Occurrences occurrences;
-      dequeue(g, occurrences);
-      process(g, occurrences);
-    }
-
-    Stack<LiteralStack> sts;
-    for (SPGenClause gc : _genClauses) {
-      toClauses(gc, sts);
-    }
-    output.push(sts);
-
-    _genClauses.clear();
-    _varSorts.reset();
-    _collectedVarSorts = false;
-    _maxVar = 0;
-    _freeVars.reset();
-
-    { // destroy the cached substitution entries
-      DHMap<BindingList*,Substitution*>::DelIterator dIt(_substitutionsByBindings);
-      while (dIt.hasNext()) {
-        delete dIt.next();
-        dIt.del();
-      }
-    }
-
-    ASS(_queue.isEmpty());
-    ASS(_occurrences.isEmpty());
-  }
-}
-
 void NewCNF::process(Literal* literal, Occurrences &occurrences) {
   CALL("NewCNF::process(Literal*)");
 
@@ -1492,7 +1440,7 @@ void NewCNF::process(Formula* g, Occurrences &occurrences)
   }
 }
 
-void NewCNF::toClauses(SPGenClause gc, List<List<GenLit>*>*& genClauses)
+void NewCNF::toClauses(SPGenClause gc, Stack<Clause*>& output)
 {
   CALL("NewCNF::toClauses");
 
@@ -1514,7 +1462,7 @@ void NewCNF::toClauses(SPGenClause gc, List<List<GenLit>*>*& genClauses)
   List<GenLit>* initLiterals(0);
   List<GenLit>::pushFromIterator(gc->genLiterals(), initLiterals);
 
-  genClauses = new List<List<GenLit>*>(initLiterals);
+  List<List<GenLit>*>* genClauses = new List<List<GenLit>*>(initLiterals);
 
   unsigned iteCounter = 0;
   while (variables.isNonEmpty()) {
@@ -1616,17 +1564,10 @@ void NewCNF::toClauses(SPGenClause gc, List<List<GenLit>*>*& genClauses)
     genClauses = processedGenClauses;
     iteCounter++;
   }
-}
-
-void NewCNF::toClauses(SPGenClause gc, Stack<Clause*>& output)
-{
-  CALL("NewCNF::toClauses(SPGenClause, Stack<Clause*>&)");
 
 #if LOGGING
   cout << endl << "----------------- CNF ------------------" << endl;
 #endif
-  List<List<GenLit>*>* genClauses = 0;
-  toClauses(gc, genClauses);
   while (List<List<GenLit>*>::isNonEmpty(genClauses)) {
     List<GenLit>* gls = List<List<GenLit>*>::pop(genClauses);
     SPGenClause genClause = makeGenClause(gls, gc->bindings, BindingList::empty());
@@ -1641,24 +1582,6 @@ void NewCNF::toClauses(SPGenClause gc, Stack<Clause*>& output)
 #if LOGGING
   cout << "----------------- CNF ------------------" << endl << endl;
 #endif
-}
-
-void NewCNF::toClauses(SPGenClause gc, Stack<LiteralStack>& output)
-{
-  CALL("NewCNF::toClauses(SPGenClause, Stack<LiteralStack>&)");
-  List<List<GenLit>*>* genClauses = 0;
-  toClauses(gc, genClauses);
-  while (List<List<GenLit>*>::isNonEmpty(genClauses)) {
-    List<GenLit>* gls = List<List<GenLit>*>::pop(genClauses);
-    SPGenClause genClause = makeGenClause(gls, gc->bindings, BindingList::empty());
-    if (genClause->valid) {
-      LiteralStack st;
-      toLiterals(genClause, st);
-      output.push(st);
-    } else {
-      LOG2(genClause->toString(), "was removed as it contains a tautology");
-    }
-  }
 }
 
 bool NewCNF::mapSubstitution(List<GenLit>* clause, Substitution subst, bool onlyFormulaLevel, List<GenLit>* &output)
@@ -1697,9 +1620,9 @@ bool NewCNF::mapSubstitution(List<GenLit>* clause, Substitution subst, bool only
   return true;
 }
 
-void NewCNF::toLiterals(SPGenClause gc, LiteralStack& st)
+Clause* NewCNF::toClause(SPGenClause gc)
 {
-  CALL("NewCNF::toLiterals");
+  CALL("NewCNF::toClause");
 
   Substitution* subst;
 
@@ -1712,6 +1635,9 @@ void NewCNF::toLiterals(SPGenClause gc, LiteralStack& st)
     }
     _substitutionsByBindings.insert(gc->bindings, subst);
   }
+
+  static Stack<Literal*> properLiterals;
+  ASS(properLiterals.isEmpty());
 
   GenClause::Iterator lit = gc->genLiterals();
   while (lit.hasNext()) {
@@ -1727,16 +1653,8 @@ void NewCNF::toLiterals(SPGenClause gc, LiteralStack& st)
       l = Literal::complementaryLiteral(l);
     }
 
-    st.push(l);
+    properLiterals.push(l);
   }
-}
-
-Clause* NewCNF::toClause(SPGenClause gc)
-{
-  CALL("NewCNF::toClause");
-  static Stack<Literal*> properLiterals;
-  ASS(properLiterals.isEmpty());
-  toLiterals(gc, properLiterals);
 
   Clause* clause = new(gc->size()) Clause(gc->size(),FormulaTransformation(InferenceRule::CLAUSIFY,_beingClausified));
   for (int i = gc->size() - 1; i >= 0; i--) {

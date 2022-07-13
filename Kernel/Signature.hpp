@@ -262,7 +262,7 @@ class Signature
 
     inline void markInductionSkolem(){ _inductionSkolem=1; _skolem=1;}
     inline bool inductionSkolem(){ return _inductionSkolem;}
-
+      
     /** Return true if symbol is an integer constant */
     inline bool integerConstant() const
     { return interpreted() && arity()==0 && fnType()->result()==AtomicSort::intSort(); }

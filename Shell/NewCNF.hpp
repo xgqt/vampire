@@ -66,7 +66,6 @@ public:
       _collectedVarSorts(false), _maxVar(0),_forInduction(false) {}
 
   void clausify(FormulaUnit* unit, Stack<Clause*>& output);
-  void clausify(const vvector<pair<FormulaUnit*, bool>>& fs, Stack<Stack<LiteralStack>>& output);
   void setForInduction(){ _forInduction=true; }
 private:
   unsigned _namingThreshold;
@@ -208,11 +207,8 @@ private:
 
   typedef SmartPtr<GenClause> SPGenClause;
 
-  void toClauses(SPGenClause gc, List<List<GenLit>*>*& output);
   void toClauses(SPGenClause gc, Stack<Clause*>& output);
-  void toClauses(SPGenClause gc, Stack<LiteralStack>& output);
   bool mapSubstitution(List<GenLit>* gc, Substitution subst, bool onlyFormulaLevel, List<GenLit>* &output);
-  void toLiterals(SPGenClause gc, LiteralStack& st);
   Clause* toClause(SPGenClause gc);
 
   typedef list<SPGenClause,STLAllocator<SPGenClause>> GenClauses;

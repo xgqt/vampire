@@ -139,10 +139,8 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
 {
   CALL("InductionRemodulation::generateClauses");
   ClauseIterator res1 = ClauseIterator::getEmpty();
-  auto maxDepth = _salg->getOptions().maxRemodulationDepth();
 
-  if (InductionHelper::isInductionClause(premise) &&
-      (!maxDepth || premise->inference().remodulationDepth() < maxDepth))
+  if (InductionHelper::isInductionClause(premise))
   {
     // forward result
     res1 = pvi(iterTraits(premise->iterLits())
@@ -273,7 +271,6 @@ ClauseIterator InductionRemodulation::perform(
       unsigned eqLength = eqClause->length();
       unsigned newLength = rwLength + (eqLength - 1);
       Inference inf(GeneratingInference2(InferenceRule::INDUCTION_REMODULATION, rwClause, eqClause));
-      inf.setRemodulationDepth(inf.remodulationDepth()+1);
       Clause* newCl = new(newLength) Clause(newLength, inf);
 
       (*newCl)[0] = tgtLitS;

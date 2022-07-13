@@ -2333,7 +2333,6 @@ public:
   bool nonUnitInduction() const { return _nonUnitInduction.actualValue; }
   InductionConsequenceGeneration inductionConsequenceGeneration() const { return _inductionConsequenceGeneration.actualValue; }
   bool inductionRemodulationRedundancyCheck() const { return _inductionRemodulationRedundancyCheck.actualValue; }
-  unsigned maxRemodulationDepth() const { return _maxRemodulationDepth.actualValue; }
 
   float instGenBigRestartRatio() const { return _instGenBigRestartRatio.actualValue; }
   bool instGenPassiveReactivation() const { return _instGenPassiveReactivation.actualValue; }
@@ -2639,7 +2638,6 @@ private:
   BoolOptionValue _nonUnitInduction;
   ChoiceOptionValue<InductionConsequenceGeneration> _inductionConsequenceGeneration;
   BoolOptionValue _inductionRemodulationRedundancyCheck;
-  UnsignedOptionValue _maxRemodulationDepth;
 
   StringOptionValue _latexOutput;
   BoolOptionValue _latexUseDefaultSymbols;

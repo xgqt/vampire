@@ -13,7 +13,6 @@
  */
 
 #include "Inferences/InductionHelper.hpp"
-#include "Inferences/InductionRemodulation.hpp"
 
 #include "Kernel/Clause.hpp"
 #include "Kernel/LiteralComparators.hpp"

@@ -228,14 +228,11 @@ void Inference::updateStatistics()
         */
       } else if (_ptr2 == nullptr) {
         _inductionDepth = static_cast<Unit*>(_ptr1)->inference().inductionDepth();
-        _remodulationDepth = static_cast<Unit*>(_ptr1)->inference()._remodulationDepth;
         _XXNarrows = static_cast<Unit*>(_ptr1)->inference().xxNarrows();
         _reductions = static_cast<Unit*>(_ptr1)->inference().reductions();
       } else {
         _inductionDepth = max(static_cast<Unit*>(_ptr1)->inference().inductionDepth(),
             static_cast<Unit*>(_ptr2)->inference().inductionDepth());
-        _remodulationDepth = max(static_cast<Unit*>(_ptr1)->inference()._remodulationDepth,
-            static_cast<Unit*>(_ptr2)->inference()._remodulationDepth);
         _XXNarrows = max(static_cast<Unit*>(_ptr1)->inference().xxNarrows(),
             static_cast<Unit*>(_ptr2)->inference().xxNarrows());
         _reductions = max(static_cast<Unit*>(_ptr1)->inference().reductions(),
@@ -246,13 +243,11 @@ void Inference::updateStatistics()
     case Kind::INFERENCE_MANY:
     case Kind::INFERENCE_FROM_SAT_REFUTATION:
       _inductionDepth = 0;
-      _remodulationDepth = 0;
       _XXNarrows = 0;
       _reductions = 0;
       UnitList* it= static_cast<UnitList*>(_ptr1);
       while(it) {
         _inductionDepth = max(_inductionDepth,it->head()->inference().inductionDepth());
-        _remodulationDepth = max(_remodulationDepth,it->head()->inference()._remodulationDepth);
         _XXNarrows = max(_XXNarrows,it->head()->inference().xxNarrows());
         _reductions = max(_reductions,it->head()->inference().reductions());
         it=it->tail();
@@ -293,7 +288,6 @@ vstring Inference::toString() const
     result += ", had: " + Int::toString(_holAxiomsDescendant);
   }
   result += ", id: " + Int::toString(_inductionDepth);
-  result += ", remD: " + Int::toString(_remodulationDepth);
   if(env.options->maxXXNarrows() > 0){
     result += ", xxNarrs " + Int::toString(_XXNarrows);
   }
