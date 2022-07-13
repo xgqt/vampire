@@ -34,9 +34,9 @@ public:
   Clause* popSelected() override;
   bool isEmpty() const override; /** True if there are no passive clauses */
   unsigned sizeEstimate() const override;
-  void addInductionRestriction(Term* t, Literal* lit) {
+  void setInductionRestrictions(void* r) override {
     for (const auto& q : _queues) {
-      q->addInductionRestriction(t,lit);
+      q->setInductionRestrictions(r);
     }
   }
 

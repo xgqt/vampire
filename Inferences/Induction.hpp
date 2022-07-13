@@ -182,7 +182,7 @@ private:
   TermIndex* _inductionTermIndex = nullptr;
   TermIndex* _structInductionTermIndex = nullptr;
   InductionFormulaIndex _formulaIndex;
-  DHMap<Term*, Literal*> _restrictions;
+  DHMap<Term*, CodeTreeTIS*> _restrictions;
 };
 
 class InductionClauseIterator
@@ -190,7 +190,7 @@ class InductionClauseIterator
 public:
   // all the work happens in the constructor!
   InductionClauseIterator(Clause* premise, InductionHelper helper, const Options& opt,
-    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, DHMap<Term*, Literal*>& restrictions)
+    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, DHMap<Term*, CodeTreeTIS*>& restrictions)
       : _helper(helper), _opt(opt), _structInductionTermIndex(structInductionTermIndex),
       _formulaIndex(formulaIndex), _restrictions(restrictions)
   {
@@ -231,7 +231,7 @@ private:
   const Options& _opt;
   TermIndex* _structInductionTermIndex;
   InductionFormulaIndex& _formulaIndex;
-  DHMap<Term*, Literal*>& _restrictions;
+  DHMap<Term*, CodeTreeTIS*>& _restrictions;
 };
 
 };

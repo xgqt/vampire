@@ -21,7 +21,6 @@
 #include "Lib/Set.hpp"
 
 #include "Inferences/Induction.hpp"
-#include "Inferences/InductionRemodulation.hpp"
 
 #include "InductionAWPassiveClauseContainer.hpp"
 
@@ -46,124 +45,44 @@ float InductionQueue::calculateValue(Clause* cl)
     unsigned nonindlits = cl->length();
     for (unsigned i = 0; i < cl->length(); i++) {
       auto lit = (*cl)[i];
-      // cout << "lit " << *lit << endl;
-      vmap<Term*,unsigned> ts;
-      // w += lit->weight();
       if (!indcl || !InductionHelper::isInductionLiteral(lit)) {
         w += lit->weight();
         continue;
       }
       nonindlits--;
 
-      // vset<Term*> ls;
-      CodeTreeTIS ct;
-      CodeTreeTIS cta;
-      PointedTermIterator it(lit);
+      Set<CodeTreeTIS*> cts;
+      // PointedTermIterator it(lit);
+      NonVariableNonTypeIterator it(lit);
       while(it.hasNext()){
         Term* t = it.next().term();
-        auto l = _restrictions.findPtr(t);
+        auto l = static_cast<DHMap<Term*,CodeTreeTIS*>*>(_restrictions)->findPtr(t);
         if (l) {
-          // cout << "t " << *t << " " << **l << endl;
-          if ((*l)->isEquality()) {
-            for (unsigned j = 0; j <= 1; j++) {
-              auto side = *(*l)->nthArgument(j);
-              auto other = *(*l)->nthArgument(1-j);
-              if (side.isVar()) {
-                continue;
-              }
-              NonVariableNonTypeIterator it2(side.term(),true);
-              while (it2.hasNext()) {
-                auto st = it2.next();
-                // ls.insert(st);
-                if (!other.containsSubterm(st)) {
-                  cta.insert(st, *l, nullptr);
-                }
-                ct.insert(st, *l, nullptr);
-              }
-            }
-          } else {
-            NonVariableNonTypeIterator it2(*l);
-            while (it2.hasNext()) {
-              auto st = it2.next();
-              // ls.insert(st);
-              ct.insert(st, *l, nullptr);
-            }
-          }
-        }
-        // unsigned f = t->functor();
-        // if (InductionHelper::isInductionTermFunctor(f) &&
-        //     InductionHelper::isStructuralInductionTerm(t) &&
-        //     Induction::checkForVacuousness(lit, t))
-        // {
-        //   // it.right();
-        //   auto ins = ts.insert(make_pair(t,1));
-        //   if (!ins.second) {
-        //     ins.first->second++;
-        //   }
-        //   // w -= (t->weight()/INDUCTION_TERM_DENUMERATOR);
-        // } else {
-        //   w++;
-        // }
-      }
-
-      unsigned assym = 0;
-      PointerTermReplacement tr;
-      auto tlit = tr.transform(lit);
-      if (tlit->isEquality()) {
-        for (unsigned j = 0; j <= 1; j++) {
-          auto side = *tlit->nthArgument(j);
-          auto other = *tlit->nthArgument(1-j);
-          if (side.isVar()) {
-            continue;
-          }
-          NonVariableNonTypeIterator it2(side.term(),true);
-          while(it2.hasNext()){
-            auto t = it2.next();
-            // cout << "st " << *t;
-            if (ct.generalizationExists(t)) {
-              // cout << " subterm" << endl;
-              it2.right();
-            } else {
-              // cout << " not subterm" << endl;
-              w++;
-            }
-            if (cta.generalizationExists(t) && other.containsSubterm(t)) {
-              assym++;
-              // cout << t << " assymmetric for " << *tlit << endl;
-            }
-          }
-        }
-      } else {
-        NonVariableNonTypeIterator it2(tr.transform(lit));
-        while(it2.hasNext()){
-          auto t = it2.next();
-          // cout << "st " << *t;
-          if (ct.generalizationExists(t)) {
-            // cout << " subterm" << endl;
-            it2.right();
-          } else {
-            // cout << " not subterm" << endl;
-            w++;
-          }
+          cts.insert(*l);
         }
       }
 
-      while (assym > 0 && w >= 1) {
-        w--;
-        assym--;
+      // PointerTermReplacement tr;
+      // auto tlit = tr.transform(lit);
+      auto tlit = lit;
+      NonVariableNonTypeIterator it2(tlit);
+      while(it2.hasNext()){
+        auto t = it2.next();
+        bool hasGen = false;
+        Set<CodeTreeTIS*>::Iterator cit(cts);
+        while (cit.hasNext()) {
+          auto ct = cit.next();
+          if (ct->generalizationExists(t)) {
+            hasGen = true;
+            break;
+          }
+        }
+        if (hasGen) {
+          it2.right();
+        } else {
+          w++;
+        }
       }
-      // for (const auto& kv : ts) {
-      //   // cout << *kv.first << " has " << kv.second << " occurrences" << endl;
-      //   float s = pow(2, -(float)kv.second) * kv.second;
-      //   // cout << "adding " << s << endl;
-      //   w += s;
-      // }
-      // if (lit->isEquality()) {
-      //   float lhs = lit->nthArgument(0)->term()->weight();
-      //   float rhs = lit->nthArgument(1)->term()->weight();
-      //   auto eqratio = lhs > rhs ? lhs/rhs : rhs/lhs;
-      //   w *= eqratio;
-      // }
     }
     if (!indcl) {
       w *= NON_INDUCTION_CLAUSE_COEFF;

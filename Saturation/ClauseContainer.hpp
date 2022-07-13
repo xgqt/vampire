@@ -133,7 +133,7 @@ public:
 
   virtual unsigned sizeEstimate() const = 0;
 
-  virtual void addInductionRestriction(Term* t, Literal* lit) = 0;
+  virtual void setInductionRestrictions(void* r) = 0;
 
   /*
    * LRS specific methods for computation of Limits

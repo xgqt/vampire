@@ -14,6 +14,7 @@
 
 #include <utility>
 
+#include "Indexing/CodeTreeInterfaces.hpp"
 #include "Indexing/IndexManager.hpp"
 
 #include "Lib/DHMap.hpp"
@@ -260,6 +261,7 @@ void Induction::attach(SaturationAlgorithm* salg) {
     _structInductionTermIndex = static_cast<TermIndex*>(
       _salg->getIndexManager()->request(STRUCT_INDUCTION_TERM_INDEX));
   }
+  _salg->getPassiveClauseContainer()->setInductionRestrictions(&_restrictions);
 }
 
 void Induction::detach() {
@@ -579,6 +581,17 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
   }
 
   if (lit->ground()) {
+      Set<CodeTreeTIS*> cts;
+      NonVariableNonTypeIterator ctit(lit);
+      while(ctit.hasNext()){
+        TermList ts = ctit.next();
+        if(!ts.isTerm()){ continue; }
+        auto p = _restrictions.findPtr(ts.term());
+        if (p) {
+          cts.insert(*p);
+        }
+      }
+
       Set<Term*> ta_terms;
       Set<Term*> int_terms;
       Set<Term*> preferred_terms;
@@ -586,16 +599,16 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       while(it.hasNext()){
         TermList ts = it.next();
         if(!ts.isTerm()){ continue; }
-        if (_restrictions.find(ts.term()) && lit->isEquality()) {
-          auto& st = _restrictions.get(ts.term());
+        if (ts.term()->arity() && lit->isEquality()) {
           auto lhs = *lit->nthArgument(0);
           auto rhs = *lit->nthArgument(1);
-          NonVariableIterator nvi(st);
-          while (nvi.hasNext()) {
-            auto argt = nvi.next();
-            if (argt != ts && argt.containsSubterm(ts)) {
-              if (lhs.containsSubterm(argt) && rhs.containsSubterm(argt)) {
-                preferred_terms.insert(argt.term());
+          if (lhs.containsSubterm(ts) && rhs.containsSubterm(ts)) {
+            Set<CodeTreeTIS*>::Iterator ctsit(cts);
+            while (ctsit.hasNext()) {
+              auto ct = ctsit.next();
+              if (ct->generalizationExists(ts)) {
+                preferred_terms.insert(ts.term());
+                break;
               }
             }
           }
@@ -848,15 +861,19 @@ ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, Inferen
   // cnf.clausify(NNF::ennf(fu), hyp_clauses);
   cnf.clausify(fu, hyp_clauses);
   auto subst = cnf.subst();
-  auto container = _salg->getPassiveClauseContainer();
   // cout << "hyps" << endl;
   for (const auto& kv : hyps) {
     TermList t;
     ALWAYS(subst.findBinding(kv.first, t));
     ASS(t.isTerm());
     auto nlit = kv.second->apply(subst);
-    _restrictions.insert(t.term(), nlit);
-    container->addInductionRestriction(t.term(), nlit);
+    NonVariableNonTypeIterator nvi(nlit);
+    auto ct = new CodeTreeTIS();
+    ALWAYS(_restrictions.insert(t.term(), ct));
+    while (nvi.hasNext()) {
+      auto st = nvi.next();
+      ct->insert(st, nlit, nullptr);
+    }
   }
 
   switch (rule) {
