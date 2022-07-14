@@ -14,7 +14,6 @@
 
 #include <utility>
 
-#include "Indexing/CodeTreeInterfaces.hpp"
 #include "Indexing/IndexManager.hpp"
 
 #include "Lib/DHMap.hpp"
@@ -247,15 +246,6 @@ InductionContext ContextSubsetReplacement::next() {
   }
   _ready = false;
   return context;
-}
-
-Induction::~Induction()
-{
-  CALL("Induction::~Induction");
-  DHMap<Term*, CodeTreeTIS*>::Iterator it(_restrictions);
-  while (it.hasNext()) {
-    delete it.next();
-  }
 }
 
 void Induction::attach(SaturationAlgorithm* salg) {
@@ -591,17 +581,6 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
   }
 
   if (lit->ground()) {
-      Set<CodeTreeTIS*> cts;
-      NonVariableNonTypeIterator ctit(lit);
-      while(ctit.hasNext()){
-        TermList ts = ctit.next();
-        if(!ts.isTerm()){ continue; }
-        auto p = _restrictions.findPtr(ts.term());
-        if (p) {
-          cts.insert(*p);
-        }
-      }
-
       Set<Term*> ta_terms;
       Set<Term*> int_terms;
       Set<Term*> preferred_terms;
@@ -613,13 +592,8 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
           auto lhs = *lit->nthArgument(0);
           auto rhs = *lit->nthArgument(1);
           if (lhs.containsSubterm(ts) && rhs.containsSubterm(ts)) {
-            Set<CodeTreeTIS*>::Iterator ctsit(cts);
-            while (ctsit.hasNext()) {
-              auto ct = ctsit.next();
-              if (ct->generalizationExists(ts)) {
-                preferred_terms.insert(ts.term());
-                break;
-              }
+            if (ts.term()->iterm(&_restrictions)) {
+              preferred_terms.insert(ts.term());
             }
           }
         }
@@ -876,14 +850,18 @@ ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, Inferen
     TermList t;
     ALWAYS(subst.findBinding(kv.first, t));
     ASS(t.isTerm());
-    auto ct = new CodeTreeTIS();
-    ALWAYS(_restrictions.insert(t.term(), ct));
     for (const auto& lit : kv.second) {
       auto tlit = lit->apply(subst);
       NonVariableNonTypeIterator nvi(tlit);
       while (nvi.hasNext()) {
         auto st = nvi.next();
-        ct->insert(st, tlit, nullptr);
+        if (st.containsSubterm(t)) {
+          if (st.term()->ground()) {
+            st.term()->markIterm();
+          } else {
+            _restrictions.insert(st, tlit, nullptr);
+          }
+        }
       }
     }
   }

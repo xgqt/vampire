@@ -16,8 +16,6 @@
 #include "Kernel/Term.hpp"
 #include "Kernel/TermIterators.hpp"
 
-#include "Indexing/CodeTreeInterfaces.hpp"
-
 #include "Lib/Set.hpp"
 
 #include "Inferences/Induction.hpp"
@@ -37,6 +35,7 @@ using namespace Inferences;
 float InductionQueue::calculateValue(Clause* cl)
 {
   CALL("InductionQueue::calculateValue");
+  ASS(_restrictions);
   TimeCounter tc(TC_FMB_CONSTRAINT_CREATION);
   auto it = _m.find(cl);
   if (it == _m.end()) {
@@ -45,52 +44,10 @@ float InductionQueue::calculateValue(Clause* cl)
     unsigned nonindlits = cl->length();
     for (unsigned i = 0; i < cl->length(); i++) {
       auto lit = (*cl)[i];
-      if (!indcl || !InductionHelper::isInductionLiteral(lit) || !_restrictions) {
-        w += lit->weight();
-        continue;
+      if (indcl && InductionHelper::isInductionLiteral(lit)) {
+        nonindlits--;
       }
-      nonindlits--;
-
-      Set<CodeTreeTIS*> cts;
-      // PointedTermIterator it(lit);
-      NonVariableNonTypeIterator it(lit);
-      while(it.hasNext()){
-        Term* t = it.next().term();
-        if (t->arity()) {
-          // only Skolem constants are stored (for now)
-          continue;
-        }
-        auto l = static_cast<DHMap<Term*,CodeTreeTIS*>*>(_restrictions)->findPtr(t);
-        if (l) {
-          cts.insert(*l);
-        }
-      }
-      if (!cts.size()) {
-        w += lit->weight();
-        continue;
-      }
-
-      // PointerTermReplacement tr;
-      // auto tlit = tr.transform(lit);
-      auto tlit = lit;
-      NonVariableNonTypeIterator it2(tlit);
-      while(it2.hasNext()){
-        auto t = it2.next();
-        bool hasGen = false;
-        Set<CodeTreeTIS*>::Iterator cit(cts);
-        while (cit.hasNext()) {
-          auto ct = cit.next();
-          if (ct->generalizationExists(t)) {
-            hasGen = true;
-            break;
-          }
-        }
-        if (hasGen) {
-          it2.right();
-        } else {
-          w++;
-        }
-      }
+      w += lit->iweight(_restrictions);
     }
     if (!indcl) {
       w *= NON_INDUCTION_CLAUSE_COEFF;

@@ -594,6 +594,10 @@ public:
     return _isTwoVarEquality;
   }
 
+  bool iterm(void* r);
+  void markIterm() { _itermcomp = 1; _iterm = 1; }
+  unsigned iweight(void* r);
+
   const vstring& functionName() const;
 
   /** True if the term is, in fact, a literal */
@@ -740,6 +744,11 @@ protected:
   unsigned _isTwoVarEquality : 1;
   /** Weight of the symbol */
   unsigned _weight;
+  /** induction related attributes */
+  unsigned _iterm : 1;
+  unsigned _itermcomp : 1;
+  unsigned _iweight;
+  unsigned _iweightcomp : 1;
   /** length of maximum reduction length */
   int _maxRedLen;
   union {

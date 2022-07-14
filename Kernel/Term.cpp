@@ -16,6 +16,7 @@
  */
 
 #include "Indexing/TermSharing.hpp"
+#include "Indexing/CodeTreeInterfaces.hpp"
 
 #include "SubstHelper.hpp"
 #include "TermIterators.hpp"
@@ -26,6 +27,7 @@
 
 using namespace Lib;
 using namespace Kernel;
+using namespace Indexing;
 
 const unsigned Term::SF_ITE;
 const unsigned Term::SF_LET;
@@ -788,6 +790,35 @@ vstring Literal::toString() const
   return s;
 } // Literal::toString
 
+bool Term::iterm(void* r)
+{
+  CALL("Term::iterm");
+  if (!_itermcomp) {
+    _iterm = static_cast<CodeTreeTIS*>(r)->generalizationExists(TermList(this));
+    _itermcomp = 1;
+  }
+  return _iterm;
+}
+
+unsigned Term::iweight(void* r)
+{
+  CALL("Term::iweight");
+  if (iterm(r)) {
+    return 0;
+  }
+  if (!_iweightcomp) {
+    _iweight = 1;
+    for (TermList* tt = args(); ! tt->isEmpty(); tt = tt->next()) {
+      if (tt->isVar()) {
+        _iweight++;
+      } else {
+        _iweight += tt->term()->iweight(r);
+      }
+    }
+    _iweightcomp = 1;
+  }
+  return _iweight;
+}
 
 /**
  * Return the print name of the function symbol of this term.
@@ -1785,6 +1816,10 @@ Term::Term(const Term& t) throw()
     _hasInterpretedConstants(0),
     _isTwoVarEquality(0),
     _weight(0),
+    _iterm(0),
+    _itermcomp(0),
+    _iweight(0),
+    _iweightcomp(0),
     _vars(0)
 {
   CALL("Term::Term/1");
@@ -1818,6 +1853,10 @@ Term::Term() throw()
    _hasInterpretedConstants(0),
    _isTwoVarEquality(0),
    _weight(0),
+   _iterm(0),
+   _itermcomp(0),
+   _iweight(0),
+   _iweightcomp(0),
    _maxRedLen(0),
    _vars(0)
 {
