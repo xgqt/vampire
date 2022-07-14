@@ -710,7 +710,7 @@ void InductionClauseIterator::processIntegerComparison(Clause* premise, Literal*
 
 ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context)
 {
-  CALL("InductionClauseIterator::produceClauses/2");
+  CALL("InductionClauseIterator::produceClauses");
   NewCNF cnf(0);
   cnf.setForInduction();
   Stack<Clause*> hyp_clauses;
