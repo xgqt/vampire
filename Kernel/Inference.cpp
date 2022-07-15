@@ -256,53 +256,6 @@ void Inference::updateStatistics()
   }
 }
 
-void Inference::updateGoalness()
-{
-  CALL("Inference::updateGoalness");
-
-  if (isSimplifyingInferenceRule(_rule)) {
-    switch(_kind) {
-      case Kind::INFERENCE_012:
-        ASS (_ptr1);
-        _goalness = static_cast<Unit*>(_ptr1)->inference().goalness();
-        break;
-      case Kind::INFERENCE_MANY:
-      case Kind::INFERENCE_FROM_SAT_REFUTATION:
-        UnitList* it= static_cast<UnitList*>(_ptr1);
-        ASS(it);
-        _goalness = it->head()->inference().goalness();
-        break;
-    }
-    return;
-  }
-
-  switch(_kind) {
-    case Kind::INFERENCE_012:
-      if (_ptr1 == nullptr) {
-      } else if (_ptr2 == nullptr) {
-        _goalness = static_cast<Unit*>(_ptr1)->inference().goalness();
-      } else {
-        _goalness = static_cast<Unit*>(_ptr1)->inference().goalness();
-        _goalness += static_cast<Unit*>(_ptr2)->inference().goalness();
-        _goalness /= 2.0f;
-      }
-
-      break;
-    case Kind::INFERENCE_MANY:
-    case Kind::INFERENCE_FROM_SAT_REFUTATION:
-      _goalness = 0.0f;
-      float count = 0.0f;
-      UnitList* it= static_cast<UnitList*>(_ptr1);
-      while(it) {
-        _goalness += it->head()->inference().goalness();
-        count++;
-        it=it->tail();
-      }
-      _goalness /= count;
-      break;
-  }
-}
-
 vstring Inference::toString() const
 {
   CALL("Inference::toString");
@@ -349,21 +302,6 @@ vstring Inference::toString() const
   return result;
 }
 
-void Inference::initDefault(UnitInputType inputType, InferenceRule r)
-{
-  CALL("Inference::initDefault");
-
-  _inputType = inputType;
-  _rule = r;
-  _included = false;
-  _inductionDepth = 0;
-  _XXNarrows = 0;
-  _reductions = 0;
-  _goalness = env.options->nongoalWeightCoefficient();
-  _sineLevel = std::numeric_limits<decltype(_sineLevel)>::max();
-  _splits = nullptr;
-  _age = 0;
-}
 
 void Inference::init0(UnitInputType inputType, InferenceRule r)
 {
@@ -383,7 +321,6 @@ void Inference::init0(UnitInputType inputType, InferenceRule r)
 
   //_inductionDepth = 0 from initDefault (or set externally)
   //_sineLevel = MAX from initDefault (or set externally)
-  updateGoalness();
 }
 
 void Inference::init1(InferenceRule r, Unit* premise)
@@ -406,7 +343,6 @@ void Inference::init1(InferenceRule r, Unit* premise)
   _sineLevel = premise->getSineLevel();
 
   updateStatistics();
-  updateGoalness();
 }
 
 void Inference::init2(InferenceRule r, Unit* premise1, Unit* premise2)
@@ -430,7 +366,6 @@ void Inference::init2(InferenceRule r, Unit* premise1, Unit* premise2)
   _sineLevel = min(premise1->getSineLevel(),premise2->getSineLevel());
 
   updateStatistics();
-  updateGoalness();
 }
 
 void Inference::initMany(InferenceRule r, UnitList* premises)
@@ -475,7 +410,6 @@ void Inference::initMany(InferenceRule r, UnitList* premises)
   }
 
   updateStatistics();
-  updateGoalness();
 }
 
 Inference::Inference(const FromInput& fi) {

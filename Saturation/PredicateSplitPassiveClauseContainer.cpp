@@ -22,8 +22,6 @@
 #include "Lib/SharedSet.hpp"
 #include "Lib/Int.hpp"
 
-#include "Inferences/InductionHelper.hpp"
-
 namespace Saturation
 {
 using namespace Lib;

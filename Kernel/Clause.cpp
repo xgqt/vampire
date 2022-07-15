@@ -419,7 +419,6 @@ vstring Clause::toString() const
     if(derivedFromGoal()){
       result += vstring(",goal:1");
     }
-    result += vstring(",goalness:")+Int::toString((float)_inference.goalness());
     if(env.maxSineLevel > 1) { // this is a cryptic way of saying "did we run Sine to compute sine levels?"
       result += vstring(",sine:")+Int::toString((unsigned)_inference.getSineLevel());
     }
@@ -606,39 +605,39 @@ unsigned Clause::computeWeightForClauseSelection(const Options& opt) const
     numeralWeight = getNumeralWeight();
   }
 
-  // bool derivedFromGoal = Unit::derivedFromGoal();
-  // if(derivedFromGoal && opt.restrictNWCtoGC()){
-  //   bool found = false;
-  //   for(unsigned i=0;i<_length;i++){
-  //     TermFunIterator it(_literals[i]);
-  //     it.next(); // skip literal symbol
-  //     while(it.hasNext()){
-  //       found |= env.signature->getFunction(it.next())->inGoal();
-  //     }
-  //   }
-  //   if(!found){ derivedFromGoal=false; }
-  // }
+  bool derivedFromGoal = Unit::derivedFromGoal();
+  if(derivedFromGoal && opt.restrictNWCtoGC()){
+    bool found = false;
+    for(unsigned i=0;i<_length;i++){
+      TermFunIterator it(_literals[i]);
+      it.next(); // skip literal symbol
+      while(it.hasNext()){
+        found |= env.signature->getFunction(it.next())->inGoal();
+      }
+    }
+    if(!found){ derivedFromGoal=false; }
+  }
 
-  return Clause::computeWeightForClauseSelection(w, splWeight, numeralWeight, _inference.goalness(), opt);
+  return Clause::computeWeightForClauseSelection(w, splWeight, numeralWeight, derivedFromGoal, opt);
 }
 
 /*
  * note: we currently assume in Clause::computeWeightForClauseSelection(opt) that numeralWeight is only used here if
  * the option increasedNumeralWeight() is set to true.
  */
-unsigned Clause::computeWeightForClauseSelection(unsigned w, unsigned splitWeight, unsigned numeralWeight, float goalness, const Shell::Options& opt)
+unsigned Clause::computeWeightForClauseSelection(unsigned w, unsigned splitWeight, unsigned numeralWeight, bool derivedFromGoal, const Shell::Options& opt)
 {
   CALL("Clause::computeWeightForClauseSelection(unsigned w, ...)");
 
-  // static unsigned nongoalWeightCoeffNum = opt.nongoalWeightCoefficientNumerator();
-  // static unsigned nongoalWeightCoefDenom = opt.nongoalWeightCoefficientDenominator();
+  static unsigned nongoalWeightCoeffNum = opt.nongoalWeightCoefficientNumerator();
+  static unsigned nongoalWeightCoefDenom = opt.nongoalWeightCoefficientDenominator();
 
   w += splitWeight;
 
   if (opt.increasedNumeralWeight()) {
     w = (2 * w + numeralWeight);
   }
-  return w / goalness;
+  return w * ( !derivedFromGoal ? nongoalWeightCoeffNum : nongoalWeightCoefDenom);
 }
 
 

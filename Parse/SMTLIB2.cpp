@@ -2769,7 +2769,6 @@ void SMTLIB2::readAssertNot(LExpr* body)
   }
 
   FormulaUnit* fu = new FormulaUnit(fla, FromInput(UnitInputType::CONJECTURE));
-  fu->inference().setGoalness(1.0f);
   fu = new FormulaUnit(new NegatedFormula(fla),
                        FormulaTransformation(InferenceRule::NEGATED_CONJECTURE, fu));
   UnitList::push(fu, _formulas);

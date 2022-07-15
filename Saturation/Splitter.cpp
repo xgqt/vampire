@@ -1259,7 +1259,6 @@ Clause* Splitter::buildAndInsertComponentClause(SplitLevel name, unsigned size, 
     if (orig != nullptr) { //
       def_u_i.setPureTheoryDescendant(orig->isPureTheoryDescendant());
       def_u_i.setInductionDepth(orig->inference().inductionDepth());
-      def_u_i.setGoalness(orig->inference().goalness());
     }
     def_u = new FormulaUnit(def_f,def_u_i);
     InferenceStore::instance()->recordIntroducedSplitName(def_u,formula_name);
@@ -1284,7 +1283,6 @@ Clause* Splitter::buildAndInsertComponentClause(SplitLevel name, unsigned size, 
     compCl->setAge(orig->age());
     compCl->inference().th_ancestors = orig->inference().th_ancestors;
     compCl->inference().all_ancestors = orig->inference().all_ancestors;
-    compCl->inference().setGoalness(orig->inference().goalness());
   } else {
     compCl->setAge(AGE_NOT_FILLED);
     // We don't know anything about the derivation of the clause, so we set values which are as neutral as possible.
@@ -1402,11 +1400,6 @@ SplitLevel Splitter::tryGetComponentNameOrAddNew(unsigned size, Literal* const *
 
   if(tryGetExistingComponentName(size, lits, res, compCl)) {
     RSTAT_CTR_INC("ssat_reused_components");
-    auto origGoalness = orig->inference().goalness();
-    auto compGoalness = compCl->inference().goalness();
-    if (origGoalness > compGoalness) {
-      compCl->inference().setGoalness(origGoalness);
-    }
   }
   else {
     RSTAT_CTR_INC("ssat_new_components");

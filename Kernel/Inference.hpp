@@ -724,7 +724,20 @@ private:
     INFERENCE_FROM_SAT_REFUTATION
   };
 
-  void initDefault(UnitInputType inputType, InferenceRule r);
+  void initDefault(UnitInputType inputType, InferenceRule r) {
+    CALL("Inference::initDefault");
+
+    _inputType = inputType;
+    _rule = r;
+    _included = false;
+    _inductionDepth = 0;
+    _XXNarrows = 0;
+    _reductions = 0;
+    _sineLevel = std::numeric_limits<decltype(_sineLevel)>::max();
+    _splits = nullptr;
+    _age = 0;
+  }
+
   void init0(UnitInputType inputType, InferenceRule r);
   void init1(InferenceRule r, Unit* premise);
   void init2(InferenceRule r, Unit* premise1, Unit* premise2);
@@ -827,7 +840,6 @@ public:
    * The caller is responsible to ensure that parents are updated before children.
    **/
   void updateStatistics();
-  void updateGoalness();
 
    vstring toString() const;
 
@@ -944,9 +956,6 @@ public:
   unsigned inductionDepth() const { return _inductionDepth; }
   void setInductionDepth(unsigned d) { _inductionDepth = d; }
 
-  float goalness() const { return _goalness; }
-  void setGoalness(float g) { _goalness = g; }
-
   unsigned xxNarrows() const { return _XXNarrows; }
   /** used to propagate in AVATAR **/
   void setXXNarrows(unsigned n) { _XXNarrows = n; }
@@ -1006,8 +1015,6 @@ private:
 
   /** age */
   unsigned _age;
-
-  float _goalness;
 
   SplitSet* _splits;
 

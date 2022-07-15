@@ -599,7 +599,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
         }
         unsigned f = ts.term()->functor(); 
         if(InductionHelper::isInductionTermFunctor(f)){
-          if(InductionHelper::isStructInductionOn() && InductionHelper::isStructuralInductionTerm(ts.term())){
+          if(InductionHelper::isStructInductionOn() && InductionHelper::isStructInductionFunctor(f)){
             ta_terms.insert(ts.term());
           }
           if(InductionHelper::isIntInductionOneOn() && InductionHelper::isIntInductionTermListInLiteral(ts, lit)){
@@ -817,10 +817,6 @@ void InductionClauseIterator::processIntegerComparison(Clause* premise, Literal*
   }
 }
 
-float computeGoalness() {
-  return 1.0f;
-}
-
 ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, const vmap<unsigned,LiteralStack>& hyps)
 {
   CALL("InductionClauseIterator::produceClauses");
@@ -835,7 +831,6 @@ ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, Inferen
     maxInductionDepth = max(maxInductionDepth,kv.first->inference().inductionDepth());
   }
   inf.setInductionDepth(maxInductionDepth+1);
-  inf.setGoalness(computeGoalness());
   FormulaUnit* fu = new FormulaUnit(hypothesis,inf);
   if(_opt.showInduction()){
     env.beginOutput();
