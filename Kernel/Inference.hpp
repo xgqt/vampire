@@ -242,8 +242,6 @@ enum class InferenceRule : unsigned char {
   TERM_ALGEBRA_DISTINCTNESS,
   /** inference rule for term algebras (injectivity of constructors)*/
   TERM_ALGEBRA_INJECTIVITY_SIMPLIFYING,
-  /** hyper-superposition */
-  HYPER_SUPERPOSITION_SIMPLIFYING, // not used at the moment
   /** global subsumption */
   GLOBAL_SUBSUMPTION, // CEREFUL: the main premise is not necessarily the first one!
   /** distinct equality removal */
@@ -295,8 +293,6 @@ enum class InferenceRule : unsigned char {
   FOOL_PARAMODULATION,
   /** unit resulting resolution */
   UNIT_RESULTING_RESOLUTION,
-  /** hyper-superposition */
-  HYPER_SUPERPOSITION_GENERATING,
   /* Induction hyperresolution */
   INDUCTION_HYPERRESOLUTION,
   /* Generalized induction hyperresolution */
