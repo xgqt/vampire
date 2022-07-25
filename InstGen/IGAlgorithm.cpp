@@ -548,7 +548,6 @@ void IGAlgorithm::selectAndAddToIndex(Clause* cl)
 {
   CALL("IGAlgorithm::selectAndAddToIndex");
 
-  bool modified = false;
   unsigned selIdx = 0;
 
   unsigned clen = cl->length();
@@ -558,15 +557,11 @@ void IGAlgorithm::selectAndAddToIndex(Clause* cl)
     }
 
     if(selIdx!=i) {
-      modified = true;
       swap((*cl)[i], (*cl)[selIdx]);
     }
     selIdx++;
   }
   ASS_REP(selIdx>0, cl->toString());
-  if(modified) {
-    cl->notifyLiteralReorder();
-  }
 
   if (_doLookahead) {
     unsigned selCnt = selIdx>1 ? lookaheadSelection(cl,selIdx) : 1;
