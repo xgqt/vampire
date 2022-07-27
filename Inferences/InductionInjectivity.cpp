@@ -16,6 +16,8 @@
 
 #include "Saturation/SaturationAlgorithm.hpp"
 
+#include "Kernel/TermIterators.hpp"
+
 #include "InductionHelper.hpp"
 
 #include "InductionInjectivity.hpp"
@@ -38,6 +40,26 @@ void InductionInjectivity::detach()
   _index = nullptr;
   _salg->getIndexManager()->release(GENERATING_SUBST_TREE);
   GeneratingInferenceEngine::detach();
+}
+
+vset<unsigned> getSkolems(Term* t) {
+  vset<unsigned> res;
+  NonVariableNonTypeIterator it(t, true);
+  while (it.hasNext()) {
+    auto trm = it.next();
+    if (env.signature->getFunction(trm.term()->functor())->skolem()) {
+      res.insert(trm.term()->functor());
+    }
+  }
+  return res;
+}
+
+bool skolemCheck(Term* left, Term* right) {
+  vset<unsigned> lsk = getSkolems(left);
+  vset<unsigned> rsk = getSkolems(right);
+  vset<unsigned> is;
+  set_intersection(lsk.begin(), lsk.end(), rsk.begin(), rsk.end(), inserter(is, is.end()));
+  return !is.empty();
 }
 
 ClauseIterator InductionInjectivity::generateClauses(Clause* premise)
@@ -70,10 +92,19 @@ ClauseIterator InductionInjectivity::generateClauses(Clause* premise)
 
       OperatorType *type = env.signature->getFunction(lit->nthArgument(0)->term()->functor())->fnType();
       unsigned newLength = clen + type->arity() - 1;
+      bool skip = false;
       for (unsigned j = 0; j < type->arity(); j++) {
         if (*lhs->nthArgument(j) == *rhs->nthArgument(j)) {
           newLength--;
+          continue;
         }
+        if (!skolemCheck(lhs->nthArgument(j)->term(), rhs->nthArgument(j)->term())) {
+          skip = true;
+          break;
+        }
+      }
+      if (skip) {
+        continue;
       }
       Clause* resCl = new(newLength) Clause(newLength,GeneratingInference1(InferenceRule::INDUCTION_INJECTIVITY, premise));
       unsigned next = 0;
@@ -111,10 +142,19 @@ ClauseIterator InductionInjectivity::generateClauses(Clause* premise)
         OperatorType *type = env.signature->getPredicate(lit->functor())->predType();
         unsigned dlen = qr.clause->length();
         unsigned newLength = clen + dlen + type->arity() - 2;
+        bool skip = false;
         for (unsigned j = 0; j < type->arity(); j++) {
           if (*lit->nthArgument(j) == *other->nthArgument(j)) {
             newLength--;
+            continue;
           }
+          if (!skolemCheck(lit->nthArgument(j)->term(), other->nthArgument(j)->term())) {
+            skip = true;
+            break;
+          }
+        }
+        if (skip) {
+          continue;
         }
         Clause* resCl = new(newLength) Clause(newLength,GeneratingInference2(InferenceRule::INDUCTION_INJECTIVITY, premise, qr.clause));
         unsigned next = 0;
@@ -140,6 +180,7 @@ ClauseIterator InductionInjectivity::generateClauses(Clause* premise)
         // std::memcpy(resCl->literals()+(newLength-dlen), qr.clause->literals(), dlen * sizeof(Literal*));
         // cout << "INJ " << *premise << endl << " and " << *other << endl << " derive " << *resCl << endl << endl;
         res = pvi(getConcatenatedIterator(res, getSingletonIterator(resCl)));
+        env.statistics->inductionInjectivity++;
       }
     }
   }

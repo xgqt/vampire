@@ -113,30 +113,34 @@ Clause *InductionForwardRewriting::perform(
     return 0;
   }
 
-  // This inference is not covered by superposition if either:
-  // 1. eqLit is not selected in eqClause
-  // 2. rwTerm is not in any rewritable subterm set of selected literals of rwClause
-  //    (or in that of rwLit if simultaneous superposition is off)
+  // This inference is covered by superposition if:
+  // 1. eqLit is selected in eqClause and
+  // 2. rwTerm is a rewritable subterm of a selected literals of rwClause
+  //    (or of rwLit if simultaneous superposition is off)
   static bool doSimS = _salg->getOptions().simulatenousSuperposition();
+  bool selected = false;
   for (unsigned i = 0; i < eqClause->numSelected(); i++) {
     if ((*eqClause)[i] == eqLit) {
-      return 0;
+      selected = true;
+      break;
     }
   }
-  if (doSimS) {
-    for (unsigned i = 0; i < rwClause->numSelected(); i++) {
-      auto rwstit = EqHelper::getSubtermIterator((*rwClause)[i], ordering);
+  if (selected) {
+    if (doSimS) {
+      for (unsigned i = 0; i < rwClause->numSelected(); i++) {
+        auto rwstit = EqHelper::getSubtermIterator((*rwClause)[i], ordering);
+        while (rwstit.hasNext()) {
+          if (rwTerm == rwstit.next()) {
+            return 0;
+          }
+        }
+      }
+    } else {
+      auto rwstit = EqHelper::getSubtermIterator(rwLit, ordering);
       while (rwstit.hasNext()) {
         if (rwTerm == rwstit.next()) {
           return 0;
         }
-      }
-    }
-  } else {
-    auto rwstit = EqHelper::getSubtermIterator(rwLit, ordering);
-    while (rwstit.hasNext()) {
-      if (rwTerm == rwstit.next()) {
-        return 0;
       }
     }
   }

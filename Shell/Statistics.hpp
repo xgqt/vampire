@@ -130,6 +130,7 @@ public:
   /** number of induction applications **/
   unsigned inductionForwardRewriting;
   unsigned inductionRemodulation;
+  unsigned inductionInjectivity;
   unsigned inductionRedundant;
   unsigned maxInductionDepth;
   unsigned structInduction;

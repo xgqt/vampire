@@ -1006,6 +1006,7 @@ Term* Term::createPointerConstant(Term* ptr)
 {
   CALL("Term::createPointerConstant");
   ASS(!ptr->isLiteral());
+  ASS(ptr->shared());
 #if VDEBUG
   NonVariableIterator nvi(ptr);
   while (nvi.hasNext()) {
