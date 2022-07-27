@@ -165,7 +165,7 @@ Term* InductionCNF::createSkolemTerm(unsigned var, VarSet* free)
   if(_beingClausified->derivedFromGoal()){
     env.signature->getFunction(fun)->markInGoal();
   }
-  env.signature->getFunction(fun)->markInductionSkolem();
+  // env.signature->getFunction(fun)->markInductionSkolem();
   return Term::create(fun, arity, fnArgs.begin());
 }
 

@@ -69,6 +69,7 @@ Clause::Clause(unsigned length,const Inference& inf)
     _store(NONE),
     _numSelected(0),
     _weight(0),
+    _cweight(0),
     _weightForClauseSelection(0),
     _refCnt(0),
     _reductionTimestamp(0),
@@ -508,6 +509,16 @@ unsigned Clause::computeWeight() const
   return result;
 } // Clause::computeWeight
 
+unsigned Clause::correctedWeight() const
+{
+  unsigned result = 0;
+  for (int i = _length-1; i >= 0; i--) {
+    ASS(_literals[i]->shared());
+    result += _literals[i]->cweight();
+  }
+
+  return result;
+}
 
 /**
  * Return weight of the split part of the clause
@@ -618,7 +629,7 @@ unsigned Clause::computeWeightForClauseSelection(const Options& opt) const
     if(!found){ derivedFromGoal=false; }
   }
 
-  return Clause::computeWeightForClauseSelection(w, splWeight, numeralWeight, derivedFromGoal, opt);
+  return Clause::computeWeightForClauseSelection(correctedWeight(), splWeight, numeralWeight, derivedFromGoal, opt);
 }
 
 /*

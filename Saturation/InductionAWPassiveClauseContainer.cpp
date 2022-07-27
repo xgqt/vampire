@@ -22,9 +22,8 @@
 
 #include "InductionAWPassiveClauseContainer.hpp"
 
-#define NON_INDUCTION_CLAUSE_COEFF 2.0f
-#define NON_INDUCTION_LITERAL_COEFF 2.0f
-#define INDUCTION_TERM_DENUMERATOR 2.0f
+#define NON_INDUCTION_CLAUSE_COEFF 10.0f
+#define NON_INDUCTION_LITERAL_COEFF 10.0f
 
 namespace Saturation
 {
@@ -47,7 +46,7 @@ float InductionQueue::calculateValue(Clause* cl)
       if (indcl && InductionHelper::isInductionLiteral(lit)) {
         nonindlits--;
       }
-      w += lit->iweight(_restrictions);
+      w += lit->iweight(_restrictions, _lhss);
     }
     if (!indcl) {
       w *= NON_INDUCTION_CLAUSE_COEFF;

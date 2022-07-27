@@ -160,6 +160,8 @@ public:
   CLASS_NAME(Induction);
   USE_ALLOCATOR(Induction);
 
+  Induction(const Problem& prb) { preprocess(prb); }
+
   void attach(SaturationAlgorithm* salg) override;
   void detach() override;
 
@@ -167,7 +169,7 @@ public:
 
   static bool checkForVacuousness(Literal* lit, Term* t);
 
-  static void preprocess(const Problem& prb);
+  void preprocess(const Problem& prb);
 
 #if VDEBUG
   void setTestIndices(const Stack<Index*>& indices) override {
@@ -184,6 +186,7 @@ private:
   TermIndex* _structInductionTermIndex = nullptr;
   InductionFormulaIndex _formulaIndex;
   CodeTreeTIS _restrictions;
+  CodeTreeTIS _functionMatcher;
 };
 
 class InductionClauseIterator

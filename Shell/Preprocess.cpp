@@ -53,7 +53,6 @@
 #include "TheoryFlattening.hpp"
 #include "TweeGoalTransformation.hpp"
 #include "BlockedClauseElimination.hpp"
-#include "Inferences/Induction.hpp"
 
 #include "UIHelper.hpp"
 #include "Lib/List.hpp"
@@ -294,8 +293,6 @@ void Preprocess::preprocess(Problem& prb)
       FunctionDefinition::removeUnusedDefinitions(prb);
     }
   }
-
-  Inferences::Induction::preprocess(prb);
 
   if (prb.mayHaveEquality() && _options.inequalitySplitting() != 0) {
     if (env.options->showPreprocessing())

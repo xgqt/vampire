@@ -27,17 +27,21 @@ class InductionQueue
 : public ClauseQueue
 {
 public:
-  InductionQueue(const Options& opt) : _opt(opt), _restrictions(nullptr) {}
+  InductionQueue(const Options& opt) : _opt(opt), _restrictions(nullptr), _lhss(nullptr) {}
   bool lessThan(Clause* c1, Clause* c2) override;
   float calculateValue(Clause* cl);
   void setRestrictions(void* r) {
     _restrictions = r;
+  }
+  void setLhsS(void* l) {
+    _lhss = l;
   }
 
 private:
   vmap<Clause*,float> _m;
   const Options& _opt;
   void* _restrictions;
+  void* _lhss;
 };
 
 class InductionAWPassiveClauseContainer
@@ -56,8 +60,9 @@ public:
   bool isEmpty() const override
   { return _inductionQueue.isEmpty() && AWPassiveClauseContainer::isEmpty(); }
 
-  void setInductionRestrictions(void* r) override {
+  void setInductionRestrictions(void* r, void* l) override {
     _inductionQueue.setRestrictions(r);
+    _inductionQueue.setLhsS(l);
   }
 
 private:

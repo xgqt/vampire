@@ -173,6 +173,7 @@ public:
   static TermList var(unsigned var, bool special = false) { return TermList(var, special); }
   /** if not var, the inner term must be shared */
   unsigned weight() const;
+  unsigned cweight() const;
   /** returns true if this termList is wrapping a higher-order "arrow" sort */
   bool isArrowSort();
   bool isBoolSort();
@@ -522,6 +523,12 @@ public:
     return _weight;
   }
 
+  unsigned cweight() const
+  {
+    ASS(shared());
+    return _cweight;
+  }
+
   int maxRedLength() const
   {
     ASS(shared());
@@ -540,6 +547,11 @@ public:
   {
     _weight = w;
   } // setWeight
+
+  void setCweight(unsigned w)
+  {
+    _cweight = w;
+  }
 
   /** Set term id */
   void setId(unsigned id)
@@ -594,9 +606,10 @@ public:
     return _isTwoVarEquality;
   }
 
+  bool iexpandable(void* l);
   bool iterm(void* r);
   void markIterm() { _itermcomp = 1; _iterm = 1; }
-  unsigned iweight(void* r);
+  unsigned iweight(void* r, void* l);
 
   const vstring& functionName() const;
 
@@ -744,11 +757,15 @@ protected:
   unsigned _isTwoVarEquality : 1;
   /** Weight of the symbol */
   unsigned _weight;
+  /** corrected weight for pointer terms */
+  unsigned _cweight;
   /** induction related attributes */
   unsigned _iterm : 1;
   unsigned _itermcomp : 1;
   unsigned _iweight;
   unsigned _iweightcomp : 1;
+  unsigned _iexpandable;
+  unsigned _iexpcomp : 1;
   /** length of maximum reduction length */
   int _maxRedLen;
   union {

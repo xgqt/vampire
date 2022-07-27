@@ -345,6 +345,7 @@ public:
 #endif
   }
 
+  unsigned correctedWeight() const;
   unsigned splitWeight() const;
   unsigned getNumeralWeight() const;
 
@@ -378,6 +379,7 @@ protected:
 
   /** weight */
   mutable unsigned _weight;
+  mutable unsigned _cweight;
   /** weight for clause selection */
   unsigned _weightForClauseSelection;
 

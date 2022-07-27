@@ -245,6 +245,11 @@ unsigned TermList::weight() const
   return isVar() ? 1 : term()->weight();
 }
 
+unsigned TermList::cweight() const
+{
+  return isVar() ? 1 : term()->cweight();
+}
+
 bool TermList::isArrowSort()
 {
   CALL("TermList::isArrowSort");
@@ -790,6 +795,20 @@ vstring Literal::toString() const
   return s;
 } // Literal::toString
 
+bool Term::iexpandable(void* l)
+{
+  CALL("Term::iexpandable");
+  Term* t = this;
+  // if (_ptr) {
+  //   t = _ptr;
+  // }
+  if (!_iexpcomp) {
+    _iexpandable = static_cast<CodeTreeTIS*>(l)->generalizationExists(TermList(t));
+    _iexpcomp = 1;
+  }
+  return _iexpandable;
+}
+
 bool Term::iterm(void* r)
 {
   CALL("Term::iterm");
@@ -800,19 +819,23 @@ bool Term::iterm(void* r)
   return _iterm;
 }
 
-unsigned Term::iweight(void* r)
+unsigned Term::iweight(void* r, void* l)
 {
   CALL("Term::iweight");
   if (iterm(r)) {
     return 0;
   }
   if (!_iweightcomp) {
-    _iweight = 1;
-    for (TermList* tt = args(); ! tt->isEmpty(); tt = tt->next()) {
+    _iweight = !iexpandable(l);
+    Term* t = this;
+    // if (_ptr) {
+    //   t = _ptr;
+    // }
+    for (TermList* tt = t->args(); ! tt->isEmpty(); tt = tt->next()) {
       if (tt->isVar()) {
         _iweight++;
       } else {
-        _iweight += tt->term()->iweight(r);
+        _iweight += tt->term()->iweight(r, l);
       }
     }
     _iweightcomp = 1;
@@ -1820,6 +1843,8 @@ Term::Term(const Term& t) throw()
     _itermcomp(0),
     _iweight(0),
     _iweightcomp(0),
+    _iexpandable(0),
+    _iexpcomp(0),
     _vars(0)
 {
   CALL("Term::Term/1");
@@ -1857,6 +1882,8 @@ Term::Term() throw()
    _itermcomp(0),
    _iweight(0),
    _iweightcomp(0),
+   _iexpandable(0),
+   _iexpcomp(0),
    _maxRedLen(0),
    _vars(0)
 {

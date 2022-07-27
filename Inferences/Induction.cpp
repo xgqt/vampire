@@ -260,13 +260,13 @@ void Induction::attach(SaturationAlgorithm* salg) {
     _structInductionTermIndex = static_cast<TermIndex*>(
       _salg->getIndexManager()->request(STRUCT_INDUCTION_TERM_INDEX));
   }
-  _salg->getPassiveClauseContainer()->setInductionRestrictions(&_restrictions);
+  _salg->getPassiveClauseContainer()->setInductionRestrictions(&_restrictions, &_functionMatcher);
 }
 
 void Induction::detach() {
   CALL("Induction::detach");
 
-  _salg->getPassiveClauseContainer()->setInductionRestrictions(nullptr);
+  _salg->getPassiveClauseContainer()->setInductionRestrictions(nullptr, nullptr);
   if (InductionHelper::isNonUnitStructInductionOn()) {
     _structInductionTermIndex = nullptr;
     _salg->getIndexManager()->release(STRUCT_INDUCTION_TERM_INDEX);
@@ -528,6 +528,9 @@ void Induction::preprocess(const Problem& prb)
             if (!isFunctionHeader(side) || other.isVar()) {
               continue;
             }
+            // if (canUseForRewrite(lit, cl) && termHasAllVarsOfClause(side, cl)) {
+            //   _functionMatcher.insert(side, lit, cl);
+            // }
             NonVariableIterator nvi(other.term(), true);
             while (nvi.hasNext()) {
               auto st = nvi.next();
@@ -581,29 +584,62 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
   }
 
   if (lit->ground()) {
+      bool restricted = false;
+      NonVariableNonTypeIterator fit(lit);
+      while(fit.hasNext()){
+        TermList ts = fit.next();
+        ASS(ts.isTerm());
+        if (env.signature->getFunction(ts.term()->functor())->inductionSkolem()) {
+          restricted = true;
+          break;
+        }
+      }
+
+      Stack<pair<Term*,bool>> rts;
+      if (restricted) {
+        NonVariableNonTypeIterator fit2(lit);
+        while(fit2.hasNext()){
+          TermList ts = fit2.next();
+          if(!ts.isTerm()){ continue; }
+          if (ts.term()->iterm(&_restrictions)) {
+            rts.push(make_pair(ts.term(),true));
+          }
+        }
+      } else {
+        rts.push(make_pair(lit,false));
+      }
+
       Set<Term*> ta_terms;
       Set<Term*> int_terms;
       Set<Term*> preferred_terms;
-      NonVariableNonTypeIterator it(lit);
-      while(it.hasNext()){
-        TermList ts = it.next();
-        if(!ts.isTerm()){ continue; }
-        if (ts.term()->arity() && lit->isEquality()) {
-          auto lhs = *lit->nthArgument(0);
-          auto rhs = *lit->nthArgument(1);
-          if (lhs.containsSubterm(ts) && rhs.containsSubterm(ts)) {
-            if (ts.term()->iterm(&_restrictions)) {
-              preferred_terms.insert(ts.term());
+      for (const auto& kv : rts) {
+        NonVariableNonTypeIterator it(kv.first,kv.second);
+        while(it.hasNext()){
+          TermList ts = it.next();
+          if(!ts.isTerm()){ continue; }
+          if (ts.term()->arity()) {
+            if (lit->isEquality()) {
+              auto lhs = *lit->nthArgument(0);
+              auto rhs = *lit->nthArgument(1);
+              if (lhs.containsSubterm(ts) && rhs.containsSubterm(ts)) {
+                if (ts.term()->iterm(&_restrictions)) {
+                  preferred_terms.insert(ts.term());
+                }
+              }
+            } else {
+              if (ts.term()->iterm(&_restrictions)) {
+                preferred_terms.insert(ts.term());
+              }
             }
           }
-        }
-        unsigned f = ts.term()->functor(); 
-        if(InductionHelper::isInductionTermFunctor(f)){
-          if(InductionHelper::isStructInductionOn() && InductionHelper::isStructInductionFunctor(f)){
-            ta_terms.insert(ts.term());
-          }
-          if(InductionHelper::isIntInductionOneOn() && InductionHelper::isIntInductionTermListInLiteral(ts, lit)){
-            int_terms.insert(ts.term());
+          unsigned f = ts.term()->functor(); 
+          if(InductionHelper::isInductionTermFunctor(f)){
+            if(InductionHelper::isStructInductionOn() && InductionHelper::isStructInductionFunctor(f)){
+              ta_terms.insert(ts.term());
+            }
+            if(InductionHelper::isIntInductionOneOn() && InductionHelper::isIntInductionTermListInLiteral(ts, lit)){
+              int_terms.insert(ts.term());
+            }
           }
         }
       }
@@ -845,12 +881,13 @@ ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, Inferen
     TermList t;
     ALWAYS(subst.findBinding(kv.first, t));
     ASS(t.isTerm());
+    env.signature->getFunction(t.term()->functor())->markInductionSkolem();
     for (const auto& lit : kv.second) {
       auto tlit = lit->apply(subst);
       NonVariableNonTypeIterator nvi(tlit);
       while (nvi.hasNext()) {
         auto st = nvi.next();
-        if (st.containsSubterm(t)) {
+        if (st.containsSubterm(t) && st != t) {
           if (st.term()->ground()) {
             st.term()->markIterm();
           } else {

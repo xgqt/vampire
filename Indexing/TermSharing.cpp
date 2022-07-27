@@ -114,6 +114,7 @@ Term* TermSharing::insert(Term* t)
   Term* s = _terms.insert(t);
    if (s == t) {
     unsigned weight = 1;
+    unsigned cweight = 1;
     unsigned vars = 0;
     bool hasInterpretedConstants=t->arity()==0 &&
 	env.signature->getFunction(t->functor())->interpreted();
@@ -164,6 +165,7 @@ Term* TermSharing::insert(Term* t)
         ASS(tt->isOrdinaryVar());
         vars++;
         weight += 1;
+        cweight += 1;
       }
       else 
       {
@@ -173,6 +175,7 @@ Term* TermSharing::insert(Term* t)
   
         vars += r->numVarOccs();
         weight += r->weight();
+        cweight += r->cweight();
         if (env.colorUsed) {
             color = static_cast<Color>(color | r->color());
         }
@@ -185,6 +188,7 @@ Term* TermSharing::insert(Term* t)
     t->setId(_totalTerms);
     t->setNumVarOccs(vars);
     t->setWeight(weight);
+    t->setCweight(cweight);
     if (env.colorUsed) {
       Color fcolor = env.signature->getFunction(t->functor())->color();
       color = static_cast<Color>(color | fcolor);
@@ -229,6 +233,7 @@ AtomicSort* TermSharing::insert(AtomicSort* sort)
       _arraySorts.insert(TermList(sort));
     }    
     unsigned weight = 1;
+    unsigned cweight = 1;
     unsigned vars = 0;
 
     for (TermList* tt = sort->args(); ! tt->isEmpty(); tt = tt->next()) {
@@ -236,6 +241,7 @@ AtomicSort* TermSharing::insert(AtomicSort* sort)
         ASS(tt->isOrdinaryVar());
         vars++;
         weight += 1;
+        cweight += 1;
       }
       else 
       {
@@ -245,12 +251,14 @@ AtomicSort* TermSharing::insert(AtomicSort* sort)
   
         vars += r->numVarOccs();
         weight += r->weight();
+        cweight += r->cweight();
       }
     }
     sort->markShared();
     sort->setId(_totalSorts);
     sort->setNumVarOccs(vars);
     sort->setWeight(weight);
+    sort->setCweight(cweight);
       
     _totalSorts++;
 
@@ -299,6 +307,7 @@ Literal* TermSharing::insert(Literal* t)
   Literal* s = _literals.insert(t);
   if (s == t) {
     unsigned weight = 1;
+    unsigned cweight = 1;
     unsigned vars = 0;
     Color color = COLOR_TRANSPARENT;
     bool hasInterpretedConstants=false;
@@ -307,16 +316,19 @@ Literal* TermSharing::insert(Literal* t)
         ASS(tt->isOrdinaryVar());
         vars++;
         weight += 1;
+        cweight += 1;
       }
       else {
         ASS_REP(tt->term()->shared(), tt->term()->toString());
         Term* r = tt->term();
         vars += r->numVarOccs();
         weight += r->weight();
+        cweight += r->cweight();
 
         if(t->isEquality()){
           TermList sort = SortHelper::getResultSort(r);
           weight += sort.weight() - 1;
+          cweight += sort.cweight() - 1;
         }
 
         if (env.colorUsed) {
@@ -332,6 +344,7 @@ Literal* TermSharing::insert(Literal* t)
     t->setId(_totalLiterals);
     t->setNumVarOccs(vars);
     t->setWeight(weight);
+    t->setCweight(cweight);
     if (env.colorUsed) {
       Color fcolor = env.signature->getPredicate(t->functor())->color();
       color = static_cast<Color>(color | fcolor);
@@ -395,6 +408,7 @@ Literal* TermSharing::insertVariableEquality(Literal* t, TermList sort)
     // However, we don't want the calculation to depend on _poly
     // which switches from 1 to possibly 0 only after preprocessing.
     t->setWeight(3 + (sort.weight() - 1));
+    t->setCweight(3 + (sort.weight() - 1));
     if (env.colorUsed) {
       t->setColor(COLOR_TRANSPARENT);
     }
