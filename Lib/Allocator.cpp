@@ -39,7 +39,7 @@
 #endif
 
 #if USE_SYSTEM_ALLOCATION
-# if __APPLE__
+# if defined(__APPLE__)
 #  include <malloc/malloc.h>
 # else
 #  include <malloc.h>
