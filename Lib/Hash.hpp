@@ -150,10 +150,26 @@ public:
   static bool equals(T o1, T o2)
   { return o1 == o2; }
 
+
   // special-case for Units (and their descendants) as they have a unique incrementing identifier  
   template<typename T>
-  static unsigned hash(typename std::enable_if<std::is_base_of<Kernel::Unit, T>::value,T>::type *unit) 
-  { return unit ? unit->number() : 0; }
+  static typename std::enable_if<
+    std::is_base_of<Kernel::Unit, T>::value,
+    unsigned
+  >::type hash(T *unit) 
+  {
+    return hash(unit ? unit->number() : 0); 
+  }
+
+  // other pointers are hashed as bytes without dereference
+  // if this isn't what you want, consider using DerefPtrHash
+  template<typename T>
+  static typename std::enable_if<
+    !std::is_base_of<Kernel::Unit, T>::value,
+    unsigned
+  >::type hash(T* ptr) {
+    return hash(reinterpret_cast<const unsigned char*>(&ptr),sizeof(ptr));
+  }
 
   // containers hash their contents
   static unsigned hash(const vstring& str)
@@ -166,13 +182,6 @@ public:
   template<typename T>
   static unsigned hash(const Stack<T> &obj)
   { return StackHash<Hash>::hash(obj); }
-
-  // pointers are hashed as bytes without dereference
-  // if this isn't what you want, consider using DerefPtrHash
-  template<typename T>
-  static unsigned hash(T* ptr) {
-    return hash(reinterpret_cast<const unsigned char*>(&ptr),sizeof(ptr));
-  }
 
   // types that can be safely hashed as their bytes, see is_safely_hashable
   template<typename T>
