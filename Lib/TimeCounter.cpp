@@ -236,7 +236,7 @@ void TimeCounter::outputSingleStat(TimeCounterUnit tcu, ostream& out)
   case TC_GLOBAL_SUBSUMPTION:
     out<<"global subsumption";
     break;
-  case TC_SIMPLIFYING_UNIT_LITERAL_INDEX_MAINTENANCE:
+  case TC_UNIT_LITERAL_INDEX_MAINTENANCE:
     out<<"unit clause index maintenance";
     break;
   case TC_NON_UNIT_LITERAL_INDEX_MAINTENANCE:
@@ -409,6 +409,9 @@ void TimeCounter::outputSingleStat(TimeCounterUnit tcu, ostream& out)
     break;
   case TC_THEORY_INST_SIMP:
     out << "theory instantiation and simplification";
+    break;
+  case TC_SHUFFLING:
+    out << "shuffling things";
     break;
   default:
     ASSERTION_VIOLATION;

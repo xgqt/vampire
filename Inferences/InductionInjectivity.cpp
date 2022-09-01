@@ -31,14 +31,14 @@ void InductionInjectivity::attach(SaturationAlgorithm* salg)
 {
   CALL("InductionInjectivity::attach");
   GeneratingInferenceEngine::attach(salg);
-  _index = static_cast<LiteralIndex*>(_salg->getIndexManager()->request(GENERATING_SUBST_TREE));
+  _index = static_cast<LiteralIndex*>(_salg->getIndexManager()->request(BINARY_RESOLUTION_SUBST_TREE));
 }
 
 void InductionInjectivity::detach()
 {
   CALL("InductionInjectivity::detach");
   _index = nullptr;
-  _salg->getIndexManager()->release(GENERATING_SUBST_TREE);
+  _salg->getIndexManager()->release(BINARY_RESOLUTION_SUBST_TREE);
   GeneratingInferenceEngine::detach();
 }
 
