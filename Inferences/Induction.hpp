@@ -182,9 +182,10 @@ class InductionClauseIterator
 public:
   // all the work happens in the constructor!
   InductionClauseIterator(Clause* premise, InductionHelper helper, const Options& opt,
-    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, TermIndex* demodulationLhsIndex, const Ordering& ord)
+    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex,
+    TermIndex* demodulationLhsIndex, const Ordering& ord, bool encompassing)
       : _helper(helper), _opt(opt), _structInductionTermIndex(structInductionTermIndex),
-      _formulaIndex(formulaIndex), _demodulationLhsIndex(demodulationLhsIndex), _ord(ord)
+      _formulaIndex(formulaIndex), _demodulationLhsIndex(demodulationLhsIndex), _ord(ord), _encompassing(encompassing)
   {
     processClause(premise);
   }
@@ -226,6 +227,7 @@ private:
   InductionFormulaIndex& _formulaIndex;
   TermIndex* _demodulationLhsIndex;
   const Ordering& _ord;
+  bool _encompassing;
 };
 
 };
