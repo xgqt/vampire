@@ -20,6 +20,8 @@
 
 #include "Forwards.hpp"
 
+#include "Saturation/MiniSaturation.hpp"
+
 #include "Indexing/CodeTreeInterfaces.hpp"
 #include "Indexing/InductionFormulaIndex.hpp"
 #include "Indexing/LiteralIndex.hpp"
@@ -161,6 +163,7 @@ public:
   USE_ALLOCATOR(Induction);
 
   Induction(const Problem& prb) { preprocess(prb); }
+  Induction() = default; // for unit tests
 
   void attach(SaturationAlgorithm* salg) override;
   void detach() override;
@@ -187,6 +190,7 @@ private:
   InductionFormulaIndex _formulaIndex;
   CodeTreeTIS _restrictions;
   CodeTreeTIS _functionMatcher;
+  MiniSaturation* _ms;
 };
 
 class InductionClauseIterator
@@ -194,9 +198,9 @@ class InductionClauseIterator
 public:
   // all the work happens in the constructor!
   InductionClauseIterator(Clause* premise, InductionHelper helper, const Options& opt,
-    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, CodeTreeTIS& restrictions)
+    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, CodeTreeTIS& restrictions, MiniSaturation* ms, Problem& prb)
       : _helper(helper), _opt(opt), _structInductionTermIndex(structInductionTermIndex),
-      _formulaIndex(formulaIndex), _restrictions(restrictions)
+      _formulaIndex(formulaIndex), _restrictions(restrictions), _ms(ms), _prb(prb)
   {
     processClause(premise);
   }
@@ -229,6 +233,9 @@ private:
 
   bool notDoneInt(InductionContext context, Literal* bound1, Literal* bound2, InductionFormulaIndex::Entry*& e);
   bool checkForVacuousness(const InductionContext& ctx);
+  void initMiniSaturation();
+  void addClausesToMiniSaturation(const ClauseStack& cls);
+  bool runMiniSaturation(Clause*& refutation);
 
   Stack<Clause*> _clauses;
   InductionHelper _helper;
@@ -236,6 +243,8 @@ private:
   TermIndex* _structInductionTermIndex;
   InductionFormulaIndex& _formulaIndex;
   CodeTreeTIS& _restrictions;
+  MiniSaturation* _ms;
+  Problem& _prb;
 };
 
 };

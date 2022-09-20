@@ -261,6 +261,7 @@ void Induction::attach(SaturationAlgorithm* salg) {
       _salg->getIndexManager()->request(STRUCT_INDUCTION_TERM_INDEX));
   }
   _salg->getPassiveClauseContainer()->setInductionRestrictions(&_restrictions, &_functionMatcher);
+  _ms = MiniSaturation::createFromOptions(_salg->getProblem(), _salg->getOptions());
 }
 
 void Induction::detach() {
@@ -285,7 +286,7 @@ ClauseIterator Induction::generateClauses(Clause* premise)
   CALL("Induction::generateClauses");
 
   return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex), getOptions(),
-    _structInductionTermIndex, _formulaIndex, _restrictions));
+    _structInductionTermIndex, _formulaIndex, _restrictions, _ms, _salg->getProblem()));
 }
 
 void InductionClauseIterator::processClause(Clause* premise)
@@ -585,15 +586,15 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
 
   if (lit->ground()) {
       bool restricted = false;
-      NonVariableNonTypeIterator fit(lit);
-      while(fit.hasNext()){
-        TermList ts = fit.next();
-        ASS(ts.isTerm());
-        if (env.signature->getFunction(ts.term()->functor())->inductionSkolem()) {
-          restricted = true;
-          break;
-        }
-      }
+      // NonVariableNonTypeIterator fit(lit);
+      // while(fit.hasNext()){
+      //   TermList ts = fit.next();
+      //   ASS(ts.isTerm());
+      //   if (env.signature->getFunction(ts.term()->functor())->inductionSkolem()) {
+      //     restricted = true;
+      //     break;
+      //   }
+      // }
 
       Stack<pair<Term*,bool>> rts;
       if (restricted) {
@@ -609,7 +610,16 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
         rts.push(make_pair(lit,false));
       }
 
-      Set<Term*> ta_terms;
+      auto subtermRel = [](Term* t1, Term* t2) {
+        // if (t1->containsSubterm(TermList(t2))) {
+        //   return true;
+        // }
+        // if (t2->containsSubterm(TermList(t1))) {
+        //   return false;
+        // }
+        return t1 > t2;
+      };
+      Stack<Term*> ta_terms;
       Set<Term*> int_terms;
       Set<Term*> preferred_terms;
       for (const auto& kv : rts) {
@@ -617,25 +627,25 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
         while(it.hasNext()){
           TermList ts = it.next();
           if(!ts.isTerm()){ continue; }
-          if (ts.term()->arity()) {
-            if (lit->isEquality()) {
-              auto lhs = *lit->nthArgument(0);
-              auto rhs = *lit->nthArgument(1);
-              if (lhs.containsSubterm(ts) && rhs.containsSubterm(ts)) {
-                if (ts.term()->iterm(&_restrictions)) {
-                  preferred_terms.insert(ts.term());
-                }
-              }
-            } else {
-              if (ts.term()->iterm(&_restrictions)) {
-                preferred_terms.insert(ts.term());
-              }
-            }
-          }
+          // if (ts.term()->arity()) {
+          //   if (lit->isEquality()) {
+          //     auto lhs = *lit->nthArgument(0);
+          //     auto rhs = *lit->nthArgument(1);
+          //     if (lhs.containsSubterm(ts) && rhs.containsSubterm(ts)) {
+          //       if (ts.term()->iterm(&_restrictions)) {
+          //         preferred_terms.insert(ts.term());
+          //       }
+          //     }
+          //   } else {
+          //     if (ts.term()->iterm(&_restrictions)) {
+          //       preferred_terms.insert(ts.term());
+          //     }
+          //   }
+          // }
           unsigned f = ts.term()->functor(); 
           if(InductionHelper::isInductionTermFunctor(f)){
             if(InductionHelper::isStructInductionOn() && InductionHelper::isStructInductionFunctor(f)){
-              ta_terms.insert(ts.term());
+              ta_terms.push(ts.term());
             }
             if(InductionHelper::isIntInductionOneOn() && InductionHelper::isIntInductionTermListInLiteral(ts, lit)){
               int_terms.insert(ts.term());
@@ -643,6 +653,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
           }
         }
       }
+      std::sort(ta_terms.begin(),ta_terms.end(),subtermRel);
 
     if (InductionHelper::isInductionLiteral(lit)) {
       Set<Term*>::Iterator citer1(int_terms);
@@ -699,7 +710,8 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
     // collect term queries for each induction term
     auto sideLitsIt = VirtualIterator<pair<Term*, TermQueryResultIterator>>::getEmpty();
     if (_opt.nonUnitInduction()) {
-      sideLitsIt = pvi(iterTraits(Set<Term*>::Iterator(ta_terms))
+      sideLitsIt = pvi(iterTraits(Stack<Term*>::Iterator(ta_terms))
+      // sideLitsIt = pvi(iterTraits(Set<Term*>::Iterator(ta_terms))
         .map([this](Term* arg) {
           return make_pair(arg, _structInductionTermIndex->getGeneralizations(TermList(arg), true));
         }));
@@ -724,7 +736,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
         return hasPremise && cnt > 1;
       });
     // collect contexts for single-literal induction with given clause
-    auto indCtxSingle = iterTraits(Set<Term*>::Iterator(ta_terms))
+    auto indCtxSingle = iterTraits(Stack<Term*>::Iterator(ta_terms))
       .map([&lit,&premise](Term* arg) {
         return InductionContext(arg, lit, premise);
       })
@@ -771,6 +783,14 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       InductionFormulaIndex::Entry* e;
       // generate formulas and add them to index if not done already
       if (_formulaIndex.findOrInsert(ctx, e)) {
+        if (ctx._cls.size() == 1 && ctx._cls.begin()->second.size() == 1) {
+          TermReplacement tr(getPlaceholderForTerm(ctx._indTerm), TermList(0,false));
+          if (_formulaIndex.isVacuous(tr.transform(ctx._cls.begin()->second[0]), _ms)) {
+            env.statistics->vacuousInductionFormulaDiscardedDynamically2++;
+            _formulaIndex.makeVacuous(ctx, e, nullptr);
+            continue;
+          }
+        }
         if (checkForVacuousness(ctx)) {
           // cout << ctx.toString() << endl;
           if(one){
@@ -782,9 +802,53 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
           if(three){
             performStructInductionThree(ctx,e);
           }
+          auto other = e->_other;
+          if (other) {
+            initMiniSaturation();
+
+            Stack<TermList> litArgs;
+            VList::Iterator vit(other->freeVariables());
+            TermStack sorts;
+            while(vit.hasNext()) {
+              unsigned var = vit.next();
+              TermList sort;
+              if(SortHelper::tryGetVariableSort(var,other,sort)){
+                sorts.push(sort);
+                litArgs.push(TermList(var, false));
+              }
+            }
+
+            unsigned vcnt = litArgs.size();
+            unsigned pred = env.signature->addFreshPredicate(vcnt,"ans");
+            Signature::Symbol* predSym = env.signature->getPredicate(pred);
+            predSym->setType(OperatorType::getPredicateType(sorts.size(), sorts.begin()));
+            predSym->markAnswerPredicate();
+            auto newf = new JunctionFormula(Connective::OR, FormulaList::cons(other, FormulaList::singleton(new AtomicFormula(Literal::create(pred, vcnt, true, false, litArgs.begin())))));
+            TimeCounter tc (TC_RAND_OPT);
+
+            auto u = new FormulaUnit(newf, NonspecificInference0(UnitInputType::AXIOM, InferenceRule::STRUCT_INDUCTION_AXIOM));
+            NewCNF cnf(0);
+            ClauseStack cls;
+            cnf.clausify(NNF::ennf(u), cls);
+            addClausesToMiniSaturation(cls);
+            Clause* refutation;
+            if (!runMiniSaturation(refutation)) {
+              TermStack ts;
+              if (_ms->getAnswers(refutation, ts)) {
+                e->_counterexamples = ts;
+              }
+              _formulaIndex.makeVacuous(ctx, e, refutation);
+              env.statistics->vacuousInductionFormulaDiscardedDynamically++;
+              break;
+            }
+          }
         } else {
+          _formulaIndex.makeVacuous(ctx,e, nullptr);
           env.statistics->vacuousInductionFormulaDiscardedStatically++;
         }
+      }
+      if (e->_vacuous) {
+        continue;
       }
       // resolve the formulas with the premises
       for (auto& kv : e->get()) {
@@ -792,6 +856,52 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       }
     }
   }
+}
+
+void InductionClauseIterator::initMiniSaturation()
+{
+  CALL("InductionClauseIterator::initMiniSaturation");
+  auto clIt = iterTraits(_prb.clauseIterator())
+    .filter([](Clause* cl) {
+      if (cl->inference().isPureTheoryDescendant()) {
+        return false;
+      }
+      for (unsigned i = 0; i < cl->length(); i++) {
+        if (InductionHelper::isInductionLiteral((*cl)[i])) {
+          return false;
+        }
+      }
+      return true;
+    });
+  auto clItRes = pvi(clIt);
+  delete _ms;
+  _ms = MiniSaturation::createFromOptions(_prb, _opt);
+  _ms->initMini(clItRes);
+}
+
+void InductionClauseIterator::addClausesToMiniSaturation(const ClauseStack& cls)
+{
+  CALL("InductionClauseIterator::addClausesToMiniSaturation");
+  for (const auto& cl : cls) {
+    _ms->addNewClause(cl);
+  }
+}
+
+bool InductionClauseIterator::runMiniSaturation(Clause*& refutation)
+{
+  refutation = nullptr;
+  for (unsigned i = 0; i < 10; i++) {
+    try {
+      TimeCounter tc(TC_FMB_CONSTRAINT_CREATION);
+      _ms->doOneAlgorithmStep();
+    } catch(MainLoop::RefutationFoundException& exp) {
+      refutation = exp.refutation;
+      return false;
+    } catch(ThrowableBase&) {
+      return true;
+    }
+  }
+  return true;
 }
 
 void InductionClauseIterator::processIntegerComparison(Clause* premise, Literal* lit)
@@ -1348,12 +1458,19 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
   Formula* indPremise = JunctionFormula::generalJunction(Connective::AND,formulas);
   Substitution subst;
   auto conclusion = context.getFormulaWithSquashedSkolems(TermList(var++,false), true, var, nullptr, &subst);
+  // auto p = env.signature->addFreshPredicate(0,"test");
+  // env.signature->getPredicate(p)->setType(OperatorType::getPredicateType({}));
+  // auto plit = Literal::create(p,true,{});
+  // auto other = new JunctionFormula(Connective::OR, FormulaList::cons(indPremise, FormulaList::singleton(new AtomicFormula(plit))));
   Formula* hypothesis = new BinaryFormula(Connective::IMP,
                             Formula::quantify(indPremise),
                             Formula::quantify(conclusion));
 
   auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, hyps);
   e->add(std::move(cls), std::move(subst));
+  // e->addOther(other);
+  // e->addOther(indPremise);
+  e->_other = conclusion;
 }
 
 /**

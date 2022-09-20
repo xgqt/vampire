@@ -219,8 +219,8 @@ std::unique_ptr<PassiveClauseContainer> makeLevel4(bool isOutermost, const Optio
  * The @b passiveContainer object will be used as a passive clause container, and
  * @b selector object to select literals before clauses are activated.
  */
-SaturationAlgorithm::SaturationAlgorithm(Problem& prb, const Options& opt)
-  : MainLoop(prb, opt),
+SaturationAlgorithm::SaturationAlgorithm(Problem& prb, const Options& opt, bool primary)
+  : MainLoop(prb, opt), _primary(primary),
     _clauseActivationInProgress(false),
     _fwSimplifiers(0), _simplifiers(0), _bwSimplifiers(0), _splitter(0),
     _consFinder(0), _labelFinder(0), _symEl(0), _answerLiteralManager(0),
@@ -229,12 +229,14 @@ SaturationAlgorithm::SaturationAlgorithm(Problem& prb, const Options& opt)
     _activationLimit(0)
 {
   CALL("SaturationAlgorithm::SaturationAlgorithm");
-  ASS_EQ(s_instance, 0);  //there can be only one saturation algorithm at a time
+  if (_primary) {
+    ASS_EQ(s_instance, 0);  //there can be only one saturation algorithm at a time
+  }
 
   _activationLimit = opt.activationLimit();
 
   _ordering = OrderingSP(Ordering::create(prb, opt));
-  if (!Ordering::trySetGlobalOrdering(_ordering)) {
+  if (_primary && !Ordering::trySetGlobalOrdering(_ordering)) {
     //this is not an error, it may just lead to lower performance (and most likely not significantly lower)
     cerr << "SaturationAlgorithm cannot set its ordering as global" << endl;
   }
@@ -273,7 +275,9 @@ SaturationAlgorithm::SaturationAlgorithm(Problem& prb, const Options& opt)
     _extensionality = 0;
   }
 
-  s_instance=this;
+  if (_primary) {
+    s_instance=this;
+  }
 }
 
 /**
@@ -282,9 +286,11 @@ SaturationAlgorithm::SaturationAlgorithm(Problem& prb, const Options& opt)
 SaturationAlgorithm::~SaturationAlgorithm()
 {
   CALL("SaturationAlgorithm::~SaturationAlgorithm");
-  ASS_EQ(s_instance,this);
+  if (_primary) {
+    ASS_EQ(s_instance,this);
 
-  s_instance=0;
+    s_instance=0;
+  }
 
   if (_splitter) {
     delete _splitter;
@@ -717,7 +723,7 @@ LiteralSelector& SaturationAlgorithm::getSosLiteralSelector()
 void SaturationAlgorithm::addInputSOSClause(Clause* cl)
 {
   CALL("SaturationAlgorithm::addInputSOSClause");
-  ASS_EQ(toNumber(cl->inputType()),toNumber(UnitInputType::AXIOM));
+  // ASS_EQ(toNumber(cl->inputType()),toNumber(UnitInputType::AXIOM));
 
   //we add an extra reference until the clause is added to some container, so that
   //it won't get deleted during some code e.g. in the onNewClause handler
@@ -1399,6 +1405,13 @@ MainLoopResult SaturationAlgorithm::runImpl()
     throw;
   }
 
+}
+
+void SaturationAlgorithm::setIndexManager(SmartPtr<IndexManager> imgr)
+{
+  CALL("SaturationAlgorithm::setIndexManager");
+  ASS(!_imgr);
+  _imgr = imgr;
 }
 
 /**

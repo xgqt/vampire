@@ -55,7 +55,7 @@ public:
 
   static SaturationAlgorithm* createFromOptions(Problem& prb, const Options& opt, IndexManager* indexMgr=0);
 
-  SaturationAlgorithm(Problem& prb, const Options& opt);
+  SaturationAlgorithm(Problem& prb, const Options& opt, bool primary=true);
   virtual ~SaturationAlgorithm();
 
 
@@ -65,6 +65,7 @@ public:
 
   UnitList* collectSaturatedSet();
 
+  void setIndexManager(SmartPtr<IndexManager> imgr);
   void setGeneratingInferenceEngine(SimplifyingGeneratingInference* generator);
   void setImmediateSimplificationEngine(ImmediateSimplificationEngine* immediateSimplifier);
 
@@ -169,6 +170,7 @@ private:
   class PartialSimplificationPerformer;
 
   static SaturationAlgorithm* s_instance;
+  bool _primary;
 protected:
 
   int _startTime;

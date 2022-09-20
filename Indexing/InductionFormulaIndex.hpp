@@ -25,6 +25,12 @@
 #include "Kernel/Clause.hpp"
 #include "Kernel/Substitution.hpp"
 
+#include "Indexing/LiteralSubstitutionTree.hpp"
+
+namespace Saturation {
+  class MiniSaturation;
+}
+
 namespace Inferences {
   struct InductionContext;
 }
@@ -75,6 +81,9 @@ public:
     const Stack<pair<ClauseStack,Substitution>>& get() const {
       return _st;
     }
+    Formula* _other = 0;
+    bool _vacuous = false;
+    TermStack _counterexamples;
   private:
     Stack<pair<ClauseStack,Substitution>> _st;
   };
@@ -82,8 +91,11 @@ public:
   static Key represent(const Inferences::InductionContext& context);
 
   bool findOrInsert(const Inferences::InductionContext& context, Entry*& e, Literal* bound1 = nullptr, Literal* bound2 = nullptr);
+  void makeVacuous(const Inferences::InductionContext& context, Entry* e, Clause* refutation);
+  bool isVacuous(Literal* lit, Saturation::MiniSaturation* ms);
 private:
   DHMap<Key,Entry> _map;
+  LiteralSubstitutionTree _vacuousIndex;
 };
 
 }

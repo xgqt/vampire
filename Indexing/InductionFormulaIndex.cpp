@@ -61,4 +61,60 @@ bool InductionFormulaIndex::findOrInsert(const InductionContext& context, Entry*
   return _map.getValuePtr(std::move(k), e);
 }
 
+void InductionFormulaIndex::makeVacuous(const InductionContext& context, Entry* e, Clause* refutation)
+{
+  CALL("InductionFormulaIndex::makeVacuous");
+  ASS(!context._cls.empty());
+  auto k = represent(context);
+  k.second.first = nullptr;
+  k.second.second = nullptr;
+  // Entry* entry;
+  // ALWAYS(!_map.getValuePtr(std::move(k), entry));
+  // ASS_EQ(e,entry);
+  e->_vacuous = true;
+  if (context._cls.size() == 1 && context._cls.begin()->second.size() == 1) {
+    // cout << "insert into index " << *context._cls.begin()->second[0] << endl;
+    TermReplacement tr(getPlaceholderForTerm(context._indTerm), TermList(0,false));
+    _vacuousIndex.insert(tr.transform(context._cls.begin()->second[0]), refutation);
+    // _vacuousIndex.insert(context._cls.begin()->second[0], nullptr);
+  }
+}
+
+bool InductionFormulaIndex::isVacuous(Literal* lit, MiniSaturation* ms)
+{
+  CALL("InductionFormulaIndex::isVacuous");
+  // cout << "check vacuousness " << *lit << endl; 
+  // cout << "queryLit " << *lit << endl;
+  auto it = _vacuousIndex.getInstances(lit, false, false);
+  // return it.hasNext();
+  if (it.hasNext()) {
+    return true;
+  }
+
+  it = _vacuousIndex.getGeneralizations(lit, false, true);
+  while (it.hasNext()) {
+    auto qr = it.next();
+    // cout << "resultLit " << *qr.literal << endl;
+    // cout << "qr lit " << *qr.literal << endl;
+    // auto e = reinterpret_cast<Entry*>(qr.clause);
+    // ASS(e->_vacuous);
+    TermStack ts;
+    if (qr.clause && ms->getAnswers(qr.clause, ts)) {
+      auto lhs = qr.substitution->applyToBoundResult(TermList(0,false));
+      // cout << "lhs " << lhs << endl;
+    
+      // for (const auto& ce : ts) {
+      //   if (ts.size()>1) {
+      //     cout << ce << " ";
+      //   }
+      // }
+      // if (ts.size()>1) {
+      //   cout << endl;
+      // }
+    }
+  }
+  return false;
+}
+
+
 }
