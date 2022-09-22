@@ -84,35 +84,34 @@ bool InductionFormulaIndex::isVacuous(Literal* lit, MiniSaturation* ms)
 {
   CALL("InductionFormulaIndex::isVacuous");
   // cout << "check vacuousness " << *lit << endl; 
-  // cout << "queryLit " << *lit << endl;
   auto it = _vacuousIndex.getInstances(lit, false, false);
   // return it.hasNext();
   if (it.hasNext()) {
     return true;
   }
 
-  it = _vacuousIndex.getGeneralizations(lit, false, true);
-  while (it.hasNext()) {
-    auto qr = it.next();
-    // cout << "resultLit " << *qr.literal << endl;
-    // cout << "qr lit " << *qr.literal << endl;
-    // auto e = reinterpret_cast<Entry*>(qr.clause);
-    // ASS(e->_vacuous);
-    TermStack ts;
-    if (qr.clause && ms->getAnswers(qr.clause, ts)) {
-      auto lhs = qr.substitution->applyToBoundResult(TermList(0,false));
-      // cout << "lhs " << lhs << endl;
+  // it = _vacuousIndex.getGeneralizations(lit, false, true);
+  // while (it.hasNext()) {
+  //   auto qr = it.next();
+  //   cout << "queryLit " << *lit << endl;
+  //   cout << "resultLit " << *qr.literal << endl;
+  //   // auto e = reinterpret_cast<Entry*>(qr.clause);
+  //   // ASS(e->_vacuous);
+  //   TermStack ts;
+  //   if (qr.clause && ms->getAnswers(qr.clause, ts)) {
+  //     auto lhs = qr.substitution->applyToBoundResult(TermList(0,false));
+  //     cout << "lhs " << lhs << endl;
     
-      // for (const auto& ce : ts) {
-      //   if (ts.size()>1) {
-      //     cout << ce << " ";
-      //   }
-      // }
-      // if (ts.size()>1) {
-      //   cout << endl;
-      // }
-    }
-  }
+  //     for (const auto& ce : ts) {
+  //       // if (ts.size()>1) {
+  //         cout << ce << " ";
+  //       // }
+  //     }
+  //     // if (ts.size()>1) {
+  //       cout << endl;
+  //     // }
+  //   }
+  // }
   return false;
 }
 

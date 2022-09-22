@@ -145,15 +145,10 @@ MiniSaturation::MiniSaturation(Problem& prb, const Options& opt)
 
 void MiniSaturation::initMini(ClauseIterator& it)
 {
-  unsigned i = 0;
   while (it.hasNext()) {
-    Clause* cl=Clause::fromClause(it.next());
-    i++;
-    // cout << "input " << i << endl;
-    addInputSOSClause(cl);
-    // addNewClause(cl);
+    // Clause* cl=Clause::fromClause(it.next());
+    addInputSOSClause(it.next());
   }
-  // cout << i << " clauses added" << endl;
 }
 
 /**
@@ -166,7 +161,7 @@ MiniSaturation* MiniSaturation::createFromOptions(Problem& prb, const Options& o
 
   MiniSaturation* res=new MiniSaturation(prb, opt);
   res->setIndexManager(SmartPtr<IndexManager>(new IndexManager(res)));
-  res->_answerLiteralManager = AnswerLiteralManager::getInstance();
+  // res->_answerLiteralManager = AnswerLiteralManager::getInstance();
 
   // if(opt.splitting()){
   //   res->_splitter = new Splitter();

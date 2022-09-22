@@ -156,6 +156,7 @@ class Signature
     unsigned _injective;
     unsigned _suggestsInduction : 1;
     unsigned _suggestsMultiTermInduction : 1;
+    unsigned _nonErasing : 1;
     /** proxy type */
     Proxy _prox;
     /** combinator type */
@@ -265,6 +266,9 @@ class Signature
 
     inline void setInjective(unsigned i){ _injective = i; }
     inline unsigned injective(){ return _injective; }
+
+    inline void markNonErasing() { _nonErasing = true; }
+    inline bool nonErasing() { return _nonErasing; }
 
     inline void markSuggestsInduction(){ _suggestsInduction = 1; }
     inline bool suggestsInduction(){ return _suggestsInduction; }

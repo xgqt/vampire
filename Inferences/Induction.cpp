@@ -430,6 +430,23 @@ bool Induction::checkForVacuousness(Literal* lit, Term* t)
   auto lhsc = lhs->containsSubterm(TermList(t));
   if (!lhsc || !rhs->containsSubterm(TermList(t))) {
     auto side = lhsc ? lhs : rhs;
+    NonVariableIterator sti(side,true);
+    while (sti.hasNext()) {
+      auto st = sti.next();
+      if (st == TermList(t)) {
+        continue;
+      }
+      auto sym = env.signature->getFunction(st.term()->functor());
+      if (sym->termAlgebraCons() || sym->termAlgebraDest()) {
+        continue;
+      }
+      // cout << sym->name() << " " << (sym->nonErasing() ? "non-erasing" : "erasing") << endl;
+      if (!sym->nonErasing() && st.containsSubterm(TermList(t))) {
+        return true;
+      }
+    }
+    return false;
+
     enum BranchType {
       NORMAL,
       INJECTIVE,
@@ -792,7 +809,7 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
           }
         }
         if (checkForVacuousness(ctx)) {
-          // cout << ctx.toString() << endl;
+          // cout << "not vacuous " << ctx.toString() << endl;
           if(one){
             performStructInductionOne(ctx,e);
           }
@@ -802,13 +819,14 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
           if(three){
             performStructInductionThree(ctx,e);
           }
-          auto other = e->_other;
+          Formula* other = nullptr;
+          other = e->_other;
           if (other) {
             initMiniSaturation();
 
-            Stack<TermList> litArgs;
-            VList::Iterator vit(other->freeVariables());
+            /* VList::Iterator vit(other->freeVariables());
             TermStack sorts;
+            TermStack litArgs;
             while(vit.hasNext()) {
               unsigned var = vit.next();
               TermList sort;
@@ -821,12 +839,13 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
             unsigned vcnt = litArgs.size();
             unsigned pred = env.signature->addFreshPredicate(vcnt,"ans");
             Signature::Symbol* predSym = env.signature->getPredicate(pred);
-            predSym->setType(OperatorType::getPredicateType(sorts.size(), sorts.begin()));
+            predSym->setType(OperatorType::getPredicateType(vcnt, sorts.begin()));
             predSym->markAnswerPredicate();
             auto newf = new JunctionFormula(Connective::OR, FormulaList::cons(other, FormulaList::singleton(new AtomicFormula(Literal::create(pred, vcnt, true, false, litArgs.begin())))));
             TimeCounter tc (TC_RAND_OPT);
 
-            auto u = new FormulaUnit(newf, NonspecificInference0(UnitInputType::AXIOM, InferenceRule::STRUCT_INDUCTION_AXIOM));
+            auto u = new FormulaUnit(newf, NonspecificInference0(UnitInputType::AXIOM, InferenceRule::STRUCT_INDUCTION_AXIOM)); */
+            auto u = new FormulaUnit(other, NonspecificInference0(UnitInputType::AXIOM, InferenceRule::STRUCT_INDUCTION_AXIOM));
             NewCNF cnf(0);
             ClauseStack cls;
             cnf.clausify(NNF::ennf(u), cls);
@@ -834,15 +853,15 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
             Clause* refutation;
             if (!runMiniSaturation(refutation)) {
               TermStack ts;
-              if (_ms->getAnswers(refutation, ts)) {
-                e->_counterexamples = ts;
-              }
+              // if (_ms->getAnswers(refutation, ts)) {
+              //   e->_counterexamples = ts;
+              // }
               _formulaIndex.makeVacuous(ctx, e, refutation);
               env.statistics->vacuousInductionFormulaDiscardedDynamically++;
-              break;
             }
           }
         } else {
+          // cout << "vacuous " << ctx.toString() << endl;
           _formulaIndex.makeVacuous(ctx,e, nullptr);
           env.statistics->vacuousInductionFormulaDiscardedStatically++;
         }
@@ -883,6 +902,7 @@ void InductionClauseIterator::addClausesToMiniSaturation(const ClauseStack& cls)
 {
   CALL("InductionClauseIterator::addClausesToMiniSaturation");
   for (const auto& cl : cls) {
+    // cout << "add clause " << *cl << endl;
     _ms->addNewClause(cl);
   }
 }
@@ -895,6 +915,9 @@ bool InductionClauseIterator::runMiniSaturation(Clause*& refutation)
       TimeCounter tc(TC_FMB_CONSTRAINT_CREATION);
       _ms->doOneAlgorithmStep();
     } catch(MainLoop::RefutationFoundException& exp) {
+      // cout << endl << "PROOF -------------- " << endl;
+      // InferenceStore::instance()->outputProof(cout, exp.refutation);
+      // cout << "END PROOF -------------- " << endl << endl;
       refutation = exp.refutation;
       return false;
     } catch(ThrowableBase&) {

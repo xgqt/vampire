@@ -199,6 +199,23 @@ void SMTLIB2::readBenchmark(LExprList* bench)
       continue;
     }
 
+    if (ibRdr.tryAcceptAtom("non-erasing")) {
+      vstring name = ibRdr.readAtom();
+      vstring values = ibRdr.readAtom();
+      unsigned v;
+      if (!Int::stringToUnsignedInt(values.c_str(), v)) {
+        USER_ERROR("Cannot parse arity of non-erasing function");
+      }
+
+      unsigned fn = env.signature->getFunctionNumber(name, v);
+      env.signature->getFunction(fn)->markNonErasing();
+      cout << name << " non-erasing" << endl;
+
+      ibRdr.acceptEOL();
+
+      continue;
+    }
+
     if (ibRdr.tryAcceptAtom("declare-datatype")) {
       LExpr *sort = ibRdr.readNext();
       LExprList *datatype = ibRdr.readList();

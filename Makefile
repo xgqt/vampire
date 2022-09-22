@@ -333,6 +333,7 @@ VST_OBJ= Saturation/AWPassiveClauseContainer.o\
          Saturation/ExtensionalityClauseContainer.o\
 	 Saturation/LabelFinder.o\
          Saturation/LRS.o\
+				 Saturation/MiniSaturation.o\
          Saturation/Otter.o\
          Saturation/ProvingHelper.o\
          Saturation/SaturationAlgorithm.o\
