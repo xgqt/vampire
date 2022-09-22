@@ -3105,41 +3105,41 @@ void Schedules::getIntegerInductionSchedule(const Shell::Property& property, Sch
 
 void Schedules::getStructInductionSchedule(const Shell::Property& property, Schedule& quick, Schedule& fallback) {
   // Empirically sorted (order somewhat guessed)
-  quick.push("lrs+10_1_ind=struct:sos=theory:sstl=1_89");
-  quick.push("dis+1002_1_aac=none:anc=all:ind=struct:sos=theory:sac=on:sstl=1:to=lpo_30");
-  quick.push("lrs+10_1_ind=struct:sos=theory:sstl=1:to=lpo_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:to=lpo_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:sos=theory:sstl=1:to=lpo_89");
-  quick.push("lrs+10_1_ind=struct:to=lpo_89");
-  quick.push("lrs+10_1_av=off:br=off:ind=struct:urr=on_89");
-  quick.push("lrs+10_1_drc=off:ind=struct_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:sos=theory:sstl=1_89");
-  quick.push("lrs+10_1_ind=struct_89");
+  quick.push("lrs+10_1_ind=struct:de=on:sos=theory:sstl=1_89");
+  quick.push("dis+1002_1_aac=none:anc=all:ind=struct:de=on:sos=theory:sac=on:sstl=1:to=lpo_30");
+  quick.push("lrs+10_1_ind=struct:de=on:sos=theory:sstl=1:to=lpo_89");
+  quick.push("lrs+10_1_ind=struct:de=on:to=lpo_89");
+  quick.push("lrs+10_1_ind=struct:de=on:sos=theory:sstl=1:to=lpo:nui=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:to=lpo:nui=on_89");
+  quick.push("lrs+10_1_av=off:br=off:ind=struct:de=on:urr=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:sos=theory:sstl=1:nui=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:nui=on_89");
   // The rest
-  quick.push("lrs+10_1_drc=off:ind=struct:indoct=on:sos=theory:sstl=1:to=lpo_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:indoct=on:to=lpo_89");
-  quick.push("lrs+10_1_ind=struct:indoct=on:sos=theory:sstl=1:to=lpo_89");
-  quick.push("lrs+10_1_ind=struct:indoct=on:to=lpo_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:indoct=on:sos=theory:sstl=1_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:indoct=on_89");
-  quick.push("lrs+10_1_ind=struct:indoct=on:sos=theory:sstl=1_89");
-  quick.push("lrs+10_1_ind=struct:indoct=on_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:indgen=on:sos=theory:sstl=1:to=lpo_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:indgen=on:to=lpo_89");
-  quick.push("lrs+10_1_ind=struct:indgen=on:sos=theory:sstl=1:to=lpo_89");
-  quick.push("lrs+10_1_ind=struct:indgen=on:to=lpo_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:indgen=on:sos=theory:sstl=1_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:indgen=on_89");
-  quick.push("lrs+10_1_ind=struct:indgen=on:sos=theory:sstl=1_89");
-  quick.push("lrs+10_1_ind=struct:indgen=on_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:indgen=on:indoct=on:sos=theory:sstl=1:to=lpo_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:indgen=on:indoct=on:to=lpo_89");
-  quick.push("lrs+10_1_ind=struct:indgen=on:indoct=on:sos=theory:sstl=1:to=lpo_89");
-  quick.push("lrs+10_1_ind=struct:indgen=on:indoct=on:to=lpo_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:indgen=on:indoct=on:sos=theory:sstl=1_89");
-  quick.push("lrs+10_1_drc=off:ind=struct:indgen=on:indoct=on_89");
-  quick.push("lrs+10_1_ind=struct:indgen=on:indoct=on:sos=theory:sstl=1_89");
-  quick.push("lrs+10_1_ind=struct:indgen=on:indoct=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indoct=on:sos=theory:sstl=1:to=lpo_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indoct=on:to=lpo_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indoct=on:sos=theory:sstl=1:to=lpo:nui=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indoct=on:to=lpo:nui=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indoct=on:sos=theory:sstl=1_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indoct=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indoct=on:sos=theory:sstl=1:nui=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indoct=on:nui=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:sos=theory:sstl=1:to=lpo_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:to=lpo_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:sos=theory:sstl=1:to=lpo:nui=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:to=lpo:nui=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:sos=theory:sstl=1_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:sos=theory:sstl=1:nui=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:nui=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:indoct=on:sos=theory:sstl=1:to=lpo_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:indoct=on:to=lpo_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:indoct=on:sos=theory:sstl=1:to=lpo:nui=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:indoct=on:to=lpo:nui=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:indoct=on:sos=theory:sstl=1_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:indoct=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:indoct=on:sos=theory:sstl=1:nui=on_89");
+  quick.push("lrs+10_1_ind=struct:de=on:indgen=on:indoct=on:nui=on_89");
 
   fallback.push("lrs+10_1__50");
 }
