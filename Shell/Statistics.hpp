@@ -153,6 +153,8 @@ public:
   unsigned generalizedInductionApplication;
   unsigned generalizedInductionApplicationInProof;
   unsigned vacuousInductionFormulaDiscardedStatically;
+  unsigned vacuousInductionFormulaDiscardedStaticallyOneSide;
+  unsigned vacuousInductionFormulaDiscardedStaticallyMismatch;
   unsigned vacuousInductionFormulaDiscardedDynamically;
   unsigned vacuousInductionFormulaDiscardedDynamically2;
   unsigned inductionSkippedHeuristic1;

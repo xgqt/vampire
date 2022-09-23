@@ -75,8 +75,34 @@ void InductionFormulaIndex::makeVacuous(const InductionContext& context, Entry* 
   if (context._cls.size() == 1 && context._cls.begin()->second.size() == 1) {
     // cout << "insert into index " << *context._cls.begin()->second[0] << endl;
     TermReplacement tr(getPlaceholderForTerm(context._indTerm), TermList(0,false));
-    _vacuousIndex.insert(tr.transform(context._cls.begin()->second[0]), refutation);
+    auto tlit = tr.transform(context._cls.begin()->second[0]);
+    _vacuousIndex.insert(tlit, refutation);
     // _vacuousIndex.insert(context._cls.begin()->second[0], nullptr);
+    auto it = _nonVacuousIndex.getGeneralizations(tlit, false, false);
+    static unsigned i = 0;
+    static unsigned j = 0;
+    while (it.hasNext()) {
+      auto qr = it.next();
+      i++;
+    }
+    j++;
+    if (j % 1000 == 0) {
+      cout << i << " generalizations found" << endl;
+    }
+  }
+}
+
+void InductionFormulaIndex::makeNonVacuous(const InductionContext& context)
+{
+  CALL("InductionFormulaIndex::makeNonVacuous");
+  ASS(!context._cls.empty());
+  auto k = represent(context);
+  k.second.first = nullptr;
+  k.second.second = nullptr;
+  if (context._cls.size() == 1 && context._cls.begin()->second.size() == 1) {
+    TermReplacement tr(getPlaceholderForTerm(context._indTerm), TermList(0,false));
+    auto tlit = tr.transform(context._cls.begin()->second[0]);
+    _nonVacuousIndex.insert(tlit, nullptr);
   }
 }
 
@@ -85,34 +111,7 @@ bool InductionFormulaIndex::isVacuous(Literal* lit, MiniSaturation* ms)
   CALL("InductionFormulaIndex::isVacuous");
   // cout << "check vacuousness " << *lit << endl; 
   auto it = _vacuousIndex.getInstances(lit, false, false);
-  // return it.hasNext();
-  if (it.hasNext()) {
-    return true;
-  }
-
-  // it = _vacuousIndex.getGeneralizations(lit, false, true);
-  // while (it.hasNext()) {
-  //   auto qr = it.next();
-  //   cout << "queryLit " << *lit << endl;
-  //   cout << "resultLit " << *qr.literal << endl;
-  //   // auto e = reinterpret_cast<Entry*>(qr.clause);
-  //   // ASS(e->_vacuous);
-  //   TermStack ts;
-  //   if (qr.clause && ms->getAnswers(qr.clause, ts)) {
-  //     auto lhs = qr.substitution->applyToBoundResult(TermList(0,false));
-  //     cout << "lhs " << lhs << endl;
-    
-  //     for (const auto& ce : ts) {
-  //       // if (ts.size()>1) {
-  //         cout << ce << " ";
-  //       // }
-  //     }
-  //     // if (ts.size()>1) {
-  //       cout << endl;
-  //     // }
-  //   }
-  // }
-  return false;
+  return it.hasNext();
 }
 
 

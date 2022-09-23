@@ -419,6 +419,46 @@ bool InductionClauseIterator::checkForVacuousness(const InductionContext& ctx)
   return Induction::checkForVacuousness(lit, ph);
 }
 
+bool skolemMismatch(Term* lhs, Term* rhs, Term* ph) {
+  NonVariableIterator nvilhs(lhs, true);
+  vset<unsigned> sklhs;
+  vset<unsigned> skrhs;
+  while (nvilhs.hasNext()) {
+    auto t = nvilhs.next();
+    auto sym = env.signature->getFunction(t.term()->functor());
+    if (sym->termAlgebraCons() || sym->termAlgebraDest() || sym->nonErasing() || t.term() == ph) {
+      continue;
+    } else if (sym->skolem()) {
+      sklhs.insert(t.term()->functor());
+    } else {
+      nvilhs.right();
+    }
+  }
+  NonVariableIterator nvirhs(rhs, true);
+  while (nvirhs.hasNext()) {
+    auto t = nvirhs.next();
+    auto sym = env.signature->getFunction(t.term()->functor());
+    if (sym->termAlgebraCons() || sym->termAlgebraDest() || sym->nonErasing() || t.term() == ph) {
+      continue;
+    } else if (sym->skolem()) {
+      skrhs.insert(t.term()->functor());
+    } else {
+      nvirhs.right();
+    }
+  }
+  vvector<unsigned> diff;
+  set_difference(sklhs.begin(), sklhs.end(), skrhs.begin(), skrhs.end(), inserter(diff, diff.begin()));
+  if (!diff.empty()) {
+    return true;
+  }
+  diff.clear();
+  set_difference(skrhs.begin(), skrhs.end(), sklhs.begin(), sklhs.end(), inserter(diff, diff.begin()));
+  if (!diff.empty()) {
+    return true;
+  }
+  return false;
+}
+
 bool Induction::checkForVacuousness(Literal* lit, Term* t)
 {
   CALL("Induction::checkForVacuousness");
@@ -445,6 +485,7 @@ bool Induction::checkForVacuousness(Literal* lit, Term* t)
         return true;
       }
     }
+    env.statistics->vacuousInductionFormulaDiscardedStaticallyOneSide++;
     return false;
 
     enum BranchType {
@@ -496,6 +537,17 @@ bool Induction::checkForVacuousness(Literal* lit, Term* t)
     //      << "injective branch " << bs[INJECTIVE_BRANCH] << endl
     //      << "value " << res << endl;
     return res;
+  } else {
+    if (lhs == t || rhs == t) {
+      auto symb = env.signature->getFunction((lhs == t) ? rhs->functor() : lhs->functor());
+      if (symb->termAlgebraCons()) {
+        return false;
+      }
+    }
+    if (skolemMismatch(lhs, rhs, t)) {
+      env.statistics->vacuousInductionFormulaDiscardedStaticallyMismatch++;
+      return false;
+    }
   }
 
   return true;
@@ -858,7 +910,11 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
               // }
               _formulaIndex.makeVacuous(ctx, e, refutation);
               env.statistics->vacuousInductionFormulaDiscardedDynamically++;
+            } else {
+              _formulaIndex.makeNonVacuous(ctx);
             }
+          } else {
+            _formulaIndex.makeNonVacuous(ctx);
           }
         } else {
           // cout << "vacuous " << ctx.toString() << endl;

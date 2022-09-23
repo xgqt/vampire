@@ -97,6 +97,8 @@ Statistics::Statistics()
     generalizedInductionApplication(0),
     generalizedInductionApplicationInProof(0),
     vacuousInductionFormulaDiscardedStatically(0),
+    vacuousInductionFormulaDiscardedStaticallyOneSide(0),
+    vacuousInductionFormulaDiscardedStaticallyMismatch(0),
     vacuousInductionFormulaDiscardedDynamically(0),
     vacuousInductionFormulaDiscardedDynamically2(0),
     inductionSkippedHeuristic1(0),
@@ -419,6 +421,8 @@ void Statistics::print(ostream& out)
   COND_OUT("GeneralizedInductionApplications",generalizedInductionApplication);
   COND_OUT("GeneralizedInductionApplicationsInProof",generalizedInductionApplicationInProof);
   COND_OUT("VacuousInductionFormulaDiscardedStatically",vacuousInductionFormulaDiscardedStatically);
+  COND_OUT("VacuousInductionFormulaDiscardedStaticallyOneSide",vacuousInductionFormulaDiscardedStaticallyOneSide);
+  COND_OUT("VacuousInductionFormulaDiscardedStaticallyMismatch",vacuousInductionFormulaDiscardedStaticallyMismatch);
   COND_OUT("VacuousInductionFormulaDiscardedDynamically",vacuousInductionFormulaDiscardedDynamically);
   COND_OUT("VacuousInductionFormulaDiscardedDynamically2",vacuousInductionFormulaDiscardedDynamically2);
   COND_OUT("InductionSkippedHeuristic1",inductionSkippedHeuristic1);

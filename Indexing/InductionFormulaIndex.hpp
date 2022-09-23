@@ -92,10 +92,12 @@ public:
 
   bool findOrInsert(const Inferences::InductionContext& context, Entry*& e, Literal* bound1 = nullptr, Literal* bound2 = nullptr);
   void makeVacuous(const Inferences::InductionContext& context, Entry* e, Clause* refutation);
+  void makeNonVacuous(const Inferences::InductionContext& context);
   bool isVacuous(Literal* lit, Saturation::MiniSaturation* ms);
 private:
   DHMap<Key,Entry> _map;
   LiteralSubstitutionTree _vacuousIndex;
+  LiteralSubstitutionTree _nonVacuousIndex;
 };
 
 }
