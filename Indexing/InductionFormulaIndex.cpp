@@ -61,34 +61,18 @@ bool InductionFormulaIndex::findOrInsert(const InductionContext& context, Entry*
   return _map.getValuePtr(std::move(k), e);
 }
 
-void InductionFormulaIndex::makeVacuous(const InductionContext& context, Entry* e, Clause* refutation)
+void InductionFormulaIndex::makeVacuous(const InductionContext& context, Entry* e)
 {
   CALL("InductionFormulaIndex::makeVacuous");
   ASS(!context._cls.empty());
   auto k = represent(context);
   k.second.first = nullptr;
   k.second.second = nullptr;
-  // Entry* entry;
-  // ALWAYS(!_map.getValuePtr(std::move(k), entry));
-  // ASS_EQ(e,entry);
   e->_vacuous = true;
   if (context._cls.size() == 1 && context._cls.begin()->second.size() == 1) {
-    // cout << "insert into index " << *context._cls.begin()->second[0] << endl;
     TermReplacement tr(getPlaceholderForTerm(context._indTerm), TermList(0,false));
     auto tlit = tr.transform(context._cls.begin()->second[0]);
-    _vacuousIndex.insert(tlit, refutation);
-    // _vacuousIndex.insert(context._cls.begin()->second[0], nullptr);
-    auto it = _nonVacuousIndex.getGeneralizations(tlit, false, false);
-    static unsigned i = 0;
-    static unsigned j = 0;
-    while (it.hasNext()) {
-      auto qr = it.next();
-      i++;
-    }
-    j++;
-    if (j % 1000 == 0) {
-      cout << i << " generalizations found" << endl;
-    }
+    _vacuousIndex.insert(tlit, nullptr);
   }
 }
 
@@ -106,7 +90,7 @@ void InductionFormulaIndex::makeNonVacuous(const InductionContext& context)
   }
 }
 
-bool InductionFormulaIndex::isVacuous(Literal* lit, MiniSaturation* ms)
+bool InductionFormulaIndex::isVacuous(Literal* lit)
 {
   CALL("InductionFormulaIndex::isVacuous");
   // cout << "check vacuousness " << *lit << endl; 

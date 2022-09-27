@@ -27,10 +27,6 @@
 
 #include "Indexing/LiteralSubstitutionTree.hpp"
 
-namespace Saturation {
-  class MiniSaturation;
-}
-
 namespace Inferences {
   struct InductionContext;
 }
@@ -81,9 +77,9 @@ public:
     const Stack<pair<ClauseStack,Substitution>>& get() const {
       return _st;
     }
-    Formula* _other = 0;
     bool _vacuous = false;
-    TermStack _counterexamples;
+    TermStack _cases;
+    vset<Term*> _indTerms;
   private:
     Stack<pair<ClauseStack,Substitution>> _st;
   };
@@ -91,9 +87,10 @@ public:
   static Key represent(const Inferences::InductionContext& context);
 
   bool findOrInsert(const Inferences::InductionContext& context, Entry*& e, Literal* bound1 = nullptr, Literal* bound2 = nullptr);
-  void makeVacuous(const Inferences::InductionContext& context, Entry* e, Clause* refutation);
+  void makeVacuous(const Inferences::InductionContext& context, Entry* e);
   void makeNonVacuous(const Inferences::InductionContext& context);
-  bool isVacuous(Literal* lit, Saturation::MiniSaturation* ms);
+  bool isVacuous(Literal* lit);
+  void check(Term* t);
 private:
   DHMap<Key,Entry> _map;
   LiteralSubstitutionTree _vacuousIndex;

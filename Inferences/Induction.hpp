@@ -68,6 +68,7 @@ private:
 };
 
 struct InductionContext {
+  InductionContext() = default;
   explicit InductionContext(Term* t)
     : _indTerm(t) {}
   InductionContext(Term* t, Literal* l, Clause* cl)
@@ -191,6 +192,7 @@ private:
   CodeTreeTIS _restrictions;
   CodeTreeTIS _functionMatcher;
   MiniSaturation* _ms;
+  DHMap<unsigned, pair<InductionContext,Term*>> _skolemToConclusionMap;
 };
 
 class InductionClauseIterator
@@ -198,9 +200,10 @@ class InductionClauseIterator
 public:
   // all the work happens in the constructor!
   InductionClauseIterator(Clause* premise, InductionHelper helper, const Options& opt,
-    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, CodeTreeTIS& restrictions, MiniSaturation* ms, Problem& prb)
+    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, CodeTreeTIS& restrictions, MiniSaturation* ms, Problem& prb, 
+    DHMap<unsigned, pair<InductionContext,Term*>>& skolemToConclusionMap)
       : _helper(helper), _opt(opt), _structInductionTermIndex(structInductionTermIndex),
-      _formulaIndex(formulaIndex), _restrictions(restrictions), _ms(ms), _prb(prb)
+      _formulaIndex(formulaIndex), _restrictions(restrictions), _ms(ms), _prb(prb), _skolemToConclusionMap(skolemToConclusionMap)
   {
     processClause(premise);
   }
@@ -219,7 +222,7 @@ private:
   void processLiteral(Clause* premise, Literal* lit);
   void processIntegerComparison(Clause* premise, Literal* lit);
 
-  ClauseStack produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, const vmap<unsigned,LiteralStack>& hyps);
+  ClauseStack produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, TermStack& cases, const vmap<unsigned,LiteralStack>& hyps);
   void resolveClauses(InductionContext context, InductionFormulaIndex::Entry* e, const TermQueryResult* bound1, const TermQueryResult* bound2);
   void resolveClauses(const ClauseStack& cls, const InductionContext& context, Substitution& subst, bool applySubst = false);
 
@@ -235,7 +238,7 @@ private:
   bool checkForVacuousness(const InductionContext& ctx);
   void initMiniSaturation();
   void addClausesToMiniSaturation(const ClauseStack& cls);
-  bool runMiniSaturation(Clause*& refutation);
+  bool runMiniSaturation();
 
   Stack<Clause*> _clauses;
   InductionHelper _helper;
@@ -245,6 +248,7 @@ private:
   CodeTreeTIS& _restrictions;
   MiniSaturation* _ms;
   Problem& _prb;
+  DHMap<unsigned, pair<InductionContext,Term*>>& _skolemToConclusionMap;
 };
 
 };

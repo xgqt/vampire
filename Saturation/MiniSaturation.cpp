@@ -146,8 +146,8 @@ MiniSaturation::MiniSaturation(Problem& prb, const Options& opt)
 void MiniSaturation::initMini(ClauseIterator& it)
 {
   while (it.hasNext()) {
-    // Clause* cl=Clause::fromClause(it.next());
-    addInputSOSClause(it.next());
+    Clause* cl=Clause::fromClause(it.next());
+    addInputSOSClause(cl);
   }
 }
 
