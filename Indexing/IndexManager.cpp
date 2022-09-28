@@ -257,6 +257,18 @@ Index* IndexManager::create(IndexType t)
     isGenerating = true;
     break;
 
+  case INDUCTION_LHS_INDEX:
+    tis = new TermSubstitutionTree();
+    res = new InductionLHSIndex(tis);
+    isGenerating = true;
+    break;
+
+  case INDUCTION_LITERAL_INDEX:
+    is = new LiteralSubstitutionTree();
+    res = new InductionLiteralIndex(is);
+    isGenerating = true;
+    break;
+
   default:
     INVALID_OPERATION("Unsupported IndexType.");
   }

@@ -53,12 +53,22 @@ Key InductionFormulaIndex::represent(const InductionContext& context)
  */
 bool InductionFormulaIndex::findOrInsert(const InductionContext& context, Entry*& e, Literal* bound1, Literal* bound2)
 {
-  CALL("InductionFormulaIndex::insert");
+  CALL("InductionFormulaIndex::findOrInsert");
   ASS(!context._cls.empty());
   auto k = represent(context);
   k.second.first = bound1;
   k.second.second = bound2;
   return _map.getValuePtr(std::move(k), e);
+}
+
+InductionFormulaIndex::Entry* InductionFormulaIndex::find(const InductionContext& context, Literal* bound1, Literal* bound2)
+{
+  CALL("InductionFormulaIndex::find");
+  ASS(!context._cls.empty());
+  auto k = represent(context);
+  k.second.first = bound1;
+  k.second.second = bound2;
+  return _map.findPtr(std::move(k));
 }
 
 void InductionFormulaIndex::makeVacuous(const InductionContext& context, Entry* e)
@@ -68,6 +78,7 @@ void InductionFormulaIndex::makeVacuous(const InductionContext& context, Entry* 
   auto k = represent(context);
   k.second.first = nullptr;
   k.second.second = nullptr;
+  ASS_EQ(e, _map.findPtr(k));
   e->_vacuous = true;
   if (context._cls.size() == 1 && context._cls.begin()->second.size() == 1) {
     TermReplacement tr(getPlaceholderForTerm(context._indTerm), TermList(0,false));

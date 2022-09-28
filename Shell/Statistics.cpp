@@ -101,6 +101,7 @@ Statistics::Statistics()
     vacuousInductionFormulaDiscardedStaticallyMismatch(0),
     vacuousInductionFormulaDiscardedDynamically(0),
     vacuousInductionFormulaDiscardedDynamically2(0),
+    delayedInductionApplications(0),
     inductionSkippedHeuristic1(0),
     argumentCongruence(0),
     narrow(0),
@@ -425,6 +426,7 @@ void Statistics::print(ostream& out)
   COND_OUT("VacuousInductionFormulaDiscardedStaticallyMismatch",vacuousInductionFormulaDiscardedStaticallyMismatch);
   COND_OUT("VacuousInductionFormulaDiscardedDynamically",vacuousInductionFormulaDiscardedDynamically);
   COND_OUT("VacuousInductionFormulaDiscardedDynamically2",vacuousInductionFormulaDiscardedDynamically2);
+  COND_OUT("DelayedInductionApplications",delayedInductionApplications);
   COND_OUT("InductionSkippedHeuristic1",inductionSkippedHeuristic1);
   COND_OUT("Argument congruence", argumentCongruence);
   COND_OUT("Negative extensionality", negativeExtensionality);

@@ -26,6 +26,7 @@
 #include "Indexing/InductionFormulaIndex.hpp"
 #include "Indexing/LiteralIndex.hpp"
 #include "Indexing/TermIndex.hpp"
+#include "Indexing/TermSubstitutionTree.hpp"
 
 #include "Kernel/Problem.hpp"
 #include "Kernel/TermIterators.hpp"
@@ -189,6 +190,10 @@ private:
   TermIndex* _inductionTermIndex = nullptr;
   TermIndex* _structInductionTermIndex = nullptr;
   InductionFormulaIndex _formulaIndex;
+  TermSubstitutionTree _delayedIndex;
+  LiteralSubstitutionTree _delayedLitIndex;
+  InductionLHSIndex* _lhsIndex;
+  InductionLiteralIndex* _literalIndex;
   CodeTreeTIS _restrictions;
   CodeTreeTIS _functionMatcher;
   MiniSaturation* _ms;
@@ -200,10 +205,12 @@ class InductionClauseIterator
 public:
   // all the work happens in the constructor!
   InductionClauseIterator(Clause* premise, InductionHelper helper, const Options& opt,
-    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, CodeTreeTIS& restrictions, MiniSaturation* ms, Problem& prb, 
-    DHMap<unsigned, pair<InductionContext,Term*>>& skolemToConclusionMap)
-      : _helper(helper), _opt(opt), _structInductionTermIndex(structInductionTermIndex),
-      _formulaIndex(formulaIndex), _restrictions(restrictions), _ms(ms), _prb(prb), _skolemToConclusionMap(skolemToConclusionMap)
+    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, TermSubstitutionTree& delayedIndex,
+    LiteralSubstitutionTree& delayedLitIndex, CodeTreeTIS& restrictions, MiniSaturation* ms, Problem& prb, Splitter* splitter,
+    DHMap<unsigned, pair<InductionContext,Term*>>& skolemToConclusionMap, InductionLHSIndex* lhsIndex, InductionLiteralIndex* literalIndex)
+      : _helper(helper), _opt(opt), _structInductionTermIndex(structInductionTermIndex), _formulaIndex(formulaIndex),
+      _delayedIndex(delayedIndex), _delayedLitIndex(delayedLitIndex), _lhsIndex(lhsIndex), _literalIndex(literalIndex),
+      _restrictions(restrictions), _ms(ms), _prb(prb), _splitter(splitter), _skolemToConclusionMap(skolemToConclusionMap)
   {
     processClause(premise);
   }
@@ -235,6 +242,8 @@ private:
   void performStructInductionThree(const InductionContext& context, InductionFormulaIndex::Entry* e);
 
   bool notDoneInt(InductionContext context, Literal* bound1, Literal* bound2, InductionFormulaIndex::Entry*& e);
+  bool maybeDelayInduction(const InductionContext& ctx, InductionFormulaIndex::Entry* e);
+  void checkForDelayedInductions(Literal* lit);
   bool checkForVacuousness(const InductionContext& ctx);
   void initMiniSaturation();
   void addClausesToMiniSaturation(const ClauseStack& cls);
@@ -245,9 +254,14 @@ private:
   const Options& _opt;
   TermIndex* _structInductionTermIndex;
   InductionFormulaIndex& _formulaIndex;
+  TermSubstitutionTree& _delayedIndex;
+  LiteralSubstitutionTree& _delayedLitIndex;
+  InductionLHSIndex* _lhsIndex;
+  InductionLiteralIndex* _literalIndex;
   CodeTreeTIS& _restrictions;
   MiniSaturation* _ms;
   Problem& _prb;
+  Splitter* _splitter;
   DHMap<unsigned, pair<InductionContext,Term*>>& _skolemToConclusionMap;
 };
 

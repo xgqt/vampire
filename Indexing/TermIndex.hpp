@@ -80,6 +80,19 @@ private:
   const Options& _opt;
 };
 
+class InductionLHSIndex
+: public TermIndex
+{
+public:
+  CLASS_NAME(InductionLHSIndex);
+  USE_ALLOCATOR(InductionLHSIndex);
+
+  InductionLHSIndex(TermIndexingStructure* is)
+  : TermIndex(is) {}
+protected:
+  void handleClause(Clause* c, bool adding);
+};
+
 /**
  * Term index for backward demodulation
  */

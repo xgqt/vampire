@@ -28,6 +28,7 @@
 #include "Kernel/TermIterators.hpp"
 
 #include "Saturation/SaturationAlgorithm.hpp"
+#include "Saturation/Splitter.hpp"
 
 #include "Shell/InductionCNF.hpp"
 #include "Shell/NewCNF.hpp"
@@ -260,6 +261,8 @@ void Induction::attach(SaturationAlgorithm* salg) {
     _structInductionTermIndex = static_cast<TermIndex*>(
       _salg->getIndexManager()->request(STRUCT_INDUCTION_TERM_INDEX));
   }
+  _lhsIndex = static_cast<InductionLHSIndex*>(_salg->getIndexManager()->request(INDUCTION_LHS_INDEX));
+  _literalIndex = static_cast<InductionLiteralIndex*>(_salg->getIndexManager()->request(INDUCTION_LITERAL_INDEX));
   _salg->getPassiveClauseContainer()->setInductionRestrictions(&_restrictions, &_functionMatcher);
   _ms = MiniSaturation::createFromOptions(_salg->getProblem(), _salg->getOptions());
 }
@@ -267,6 +270,8 @@ void Induction::attach(SaturationAlgorithm* salg) {
 void Induction::detach() {
   CALL("Induction::detach");
 
+  _salg->getIndexManager()->release(INDUCTION_LITERAL_INDEX);
+  _salg->getIndexManager()->release(INDUCTION_LHS_INDEX);
   _salg->getPassiveClauseContainer()->setInductionRestrictions(nullptr, nullptr);
   if (InductionHelper::isNonUnitStructInductionOn()) {
     _structInductionTermIndex = nullptr;
@@ -286,7 +291,8 @@ ClauseIterator Induction::generateClauses(Clause* premise)
   CALL("Induction::generateClauses");
 
   return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex), getOptions(),
-    _structInductionTermIndex, _formulaIndex, _restrictions, _ms, _salg->getProblem(), _skolemToConclusionMap));
+    _structInductionTermIndex, _formulaIndex, _delayedIndex, _delayedLitIndex,
+    _restrictions, _ms, _salg->getProblem(), _salg->getSplitter(), _skolemToConclusionMap, _lhsIndex, _literalIndex));
 }
 
 void InductionClauseIterator::processClause(Clause* premise)
@@ -297,7 +303,9 @@ void InductionClauseIterator::processClause(Clause* premise)
   // or it should be an integer constant comparison we use as a bound.
   if (InductionHelper::isInductionClause(premise)) {
     for (unsigned i=0;i<premise->length();i++) {
-      processLiteral(premise,(*premise)[i]);
+      auto lit = (*premise)[i];
+      processLiteral(premise,lit);
+      checkForDelayedInductions(lit);
     }
   }
   if (InductionHelper::isIntInductionOneOn() && InductionHelper::isIntegerComparison(premise)) {
@@ -399,6 +407,163 @@ private:
   Literal* _lit;
 };
 
+
+bool InductionClauseIterator::maybeDelayInduction(const InductionContext& ctx, InductionFormulaIndex::Entry* e)
+{
+  CALL("InductionClauseIterator::checkForVacuousness");
+  if (e->_delayed) {
+    env.statistics->delayedInductionApplications++;
+    e->_delayedApplications.push(ctx);
+    return false;
+  }
+  if (ctx._cls.size() != 1 || ctx._cls.begin()->second.size() != 1) {
+    return true;
+  }
+  auto lit = ctx._cls.begin()->second[0];
+  auto ph = getPlaceholderForTerm(ctx._indTerm);
+  bool found = false;
+  TermList x(0,false);
+  TermReplacement tr(ph, x);
+  auto tlit = tr.transform(lit);
+  NonVariableNonTypeIterator it(tlit);
+  while (it.hasNext()) {
+    auto t = it.next();
+    if (!t.containsSubterm(x)) {
+      it.right();
+      continue;
+    }
+    auto qrit = _lhsIndex->getUnifications(t);
+    while (qrit.hasNext()) {
+      auto qr = qrit.next();
+      auto at = qr.substitution->applyToQuery(x);
+      // cout << "term " << at << " " << *qr.literal << " " << qr.term << endl;
+      if (at.isTerm() && env.signature->getFunction(at.term()->functor())->termAlgebraCons()) {
+        found = true;
+        break;
+      }
+    }
+    if (found) {
+      break;
+    }
+  }
+  if (!found && !tlit->isEquality()) {
+    auto qrit = getConcatenatedIterator(_literalIndex->getUnifications(tlit, true), _literalIndex->getUnifications(tlit, false));
+    while (qrit.hasNext()) {
+      auto qr = qrit.next();
+      auto at = qr.substitution->applyToQuery(x);
+      // cout << "term " << at << " " << *qr.literal << endl;
+      if (at.isTerm() && env.signature->getFunction(at.term()->functor())->termAlgebraCons()) {
+        found = true;
+        break;
+      }
+    }
+  }
+  if (!found) {
+    // cout << "not found for " << ctx.toString() << " " << e << endl;
+    e->_delayed = true;
+    e->_delayedApplications.push(ctx);
+    env.statistics->delayedInductionApplications++;
+    NonVariableNonTypeIterator it(tlit);
+    while (it.hasNext()) {
+      auto t = it.next();
+      if (!t.containsSubterm(x)) {
+        it.right();
+        continue;
+      }
+      // cout << "insert " << t << " " << tlit << " " << nullptr << endl;
+      _delayedIndex.insert(t, tlit, nullptr);
+    }
+    _delayedLitIndex.insert(tlit, nullptr);
+    return false;
+  }
+  return true;
+}
+
+void InductionClauseIterator::checkForDelayedInductions(Literal* lit)
+{
+  CALL("InductionClauseIterator::checkForDelayedInductions");
+  TermList x(0,false);
+  vset<Literal*> toBeRemoved;
+  if (lit->isEquality()) {
+    if (lit->isPositive()) {
+      for (unsigned j=0; j<2; j++) {
+        auto side = *lit->nthArgument(j);
+        auto qrit = _delayedIndex.getUnifications(side,true);
+        while (qrit.hasNext()) {
+          auto qr = qrit.next();
+          auto at = qr.substitution->applyToResult(x);
+          // cout << "term " << at << " " << t << endl;
+          if (at.isTerm() && env.signature->getFunction(at.term()->functor())->termAlgebraCons()) {
+            auto ph = getPlaceholderForTerm(at.term());
+            Substitution subst;
+            subst.bind(0, ph);
+            // dummy context just to get the entry from the induction formula index
+            InductionContext dummy(ph, qr.literal->apply(subst), nullptr);
+            InductionFormulaIndex::Entry* e = _formulaIndex.find(dummy);
+            // cout << "delayed " << *qr.literal << " with term " << at << " from " << t << " and " << *qr.literal->apply(subst) << " " << e << endl;
+            ASS(e);
+            if (e->_delayed) {
+              ASS(e->_delayedApplications.isNonEmpty());
+              while (e->_delayedApplications.isNonEmpty()) {
+                auto ctx = e->_delayedApplications.pop();
+                ASS_NEQ(0,env.statistics->delayedInductionApplications);
+                env.statistics->delayedInductionApplications--;
+                for (auto& kv : e->get()) {
+                  resolveClauses(kv.first, ctx, kv.second);
+                }
+              }
+              e->_delayed = false;
+            }
+            toBeRemoved.insert(qr.literal);
+          }
+        }
+      }
+    }
+  } else {
+    auto qrit = getConcatenatedIterator(_delayedLitIndex.getUnifications(lit, true, true), _delayedLitIndex.getUnifications(lit, false, true));
+    while (qrit.hasNext()) {
+      auto qr = qrit.next();
+      auto at = qr.substitution->applyToQuery(x);
+      // cout << "term2 " << at << " " << *qr.literal << endl;
+      if (at.isTerm() && env.signature->getFunction(at.term()->functor())->termAlgebraCons()) {
+        auto ph = getPlaceholderForTerm(at.term());
+        Substitution subst;
+        subst.bind(0, ph);
+        // dummy context just to get the entry from the induction formula index
+        InductionContext dummy(ph, qr.literal->apply(subst), nullptr);
+        InductionFormulaIndex::Entry* e = _formulaIndex.find(dummy);
+        // cout << "delayed " << *qr.literal << " with term " << at << " from " << t << " and " << *qr.literal->apply(subst) << " " << e << endl;
+        ASS(e);
+        if (e->_delayed) {
+          ASS(e->_delayedApplications.isNonEmpty());
+          while (e->_delayedApplications.isNonEmpty()) {
+            auto ctx = e->_delayedApplications.pop();
+            ASS_NEQ(0,env.statistics->delayedInductionApplications);
+            env.statistics->delayedInductionApplications--;
+            for (auto& kv : e->get()) {
+              resolveClauses(kv.first, ctx, kv.second);
+            }
+          }
+          e->_delayed = false;
+        }
+        toBeRemoved.insert(qr.literal);
+      }
+    }
+  }
+  for (const auto& lit : toBeRemoved) {
+    NonVariableNonTypeIterator it(lit);
+    _delayedLitIndex.remove(lit, nullptr);
+    while (it.hasNext()) {
+      auto t = it.next();
+      if (!t.containsSubterm(x)) {
+        it.right();
+        continue;
+      }
+      _delayedIndex.remove(t, lit, nullptr);
+    }
+  }
+}
+
 // returns true if the context is vacuous by these checks
 // TODO enable check for more complex conclusions
 // TODO add check that the induction term datatype contains at least two ctors
@@ -432,7 +597,7 @@ bool InductionClauseIterator::checkForVacuousness(const InductionContext& ctx)
     }
     Formula* other = nullptr;
     // other = ctx.getFormula(TermList(Term::create(con->functor(),(unsigned)argTerms.size(), argTerms.begin())), true);
-    other = ctx.getFormula(TermList(0,false), true);
+    // other = ctx.getFormula(TermList(0,false), true);
     if (other) {
       initMiniSaturation();
 
@@ -802,24 +967,9 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       Set<Term*> preferred_terms;
       for (const auto& kv : rts) {
         NonVariableNonTypeIterator it(kv.first,kv.second);
-        Stack<bool> skip;
-        if (kv.second) {
-          skip.push(false);
-        } else {
-          unsigned f = kv.first->functor(); 
-          auto sym = env.signature->getFunction(f);
-          for (unsigned i = 0; i < kv.first->arity(); i++) {
-            skip.push(false);
-            // skip.push(sym->termAlgebraCons() && sym->fnType()->arg(i) != sym->fnType()->result());
-          }
-        }
         while(it.hasNext()){
           TermList ts = it.next();
           if(!ts.isTerm()){ continue; }
-          if (skip.pop()) {
-            it.right();
-            continue;
-          }
           // if (ts.term()->arity()) {
           //   if (lit->isEquality()) {
           //     auto lhs = *lit->nthArgument(0);
@@ -836,11 +986,6 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
           //   }
           // }
           unsigned f = ts.term()->functor(); 
-          auto sym = env.signature->getFunction(f);
-          for (unsigned i = 0; i < ts.term()->arity(); i++) {
-            skip.push(false);
-            // skip.push(sym->termAlgebraCons() && sym->fnType()->arg(i) != sym->fnType()->result());
-          }
           if(InductionHelper::isInductionTermFunctor(f)){
             if(InductionHelper::isStructInductionOn() && InductionHelper::isStructInductionFunctor(f)){
               ta_terms.insert(ts.term());
@@ -1006,6 +1151,9 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
         }
       }
       if (e->_vacuous) {
+        continue;
+      }
+      if (!maybeDelayInduction(ctx, e)) {
         continue;
       }
       e->_indTerms.insert(ctx._indTerm);
@@ -1424,6 +1572,10 @@ void InductionClauseIterator::resolveClauses(const ClauseStack& cls, const Induc
   ASS(cls.isNonEmpty());
   bool generalized = false;
   for (const auto& kv : context._cls) {
+    // we have to check this due to delayed inductions
+    if (_splitter && !_splitter->allSplitLevelsActive(kv.first->splits())) {
+      return;
+    }
     for (const auto& lit : kv.second) {
       if (lit->containsSubterm(TermList(context._indTerm))) {
         generalized = true;

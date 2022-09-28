@@ -157,6 +157,7 @@ public:
   unsigned vacuousInductionFormulaDiscardedStaticallyMismatch;
   unsigned vacuousInductionFormulaDiscardedDynamically;
   unsigned vacuousInductionFormulaDiscardedDynamically2;
+  unsigned delayedInductionApplications;
   unsigned inductionSkippedHeuristic1;
   /** number of argument congruences */
   unsigned argumentCongruence;

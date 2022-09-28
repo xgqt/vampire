@@ -193,6 +193,20 @@ protected:
   void handleClause(Clause* c, bool adding);
 };
 
+class InductionLiteralIndex
+: public LiteralIndex
+{
+public:
+  CLASS_NAME(InductionLiteralIndex);
+  USE_ALLOCATOR(InductionLiteralIndex);
+
+  InductionLiteralIndex(LiteralIndexingStructure* is)
+  : LiteralIndex(is) {}
+
+protected:
+  void handleClause(Clause* c, bool adding);
+};
+
 };
 
 #endif /* __LiteralIndex__ */

@@ -80,6 +80,8 @@ public:
     bool _vacuous = false;
     TermStack _cases;
     vset<Term*> _indTerms;
+    Stack<Inferences::InductionContext> _delayedApplications;
+    bool _delayed = false;
   private:
     Stack<pair<ClauseStack,Substitution>> _st;
   };
@@ -87,10 +89,10 @@ public:
   static Key represent(const Inferences::InductionContext& context);
 
   bool findOrInsert(const Inferences::InductionContext& context, Entry*& e, Literal* bound1 = nullptr, Literal* bound2 = nullptr);
+  Entry* find(const Inferences::InductionContext& context, Literal* bound1 = nullptr, Literal* bound2 = nullptr);
   void makeVacuous(const Inferences::InductionContext& context, Entry* e);
   void makeNonVacuous(const Inferences::InductionContext& context);
   bool isVacuous(Literal* lit);
-  void check(Term* t);
 private:
   DHMap<Key,Entry> _map;
   LiteralSubstitutionTree _vacuousIndex;

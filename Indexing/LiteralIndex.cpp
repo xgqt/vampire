@@ -428,4 +428,18 @@ void UnitIntegerComparisonLiteralIndex::handleClause(Clause* c, bool adding)
   }
 }
 
+void InductionLiteralIndex::handleClause(Clause* c, bool adding)
+{
+  CALL("InductionLiteralIndex::handleClause");
+
+  for (unsigned i = 0; i < c->length(); i++) {
+    Literal* lit = (*c)[i];
+    if (lit->isEquality()) {
+      continue;
+    }
+
+    handleLiteral(lit, c, adding);
+  }
+}
+
 }
