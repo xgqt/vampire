@@ -200,15 +200,6 @@ void TimeCounter::outputSingleStat(TimeCounterUnit tcu, ostream& out)
   case TC_BACKWARD_SUBSUMPTION_DEMODULATION:
     out<<"backward subsumption demodulation";
     break;
-  case TC_INDUCTION:
-    out<<"induction";
-    break;
-  case TC_INDUCTION_REMODULATION:
-    out<<"induction remodulation";
-    break;
-  case TC_INDUCTION_REWRITING:
-    out<<"induction rewriting";
-    break;
   case TC_INTERPRETED_EVALUATION:
     out<<"interpreted evaluation";
     break;
@@ -301,12 +292,6 @@ void TimeCounter::outputSingleStat(TimeCounterUnit tcu, ostream& out)
     break;
   case TC_INDUCTION_TERM_INDEX_MAINTENANCE:
     out<<"induction term index maintenance";
-    break;
-  case TC_INDUCTION_REMODULATION_INDEX_MAINTENANCE:
-    out<<"induction remodulation index maintenance";
-    break;
-  case TC_INDUCTION_REWRITING_INDEX_MAINTENANCE:
-    out<<"induction rewriting index maintenance";
     break;
   case TC_UNIT_INTEGER_COMPARISON_INDEX_MAINTENANCE:
     out<<"unit integer comparison literal index maintenance";

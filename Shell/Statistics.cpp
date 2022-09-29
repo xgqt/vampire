@@ -53,7 +53,6 @@ Statistics::Statistics()
     sineIterations(0),
     factoring(0),
     resolution(0),
-    inductionResolution(0),
     urResolution(0),
     cResolution(0),
     forwardSuperposition(0),
@@ -395,7 +394,6 @@ void Statistics::print(ostream& out)
   COND_OUT("InductionInjectivity", inductionInjectivity);
   COND_OUT("InductionForwardRewriting", inductionForwardRewriting);
   COND_OUT("InductionRedundant", inductionRedundant);
-  COND_OUT("Induction resolution", inductionResolution);
   // COND_OUT("Induction",induction);
   COND_OUT("MaxInductionDepth",maxInductionDepth);
   COND_OUT("StructuralInduction",structInduction);

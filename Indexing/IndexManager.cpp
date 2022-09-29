@@ -265,18 +265,6 @@ Index* IndexManager::create(IndexType t)
     isGenerating = true;
     break;
 
-  case INDUCTION_UNIT_LITERAL_INDEX:
-    is = new LiteralSubstitutionTree();
-    res = new InductionUnitLiteralIndex(is);
-    isGenerating = true;
-    break;
-
-  case INDUCTION_NON_GROUND_LITERAL_INDEX:
-    is = new LiteralSubstitutionTree();
-    res = new InductionNonGroundLiteralIndex(is);
-    isGenerating = true;
-    break;
-
   case INDUCTION_TERM_INDEX:
     tis = new TermSubstitutionTree();
     res = new InductionTermIndex(tis);

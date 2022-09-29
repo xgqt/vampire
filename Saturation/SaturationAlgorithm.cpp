@@ -86,7 +86,6 @@
 #include "Inferences/Induction.hpp"
 #include "Inferences/InductionForwardRewriting.hpp"
 #include "Inferences/InductionRemodulation.hpp"
-#include "Inferences/InductionResolution.hpp"
 #include "Inferences/InductionInjectivity.hpp"
 #include "Inferences/ArithmeticSubtermGeneralization.hpp"
 #include "Inferences/TautologyDeletionISE.hpp"
@@ -1560,9 +1559,6 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
       gie->addFront(inductionRemodulation);
       gie->addFront(new InductionForwardRewriting());
       gie->addFront(new InductionInjectivity());
-      if (res->_splitter) {
-        gie->addFront(new InductionResolution());
-      }
     }
     induction = new Induction();
     gie->addFront(induction);

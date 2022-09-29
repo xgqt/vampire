@@ -428,40 +428,4 @@ void UnitIntegerComparisonLiteralIndex::handleClause(Clause* c, bool adding)
   }
 }
 
-void InductionUnitLiteralIndex::handleClause(Clause* c, bool adding)
-{
-  CALL("InductionUnitLiteralIndex::handleClause");
-
-  if (!c->isGround() || c->length() != 1) {
-    return;
-  }
-
-  Literal* lit = (*c)[0];
-  if (adding) {
-    _is->insert(lit, c);
-  } else {
-    _is->remove(lit, c);
-  }
-}
-
-void InductionNonGroundLiteralIndex::handleClause(Clause* c, bool adding)
-{
-  CALL("InductionUnitLiteralIndex::handleClause");
-
-  auto clen = c->length();
-  auto ns = c->numSelected();
-  if (c->isGround() || clen == ns) {
-    return;
-  }
-
-  for (unsigned i = ns; i < clen; i++) {
-    Literal* lit = (*c)[i];
-    if (adding) {
-      _is->insert(lit, c);
-    } else {
-      _is->remove(lit, c);
-    }
-  }
-}
-
 }

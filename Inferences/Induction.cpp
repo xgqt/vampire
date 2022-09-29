@@ -286,7 +286,7 @@ ClauseIterator Induction::generateClauses(Clause* premise)
   CALL("Induction::generateClauses");
 
   return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex), getOptions(),
-    _structInductionTermIndex, _formulaIndex, _demodulationLhsIndex, _salg->getOrdering(), getOptions().demodulationEncompassment()));
+    _structInductionTermIndex, _formulaIndex, _demodulationLhsIndex, _salg->getOrdering()));
 }
 
 bool InductionClauseIterator::isRedundant(Literal* lit)
@@ -305,7 +305,7 @@ bool InductionClauseIterator::isRedundant(Literal* lit)
       (trm==*lit->nthArgument(0) || trm==*lit->nthArgument(1));
 
     // encompassing demodulation is always fine into negative literals or into non-units
-    if (_encompassing) {
+    if (_opt.demodulationEncompassment()) {
       toplevelCheck &= lit->isPositive();
     }
 
@@ -366,7 +366,7 @@ bool InductionClauseIterator::isRedundant(Literal* lit)
         TermList other=EqHelper::getOtherEqualitySide(lit, trm);
         Ordering::Result tord=_ord.compare(rhsS, other);
         if(tord!=Ordering::LESS && tord!=Ordering::LESS_EQ) {
-          if (_encompassing) {
+          if (_opt.demodulationEncompassment()) {
             // last chance, if the matcher is not a renaming
             if (qr.substitution->isRenamingOn(qr.term,true /* we talk of result term */)) {
               continue;

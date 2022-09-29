@@ -930,8 +930,6 @@ vstring Kernel::ruleName(InferenceRule rule)
     return "integer induction hypothesis (up, default bound)";
   case InferenceRule::INT_DB_DOWN_INDUCTION_AXIOM:
     return "integer induction hypothesis (down, default bound)";
-  case InferenceRule::INDUCTION_RESOLUTION:
-    return "induction resolution";
   case InferenceRule::INDUCTION_HYPERRESOLUTION:
     return "induction hyperresolution";
   case InferenceRule::GEN_INDUCTION_HYPERRESOLUTION:

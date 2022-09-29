@@ -297,8 +297,6 @@ enum class InferenceRule : unsigned char {
   /** hyper-superposition */
   HYPER_SUPERPOSITION_GENERATING,
   /* Induction hyperresolution */
-  INDUCTION_RESOLUTION,
-  /* Induction hyperresolution */
   INDUCTION_HYPERRESOLUTION,
   /* Generalized induction hyperresolution */
   GEN_INDUCTION_HYPERRESOLUTION,
