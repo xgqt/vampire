@@ -77,7 +77,7 @@ void SuperpositionSubtermIndex::handleClause(Clause* c, bool adding)
 {
   CALL("SuperpositionSubtermIndex::handleClause");
 
-  TimeCounter tc(TC_BACKWARD_SUPERPOSITION_INDEX_MAINTENANCE);
+  TIME_TRACE("backward superposition index maintenance");
 
   unsigned selCnt=c->numSelected();
   for (unsigned i=0; i<selCnt; i++) {
@@ -103,7 +103,7 @@ void SuperpositionLHSIndex::handleClause(Clause* c, bool adding)
 {
   CALL("SuperpositionLHSIndex::handleClause");
 
-  TimeCounter tc(TC_FORWARD_SUPERPOSITION_INDEX_MAINTENANCE);
+  TIME_TRACE("forward superposition index maintenance");
 
   unsigned selCnt=c->numSelected();
   for (unsigned i=0; i<selCnt; i++) {
@@ -126,7 +126,7 @@ void DemodulationSubtermIndexImpl<combinatorySupSupport>::handleClause(Clause* c
 {
   CALL("DemodulationSubtermIndex::handleClause");
 
-  TimeCounter tc(TC_BACKWARD_DEMODULATION_INDEX_MAINTENANCE);
+  TIME_TRACE("backward demodulation index maintenance");
 
   static DHSet<TermList> inserted;
 
@@ -173,7 +173,7 @@ void DemodulationLHSIndex::handleClause(Clause* c, bool adding)
     return;
   }
 
-  TimeCounter tc(TC_FORWARD_DEMODULATION_INDEX_MAINTENANCE);
+  TIME_TRACE("forward demodulation index maintenance");
 
   Literal* lit=(*c)[0];
   TermIterator lhsi=EqHelper::getDemodulationLHSIterator(lit, true, _ord, _opt);
@@ -191,7 +191,7 @@ void RemodulationLHSIndex::handleClause(Clause* c, bool adding)
 {
   CALL("RemodulationLHSIndex::handleClause");
 
-  TimeCounter tc(TC_INDUCTION_REMODULATION_INDEX_MAINTENANCE);
+  TIME_TRACE("induction remodulation index maintenance");
 
   if (!canUseForRewrite(c)) {
     return;
@@ -227,7 +227,7 @@ void RewritingLHSIndex::handleClause(Clause* c, bool adding)
 {
   CALL("RewritingLHSIndex::handleClause");
 
-  TimeCounter tc(TC_INDUCTION_REWRITING_INDEX_MAINTENANCE);
+  TIME_TRACE("induction rewriting index maintenance");
 
   if (!canUseForRewrite(c)) {
     return;
@@ -258,7 +258,7 @@ void RewritingSubtermIndex::handleClause(Clause* c, bool adding)
 {
   CALL("RewritingSubtermIndex::handleClause");
 
-  TimeCounter tc(TC_INDUCTION_REWRITING_INDEX_MAINTENANCE);
+  TIME_TRACE("induction rewriting index maintenance");
 
   if (!canUseForRewrite(c) || InductionHelper::isInductionClause(c)) {
     return;
@@ -289,7 +289,7 @@ void RemodulationSubtermIndex::handleClause(Clause* c, bool adding)
 {
   CALL("RemodulationSubtermIndex::handleClause");
 
-  TimeCounter tc(TC_INDUCTION_REMODULATION_INDEX_MAINTENANCE);
+  TIME_TRACE("induction remodulation index maintenance");
 
   if (!InductionHelper::isInductionClause(c)) {
     return;
@@ -324,7 +324,7 @@ void InductionTermIndex::handleClause(Clause* c, bool adding)
 {
   CALL("InductionTermIndex::handleClause");
 
-  TimeCounter tc(TC_INDUCTION_TERM_INDEX_MAINTENANCE);
+  TIME_TRACE("induction term index maintenance");
 
   if (InductionHelper::isInductionClause(c)) {
   // Iterate through literals & check if the literal is suitable for induction

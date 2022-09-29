@@ -25,6 +25,7 @@
 #include "Kernel/TermIterators.hpp"
 #include "Kernel/TermTransformer.hpp"
 
+#include "Lib/ScopedPtr.hpp"
 #include "Lib/SharedSet.hpp"
 
 namespace Inferences

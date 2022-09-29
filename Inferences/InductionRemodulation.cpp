@@ -175,8 +175,9 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
       }));
   }
 
-  return pvi(getTimeCountedIterator(pvi(iterTraits(getConcatenatedIterator(res1,res2))
-    .filter(NonzeroFn())),TC_INDUCTION_REMODULATION));
+  return pvi(iterTraits(getConcatenatedIterator(res1,res2))
+    .filter(NonzeroFn())
+    .timeTraced("induction remodulation"));
 }
 
 vset<unsigned> getSkolems(Literal* lit) {

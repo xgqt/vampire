@@ -79,9 +79,9 @@ ClauseIterator InductionForwardRewriting::generateClauses(Clause *premise)
     res = pvi(getConcatenatedIterator(res, it));
   }
   // Remove null elements
-  return pvi(getTimeCountedIterator(
-    getFilteredIterator(res, NonzeroFn()),
-    TC_INDUCTION_REWRITING));
+  return pvi(iterTraits(res)
+    .filter(NonzeroFn())
+    .timeTraced("induction rewriting"));
 }
 
 Clause *InductionForwardRewriting::perform(
