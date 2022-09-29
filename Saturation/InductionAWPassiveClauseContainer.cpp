@@ -35,7 +35,6 @@ float InductionQueue::calculateValue(Clause* cl)
 {
   CALL("InductionQueue::calculateValue");
   ASS(_restrictions);
-  TimeCounter tc(TC_FMB_CONSTRAINT_CREATION);
   auto it = _m.find(cl);
   if (it == _m.end()) {
     float w = 0.0f;

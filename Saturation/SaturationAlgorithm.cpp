@@ -782,7 +782,7 @@ void SaturationAlgorithm::init()
   ClauseIterator toAdd;
 
   if (env.options->randomTraversals()) {
-    TimeCounter tc(TC_SHUFFLING);
+    TIME_TRACE(TimeTrace::SHUFFLING);
 
     Stack<Clause*> aux;
     aux.loadFromIterator(_prb.clauseIterator());
@@ -814,6 +814,7 @@ void SaturationAlgorithm::init()
 Clause* SaturationAlgorithm::doImmediateSimplification(Clause* cl0)
 {
   CALL("SaturationAlgorithm::doImmediateSimplification");
+  TIME_TRACE("immediate simplification");
 
   static bool sosTheoryLimit = _opt.sos()==Options::Sos::THEORY;
   static unsigned sosTheoryLimitAge = _opt.sosTheoryLimit();
@@ -870,7 +871,7 @@ void SaturationAlgorithm::addNewClause(Clause* cl)
   CALL("SaturationAlgorithm::addNewClause");
 
   if (env.options->randomTraversals()) {
-    TimeCounter tc(TC_SHUFFLING);
+    TIME_TRACE(TimeTrace::SHUFFLING);
 
     Shuffling::shuffle(cl);
   }
@@ -892,7 +893,7 @@ void SaturationAlgorithm::newClausesToUnprocessed()
   CALL("SaturationAlgorithm::newClausesToUnprocessed");
 
   if (env.options->randomTraversals()) {
-    TimeCounter tc(TC_SHUFFLING);
+    TIME_TRACE(TimeTrace::SHUFFLING);
 
     Shuffling::shuffleArray(_newClauses.naked().begin(),_newClauses.size());
   }
@@ -1028,6 +1029,7 @@ void SaturationAlgorithm::handleEmptyClause(Clause* cl)
 bool SaturationAlgorithm::forwardSimplify(Clause* cl)
 {
   CALL("SaturationAlgorithm::forwardSimplify");
+  TIME_TRACE("forward simplification");
 
   if (!_passive->fulfilsAgeLimit(cl) && !_passive->fulfilsWeightLimit(cl)) {
     RSTAT_CTR_INC("clauses discarded by weight limit in forward simplification");
@@ -1097,6 +1099,7 @@ bool SaturationAlgorithm::forwardSimplify(Clause* cl)
 void SaturationAlgorithm::backwardSimplify(Clause* cl)
 {
   CALL("SaturationAlgorithm::backwardSimplify");
+  TIME_TRACE("backward simplification");
 
 
   BwSimplList::Iterator bsit(_bwSimplifiers);
@@ -1154,7 +1157,7 @@ void SaturationAlgorithm::removeActiveOrPassiveClause(Clause* cl)
   switch(cl->store()) {
   case Clause::PASSIVE:
   {
-    TimeCounter tc(TC_PASSIVE_CONTAINER_MAINTENANCE);
+    TIME_TRACE(TimeTrace::PASSIVE_CONTAINER_MAINTENANCE);
     _passive->remove(cl);
     break;
   }
@@ -1179,7 +1182,7 @@ void SaturationAlgorithm::addToPassive(Clause* cl)
   env.statistics->passiveClauses++;
 
   {
-    TimeCounter tc(TC_PASSIVE_CONTAINER_MAINTENANCE);
+    TIME_TRACE(TimeTrace::PASSIVE_CONTAINER_MAINTENANCE);
     _passive->add(cl);
   }
 }
@@ -1206,24 +1209,32 @@ void SaturationAlgorithm::removeSelected(Clause* cl)
 void SaturationAlgorithm::activate(Clause* cl)
 {
   CALL("SaturationAlgorithm::activate");
+      TIME_TRACE("activation")
 
+  {
+  TIME_TRACE("redundancy check")
   if (_consFinder && _consFinder->isRedundant(cl)) {
     return removeSelected(cl);
   }
+  }
 
+  {
+  TIME_TRACE("splitting")
   if (_splitter && _opt.splitAtActivation()) {
     if (_splitter->doSplitting(cl)) {
       return removeSelected(cl);
     }
   }
+  }
 
   _clauseActivationInProgress=true;
 
   if (!cl->numSelected()) {
-    TimeCounter tc(TC_LITERAL_SELECTION);
+    TIME_TRACE("clause selection")
+    TIME_TRACE("literal selection");
 
     if (env.options->randomTraversals()) {
-      TimeCounter tc(TC_SHUFFLING);
+      TIME_TRACE(TimeTrace::SHUFFLING);
 
       Shuffling::shuffle(cl);
     }
@@ -1236,9 +1247,8 @@ void SaturationAlgorithm::activate(Clause* cl)
   env.statistics->activeClauses++;
   _active->add(cl);
     
-  auto generated = _generator->generateSimplify(cl);
-
-  ClauseIterator toAdd = generated.clauses;
+  auto generated = TIME_TRACE_EXPR(TimeTrace::CLAUSE_GENERATION, _generator->generateSimplify(cl));
+  auto toAdd = timeTraceIter(TimeTrace::CLAUSE_GENERATION, generated.clauses);
 
   while (toAdd.hasNext()) {
     Clause* genCl=toAdd.next();
@@ -1261,7 +1271,7 @@ void SaturationAlgorithm::activate(Clause* cl)
 
   //now we remove clauses that could not be removed during the clause activation process
   if (env.options->randomTraversals()) {
-    TimeCounter tc(TC_SHUFFLING);
+    TIME_TRACE(TimeTrace::SHUFFLING);
 
     Shuffling::shuffleArray(_postponedClauseRemovals.begin(),_postponedClauseRemovals.size());
   }
@@ -1270,6 +1280,7 @@ void SaturationAlgorithm::activate(Clause* cl)
     if (cl->store() != Clause::ACTIVE && cl->store() != Clause::PASSIVE) {
       continue;
     }
+    TIME_TRACE("clause removal")
     removeActiveOrPassiveClause(cl);
   }
 
@@ -1390,7 +1401,7 @@ void SaturationAlgorithm::doOneAlgorithmStep()
 
   Clause* cl = nullptr;
   {
-    TimeCounter tc(TC_PASSIVE_CONTAINER_MAINTENANCE);
+    TIME_TRACE(TimeTrace::PASSIVE_CONTAINER_MAINTENANCE);
     cl = _passive->popSelected();
   }
   ASS_EQ(cl->store(),Clause::PASSIVE);
