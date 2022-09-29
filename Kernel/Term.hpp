@@ -633,10 +633,9 @@ public:
     return _isTwoVarEquality;
   }
 
-  bool iexpandable(void* l);
   bool iterm(void* r);
   void markIterm() { _itermcomp = 1; _iterm = 1; }
-  unsigned iweight(void* r, void* l);
+  unsigned iweight(void* r);
 
   const vstring& functionName() const;
 

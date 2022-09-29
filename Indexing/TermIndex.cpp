@@ -132,7 +132,19 @@ void InductionLHSIndex::handleClause(Clause* c, bool adding)
       }
       for (unsigned j=0; j<2; j++) {
         auto side = *lit->nthArgument(j);
-        // cout << (adding?"adding ":"removing ") << side << " of " << *c << endl;
+        if (side.isVar()) {
+          continue;
+        }
+        bool foundCon = false;
+        NonVariableNonTypeIterator nvi(side.term(), true);
+        while (nvi.hasNext()) {
+          auto f = nvi.next().term()->functor();
+          if (env.signature->getFunction(f)->termAlgebraCons()) {
+            foundCon = true;
+            break;
+          }
+        }
+        if (!foundCon) { continue; }
         if (adding) {
           _is->insert(side, lit, c);
         } else {

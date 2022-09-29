@@ -437,7 +437,16 @@ void InductionLiteralIndex::handleClause(Clause* c, bool adding)
     if (lit->isEquality()) {
       continue;
     }
-
+    bool foundCon = false;
+    NonVariableNonTypeIterator nvi(lit);
+    while (nvi.hasNext()) {
+      auto f = nvi.next().term()->functor();
+      if (env.signature->getFunction(f)->termAlgebraCons()) {
+        foundCon = true;
+        break;
+      }
+    }
+    if (!foundCon) { continue; }
     handleLiteral(lit, c, adding);
   }
 }

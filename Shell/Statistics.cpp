@@ -99,6 +99,7 @@ Statistics::Statistics()
     vacuousInductionFormulaDiscardedStatically(0),
     vacuousInductionFormulaDiscardedStaticallyOneSide(0),
     vacuousInductionFormulaDiscardedStaticallyMismatch(0),
+    vacuousInductionFormulaDiscardedStaticallyMonotonicity(0),
     vacuousInductionFormulaDiscardedDynamically(0),
     vacuousInductionFormulaDiscardedDynamically2(0),
     delayedInductionApplications(0),
@@ -424,6 +425,7 @@ void Statistics::print(ostream& out)
   COND_OUT("VacuousInductionFormulaDiscardedStatically",vacuousInductionFormulaDiscardedStatically);
   COND_OUT("VacuousInductionFormulaDiscardedStaticallyOneSide",vacuousInductionFormulaDiscardedStaticallyOneSide);
   COND_OUT("VacuousInductionFormulaDiscardedStaticallyMismatch",vacuousInductionFormulaDiscardedStaticallyMismatch);
+  COND_OUT("VacuousInductionFormulaDiscardedStaticallyMonotonicity",vacuousInductionFormulaDiscardedStaticallyMonotonicity);
   COND_OUT("VacuousInductionFormulaDiscardedDynamically",vacuousInductionFormulaDiscardedDynamically);
   COND_OUT("VacuousInductionFormulaDiscardedDynamically2",vacuousInductionFormulaDiscardedDynamically2);
   COND_OUT("DelayedInductionApplications",delayedInductionApplications);

@@ -155,6 +155,7 @@ public:
   unsigned vacuousInductionFormulaDiscardedStatically;
   unsigned vacuousInductionFormulaDiscardedStaticallyOneSide;
   unsigned vacuousInductionFormulaDiscardedStaticallyMismatch;
+  unsigned vacuousInductionFormulaDiscardedStaticallyMonotonicity;
   unsigned vacuousInductionFormulaDiscardedDynamically;
   unsigned vacuousInductionFormulaDiscardedDynamically2;
   unsigned delayedInductionApplications;

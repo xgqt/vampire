@@ -36,7 +36,6 @@
 #include "Lib/DHMap.hpp"
 #include "Lib/DHSet.hpp"
 #include "Lib/List.hpp"
-#include "Lib/MultiCounter.hpp"
 
 #include "InductionHelper.hpp"
 #include "InferenceEngine.hpp"
@@ -195,8 +194,6 @@ private:
   InductionLHSIndex* _lhsIndex;
   InductionLiteralIndex* _literalIndex;
   CodeTreeTIS _restrictions;
-  CodeTreeTIS _functionMatcher;
-  MiniSaturation* _ms;
   DHMap<unsigned, pair<InductionContext,Term*>> _skolemToConclusionMap;
 };
 
@@ -206,11 +203,11 @@ public:
   // all the work happens in the constructor!
   InductionClauseIterator(Clause* premise, InductionHelper helper, const Options& opt,
     TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, TermSubstitutionTree& delayedIndex,
-    LiteralSubstitutionTree& delayedLitIndex, CodeTreeTIS& restrictions, MiniSaturation* ms, Problem& prb, Splitter* splitter,
+    LiteralSubstitutionTree& delayedLitIndex, CodeTreeTIS& restrictions, Problem& prb, Splitter* splitter,
     DHMap<unsigned, pair<InductionContext,Term*>>& skolemToConclusionMap, InductionLHSIndex* lhsIndex, InductionLiteralIndex* literalIndex)
       : _helper(helper), _opt(opt), _structInductionTermIndex(structInductionTermIndex), _formulaIndex(formulaIndex),
       _delayedIndex(delayedIndex), _delayedLitIndex(delayedLitIndex), _lhsIndex(lhsIndex), _literalIndex(literalIndex),
-      _restrictions(restrictions), _ms(ms), _prb(prb), _splitter(splitter), _skolemToConclusionMap(skolemToConclusionMap)
+      _restrictions(restrictions), _ms(nullptr), _prb(prb), _splitter(splitter), _skolemToConclusionMap(skolemToConclusionMap)
   {
     processClause(premise);
   }

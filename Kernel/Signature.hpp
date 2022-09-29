@@ -153,8 +153,6 @@ class Signature
     unsigned _skolem : 1;
     /** if tuple sort */
     unsigned _tuple : 1;
-    unsigned _injective;
-    unsigned _suggestsInduction : 1;
     unsigned _suggestsMultiTermInduction : 1;
     unsigned _nonErasing : 1;
     /** proxy type */
@@ -264,14 +262,8 @@ class Signature
     inline void markTuple(){ _tuple = 1; }
     inline bool tupleSort(){ return _tuple; }
 
-    inline void setInjective(unsigned i){ _injective = i; }
-    inline unsigned injective(){ return _injective; }
-
     inline void markNonErasing() { _nonErasing = true; }
     inline bool nonErasing() { return _nonErasing; }
-
-    inline void markSuggestsInduction(){ _suggestsInduction = 1; }
-    inline bool suggestsInduction(){ return _suggestsInduction; }
 
     inline void markSuggestsMultiTermInduction(){ _suggestsMultiTermInduction = 1; }
     inline bool suggestsMultiTermInduction(){ return _suggestsMultiTermInduction; }

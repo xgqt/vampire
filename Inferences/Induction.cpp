@@ -263,8 +263,7 @@ void Induction::attach(SaturationAlgorithm* salg) {
   }
   _lhsIndex = static_cast<InductionLHSIndex*>(_salg->getIndexManager()->request(INDUCTION_LHS_INDEX));
   _literalIndex = static_cast<InductionLiteralIndex*>(_salg->getIndexManager()->request(INDUCTION_LITERAL_INDEX));
-  _salg->getPassiveClauseContainer()->setInductionRestrictions(&_restrictions, &_functionMatcher);
-  _ms = MiniSaturation::createFromOptions(_salg->getProblem(), _salg->getOptions());
+  _salg->getPassiveClauseContainer()->setInductionRestrictions(&_restrictions);
 }
 
 void Induction::detach() {
@@ -272,7 +271,7 @@ void Induction::detach() {
 
   _salg->getIndexManager()->release(INDUCTION_LITERAL_INDEX);
   _salg->getIndexManager()->release(INDUCTION_LHS_INDEX);
-  _salg->getPassiveClauseContainer()->setInductionRestrictions(nullptr, nullptr);
+  _salg->getPassiveClauseContainer()->setInductionRestrictions(nullptr);
   if (InductionHelper::isNonUnitStructInductionOn()) {
     _structInductionTermIndex = nullptr;
     _salg->getIndexManager()->release(STRUCT_INDUCTION_TERM_INDEX);
@@ -292,7 +291,7 @@ ClauseIterator Induction::generateClauses(Clause* premise)
 
   return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex), getOptions(),
     _structInductionTermIndex, _formulaIndex, _delayedIndex, _delayedLitIndex,
-    _restrictions, _ms, _salg->getProblem(), _salg->getSplitter(), _skolemToConclusionMap, _lhsIndex, _literalIndex));
+    _restrictions, _salg->getProblem(), _salg->getSplitter(), _skolemToConclusionMap, _lhsIndex, _literalIndex));
 }
 
 void InductionClauseIterator::processClause(Clause* premise)
@@ -407,10 +406,13 @@ private:
   Literal* _lit;
 };
 
+inline bool matchCondition(TermList t) {
+  return t.isTerm() && env.signature->getFunction(t.term()->functor())->termAlgebraCons();
+}
 
 bool InductionClauseIterator::maybeDelayInduction(const InductionContext& ctx, InductionFormulaIndex::Entry* e)
 {
-  CALL("InductionClauseIterator::checkForVacuousness");
+  CALL("InductionClauseIterator::maybeDelayInduction");
   if (e->_delayed) {
     env.statistics->delayedInductionApplications++;
     e->_delayedApplications.push(ctx);
@@ -419,47 +421,36 @@ bool InductionClauseIterator::maybeDelayInduction(const InductionContext& ctx, I
   if (ctx._cls.size() != 1 || ctx._cls.begin()->second.size() != 1) {
     return true;
   }
-  auto lit = ctx._cls.begin()->second[0];
-  auto ph = getPlaceholderForTerm(ctx._indTerm);
   bool found = false;
   TermList x(0,false);
-  TermReplacement tr(ph, x);
-  auto tlit = tr.transform(lit);
+  TermReplacement tr(getPlaceholderForTerm(ctx._indTerm), x);
+  auto tlit = tr.transform(ctx._cls.begin()->second[0]);
   NonVariableNonTypeIterator it(tlit);
+  DHSet<Term*> tried;
   while (it.hasNext()) {
     auto t = it.next();
-    if (!t.containsSubterm(x)) {
+    if (!t.containsSubterm(x) || !tried.insert(t.term())) {
       it.right();
       continue;
     }
-    auto qrit = _lhsIndex->getUnifications(t);
-    while (qrit.hasNext()) {
-      auto qr = qrit.next();
-      auto at = qr.substitution->applyToQuery(x);
-      // cout << "term " << at << " " << *qr.literal << " " << qr.term << endl;
-      if (at.isTerm() && env.signature->getFunction(at.term()->functor())->termAlgebraCons()) {
-        found = true;
-        break;
-      }
-    }
-    if (found) {
+    if (iterTraits(_lhsIndex->getUnifications(t)).any([x](const TermQueryResult& qr) {
+      auto tt = qr.substitution->applyToQuery(x);
+      return matchCondition(tt);
+    })) {
+      found = true;
       break;
     }
   }
   if (!found && !tlit->isEquality()) {
-    auto qrit = getConcatenatedIterator(_literalIndex->getUnifications(tlit, true), _literalIndex->getUnifications(tlit, false));
-    while (qrit.hasNext()) {
-      auto qr = qrit.next();
-      auto at = qr.substitution->applyToQuery(x);
-      // cout << "term " << at << " " << *qr.literal << endl;
-      if (at.isTerm() && env.signature->getFunction(at.term()->functor())->termAlgebraCons()) {
-        found = true;
-        break;
-      }
+    if (iterTraits(getConcatenatedIterator(_literalIndex->getUnifications(tlit, true), _literalIndex->getUnifications(tlit, false)))
+      .any([x](const SLQueryResult& qr) {
+        auto tt = qr.substitution->applyToQuery(x);
+        return matchCondition(tt);
+      })) {
+      found = true;
     }
   }
   if (!found) {
-    // cout << "not found for " << ctx.toString() << " " << e << endl;
     e->_delayed = true;
     e->_delayedApplications.push(ctx);
     env.statistics->delayedInductionApplications++;
@@ -470,7 +461,6 @@ bool InductionClauseIterator::maybeDelayInduction(const InductionContext& ctx, I
         it.right();
         continue;
       }
-      // cout << "insert " << t << " " << tlit << " " << nullptr << endl;
       _delayedIndex.insert(t, tlit, nullptr);
     }
     _delayedLitIndex.insert(tlit, nullptr);
@@ -484,6 +474,31 @@ void InductionClauseIterator::checkForDelayedInductions(Literal* lit)
   CALL("InductionClauseIterator::checkForDelayedInductions");
   TermList x(0,false);
   vset<Literal*> toBeRemoved;
+  auto reactivate = [&toBeRemoved, this](TermList t, Literal* lit){
+    if (!matchCondition(t) || toBeRemoved.count(lit)) {
+      return;
+    }
+    auto ph = getPlaceholderForTerm(t.term());
+    Substitution subst;
+    subst.bind(0, ph);
+    // dummy context just to get the entry from the induction formula index
+    InductionContext dummy(ph, lit->apply(subst), nullptr);
+    InductionFormulaIndex::Entry* e = _formulaIndex.find(dummy);
+    ASS(e);
+    ASS(e->_delayed);
+    ASS(e->_delayedApplications.isNonEmpty());
+    while (e->_delayedApplications.isNonEmpty()) {
+      auto ctx = e->_delayedApplications.pop();
+      ASS_NEQ(0,env.statistics->delayedInductionApplications);
+      env.statistics->delayedInductionApplications--;
+      for (auto& kv : e->get()) {
+        resolveClauses(kv.first, ctx, kv.second);
+      }
+    }
+    e->_delayed = false;
+    toBeRemoved.insert(lit);
+  };
+
   if (lit->isEquality()) {
     if (lit->isPositive()) {
       for (unsigned j=0; j<2; j++) {
@@ -491,31 +506,8 @@ void InductionClauseIterator::checkForDelayedInductions(Literal* lit)
         auto qrit = _delayedIndex.getUnifications(side,true);
         while (qrit.hasNext()) {
           auto qr = qrit.next();
-          auto at = qr.substitution->applyToResult(x);
-          // cout << "term " << at << " " << t << endl;
-          if (at.isTerm() && env.signature->getFunction(at.term()->functor())->termAlgebraCons()) {
-            auto ph = getPlaceholderForTerm(at.term());
-            Substitution subst;
-            subst.bind(0, ph);
-            // dummy context just to get the entry from the induction formula index
-            InductionContext dummy(ph, qr.literal->apply(subst), nullptr);
-            InductionFormulaIndex::Entry* e = _formulaIndex.find(dummy);
-            // cout << "delayed " << *qr.literal << " with term " << at << " from " << t << " and " << *qr.literal->apply(subst) << " " << e << endl;
-            ASS(e);
-            if (e->_delayed) {
-              ASS(e->_delayedApplications.isNonEmpty());
-              while (e->_delayedApplications.isNonEmpty()) {
-                auto ctx = e->_delayedApplications.pop();
-                ASS_NEQ(0,env.statistics->delayedInductionApplications);
-                env.statistics->delayedInductionApplications--;
-                for (auto& kv : e->get()) {
-                  resolveClauses(kv.first, ctx, kv.second);
-                }
-              }
-              e->_delayed = false;
-            }
-            toBeRemoved.insert(qr.literal);
-          }
+          auto tt = qr.substitution->applyToResult(x);
+          reactivate(tt, qr.literal);
         }
       }
     }
@@ -523,31 +515,8 @@ void InductionClauseIterator::checkForDelayedInductions(Literal* lit)
     auto qrit = getConcatenatedIterator(_delayedLitIndex.getUnifications(lit, true, true), _delayedLitIndex.getUnifications(lit, false, true));
     while (qrit.hasNext()) {
       auto qr = qrit.next();
-      auto at = qr.substitution->applyToQuery(x);
-      // cout << "term2 " << at << " " << *qr.literal << endl;
-      if (at.isTerm() && env.signature->getFunction(at.term()->functor())->termAlgebraCons()) {
-        auto ph = getPlaceholderForTerm(at.term());
-        Substitution subst;
-        subst.bind(0, ph);
-        // dummy context just to get the entry from the induction formula index
-        InductionContext dummy(ph, qr.literal->apply(subst), nullptr);
-        InductionFormulaIndex::Entry* e = _formulaIndex.find(dummy);
-        // cout << "delayed " << *qr.literal << " with term " << at << " from " << t << " and " << *qr.literal->apply(subst) << " " << e << endl;
-        ASS(e);
-        if (e->_delayed) {
-          ASS(e->_delayedApplications.isNonEmpty());
-          while (e->_delayedApplications.isNonEmpty()) {
-            auto ctx = e->_delayedApplications.pop();
-            ASS_NEQ(0,env.statistics->delayedInductionApplications);
-            env.statistics->delayedInductionApplications--;
-            for (auto& kv : e->get()) {
-              resolveClauses(kv.first, ctx, kv.second);
-            }
-          }
-          e->_delayed = false;
-        }
-        toBeRemoved.insert(qr.literal);
-      }
+      auto tt = qr.substitution->applyToResult(x);
+      reactivate(tt, qr.literal);
     }
   }
   for (const auto& lit : toBeRemoved) {
@@ -571,7 +540,6 @@ bool InductionClauseIterator::checkForVacuousness(const InductionContext& ctx)
 {
   CALL("InductionClauseIterator::checkForVacuousness");
   if (ctx._cls.size() == 1 && ctx._cls.begin()->second.size() == 1) {
-    TimeCounter tc(TC_RAND_OPT);
     // context is vacuous if all of these conditions hold:
     // * context contains only one negative equality
     // * only one side contains the induction term 
@@ -649,46 +617,6 @@ bool InductionClauseIterator::checkForVacuousness(const InductionContext& ctx)
   return true;
 }
 
-bool skolemMismatch(Term* lhs, Term* rhs, Term* ph) {
-  NonVariableIterator nvilhs(lhs, true);
-  vset<unsigned> sklhs;
-  vset<unsigned> skrhs;
-  while (nvilhs.hasNext()) {
-    auto t = nvilhs.next();
-    auto sym = env.signature->getFunction(t.term()->functor());
-    if (sym->termAlgebraCons() || sym->termAlgebraDest() || sym->nonErasing() || t.term() == ph) {
-      continue;
-    } else if (sym->skolem()) {
-      sklhs.insert(t.term()->functor());
-    } else {
-      nvilhs.right();
-    }
-  }
-  NonVariableIterator nvirhs(rhs, true);
-  while (nvirhs.hasNext()) {
-    auto t = nvirhs.next();
-    auto sym = env.signature->getFunction(t.term()->functor());
-    if (sym->termAlgebraCons() || sym->termAlgebraDest() || sym->nonErasing() || t.term() == ph) {
-      continue;
-    } else if (sym->skolem()) {
-      skrhs.insert(t.term()->functor());
-    } else {
-      nvirhs.right();
-    }
-  }
-  vvector<unsigned> diff;
-  std::set_difference(sklhs.begin(), sklhs.end(), skrhs.begin(), skrhs.end(), inserter(diff, diff.begin()));
-  if (!diff.empty()) {
-    return true;
-  }
-  diff.clear();
-  std::set_difference(skrhs.begin(), skrhs.end(), sklhs.begin(), sklhs.end(), inserter(diff, diff.begin()));
-  if (!diff.empty()) {
-    return true;
-  }
-  return false;
-}
-
 bool onlyCtorsDownToTerm(Term* t, Term* st) {
   Stack<Term*> todo;
   todo.push(t);
@@ -757,78 +685,25 @@ bool Induction::checkForVacuousness(Literal* lit, Term* t)
         continue;
       }
       auto sym = env.signature->getFunction(st.term()->functor());
-      if (sym->termAlgebraCons() || sym->termAlgebraDest()) {
+      if (sym->termAlgebraCons() || sym->termAlgebraDest() || sym->nonErasing()) {
         continue;
       }
-      // cout << sym->name() << " " << (sym->nonErasing() ? "non-erasing" : "erasing") << endl;
-      if (!sym->nonErasing() && st.containsSubterm(TermList(t))) {
+      if (st.containsSubterm(TermList(t))) {
         return true;
       }
     }
     env.statistics->vacuousInductionFormulaDiscardedStaticallyOneSide++;
     return false;
-
-    enum BranchType {
-      NORMAL,
-      INJECTIVE,
-      INJECTIVE_BRANCH,
-    };
-    Stack<pair<Term*,BranchType>> todo;
-    vvector<unsigned> bs(3,0);
-    todo.push(make_pair(side,INJECTIVE));
-    while (todo.isNonEmpty()) {
-      auto kv = todo.pop();
-      if (kv.first == t) {
-        bs[kv.second]++;
-      }
-      auto symb = env.signature->getFunction(kv.first->functor());
-      if (kv.second == NORMAL) {
-        bs[kv.second] += kv.first->countSubtermOccurrences(TermList(t));
-      } else if (kv.second == INJECTIVE) {
-        if (symb->termAlgebraCons() || symb->termAlgebraDest() || (symb->arity() == 1 && symb->injective())) {
-          for (unsigned i = 0; i < kv.first->arity(); i++) {
-            todo.push(make_pair((*kv.first)[i].term(), INJECTIVE));
-          }
-        } else {
-          auto inj = symb->injective();
-          for (unsigned i = 0; i < kv.first->arity(); i++) {
-            todo.push(make_pair((*kv.first)[i].term(), inj & 1 ? INJECTIVE_BRANCH : NORMAL));
-            inj >>= 1;
-          }
-        }
-      } else {
-        if (symb->termAlgebraCons() || symb->termAlgebraDest()) {
-          for (unsigned i = 0; i < kv.first->arity(); i++) {
-            todo.push(make_pair((*kv.first)[i].term(), INJECTIVE_BRANCH));
-          }
-        } else {
-          auto inj = symb->injective();
-          for (unsigned i = 0; i < kv.first->arity(); i++) {
-            todo.push(make_pair((*kv.first)[i].term(), inj & 1 ? INJECTIVE_BRANCH : NORMAL));
-            inj >>= 1;
-          }
-        }
-      }
-    }
-    auto res = (bs[NORMAL] || bs[INJECTIVE_BRANCH] > 1);
-    // cout << ctx.toString() << endl
-    //      << "normal " << bs[NORMAL] << endl
-    //      << "injective " << bs[INJECTIVE] << endl
-    //      << "injective branch " << bs[INJECTIVE_BRANCH] << endl
-    //      << "value " << res << endl;
-    return res;
   } else {
     if (lhs == t || rhs == t) {
       auto symb = env.signature->getFunction((lhs == t) ? rhs->functor() : lhs->functor());
       if (symb->termAlgebraCons()) {
+        env.statistics->vacuousInductionFormulaDiscardedStaticallyMismatch++;
         return false;
       }
     }
-    // if (skolemMismatch(lhs, rhs, t)) {
-    //   env.statistics->vacuousInductionFormulaDiscardedStaticallyMismatch++;
-    //   return false;
-    // }
     if (monotonicityCheck(lhs, rhs)) {
+      env.statistics->vacuousInductionFormulaDiscardedStaticallyMonotonicity++;
       return false;
     }
   }
@@ -863,66 +738,39 @@ void Induction::preprocess(const Problem& prb)
     auto unit = uit.next();
     Clause* cl=static_cast<Clause*>(unit);
     ASS(cl->isClause());
-    MultiCounter preds;
-    MultiCounter funcs;
-    Set<unsigned> funcsAtTop;
     for (unsigned i = 0; i < cl->length(); i++) {
       auto lit = (*cl)[i];
-      if (lit->isEquality()) {
-        if (lit->isPositive()) {
-          for (unsigned j = 0; j <= 1; j++) {
-            auto side = *lit->nthArgument(j);
-            if (side.isVar()) {
-              continue;
-            }
-            auto fn = side.term()->functor();
-            funcsAtTop.insert(fn);
-            auto other = *lit->nthArgument(1-j);
-            if (!isFunctionHeader(side) || other.isVar()) {
-              continue;
-            }
-            // if (canUseForRewrite(lit, cl) && termHasAllVarsOfClause(side, cl)) {
-            //   _functionMatcher.insert(side, lit, cl);
-            // }
-            NonVariableIterator nvi(other.term(), true);
-            while (nvi.hasNext()) {
-              auto st = nvi.next();
-              if (st.term()->functor() != fn) {
-                continue;
-              }
-              unsigned cnt = 0;
-              for (unsigned k = 0; k < side.term()->arity(); k++) {
-                if (*side.term()->nthArgument(k) != *st.term()->nthArgument(k)) {
-                  cnt++;
-                }
-              }
-              if (cnt > 1) {
-                env.signature->getFunction(fn)->markSuggestsMultiTermInduction();
-              }
+      if (!lit->isEquality() || lit->isNegative()) {
+        continue;
+      }
+      for (unsigned j = 0; j <= 1; j++) {
+        auto side = *lit->nthArgument(j);
+        if (side.isVar()) {
+          continue;
+        }
+        auto fn = side.term()->functor();
+        auto other = *lit->nthArgument(1-j);
+        if (!isFunctionHeader(side) || other.isVar()) {
+          continue;
+        }
+        NonVariableIterator nvi(other.term(), true);
+        while (nvi.hasNext()) {
+          auto st = nvi.next();
+          if (st.term()->functor() != fn) {
+            continue;
+          }
+          unsigned cnt = 0;
+          for (unsigned k = 0; k < side.term()->arity(); k++) {
+            if (*side.term()->nthArgument(k) != *st.term()->nthArgument(k)) {
+              cnt++;
             }
           }
+          if (cnt > 1) {
+            env.signature->getFunction(fn)->markSuggestsMultiTermInduction();
+          }
         }
-      } else {
-        preds.inc(lit->functor());
-      }
-      NonVariableIterator nvi(lit);
-      while (nvi.hasNext()) {
-        auto t = nvi.next().term();
-        funcs.inc(t->functor());
       }
     }
-    // for (unsigned i = 0; i < preds.lastCounter(); i++) {
-    //   if (preds.get(i) > 2) {
-    //     env.signature->getPredicate(i)->markSuggestsInduction();
-    //     cout << "predicate " << env.signature->getPredicate(i)->name() << " suggests induction" << endl;
-    //   }
-    // }
-    // for (unsigned i = 0; i < funcs.lastCounter(); i++) {
-    //   if (funcsAtTop.contains(i) && funcs.get(i) > 2) {
-    //     env.signature->getFunction(i)->markSuggestsInduction();
-    //     cout << "function " << env.signature->getFunction(i)->name() << " suggests induction" << endl;
-    //   }
-    // }
   }
 }
 
@@ -1134,7 +982,6 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
           }
         }
         if (checkForVacuousness(ctx)) {
-          // cout << "not vacuous " << ctx.toString() << endl;
           if(one){
             performStructInductionOne(ctx,e);
           }
@@ -1145,7 +992,6 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
             performStructInductionThree(ctx,e);
           }
         } else {
-          // cout << "vacuous " << ctx.toString() << endl;
           _formulaIndex.makeVacuous(ctx,e);
           env.statistics->vacuousInductionFormulaDiscardedStatically++;
         }
@@ -1198,7 +1044,6 @@ bool InductionClauseIterator::runMiniSaturation()
 {
   for (unsigned i = 0; i < 10; i++) {
     try {
-      TimeCounter tc(TC_FMB_CONSTRAINT_CREATION);
       _ms->doOneAlgorithmStep();
     } catch(MainLoop::RefutationFoundException& exp) {
       // cout << endl << "PROOF -------------- " << endl;
@@ -1274,7 +1119,6 @@ void InductionClauseIterator::processIntegerComparison(Clause* premise, Literal*
 ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, TermStack& cases, const vmap<unsigned,LiteralStack>& hyps)
 {
   CALL("InductionClauseIterator::produceClauses");
-  TimeCounter tc(TC_RAND_OPT);
   InductionCNF cnf;
   // NewCNF cnf(0);
   // cnf.setForInduction();

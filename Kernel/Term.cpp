@@ -804,20 +804,6 @@ vstring Literal::toString() const
   return s;
 } // Literal::toString
 
-bool Term::iexpandable(void* l)
-{
-  CALL("Term::iexpandable");
-  Term* t = this;
-  // if (_ptr) {
-  //   t = _ptr;
-  // }
-  if (!_iexpcomp) {
-    _iexpandable = static_cast<CodeTreeTIS*>(l)->generalizationExists(TermList(t));
-    _iexpcomp = 1;
-  }
-  return _iexpandable;
-}
-
 bool Term::iterm(void* r)
 {
   CALL("Term::iterm");
@@ -828,14 +814,14 @@ bool Term::iterm(void* r)
   return _iterm;
 }
 
-unsigned Term::iweight(void* r, void* l)
+unsigned Term::iweight(void* r)
 {
   CALL("Term::iweight");
   if (iterm(r)) {
     return 0;
   }
   if (!_iweightcomp) {
-    _iweight = !iexpandable(l);
+    _iweight = 1;
     Term* t = this;
     // if (_ptr) {
     //   t = _ptr;
@@ -844,7 +830,7 @@ unsigned Term::iweight(void* r, void* l)
       if (tt->isVar()) {
         _iweight++;
       } else {
-        _iweight += tt->term()->iweight(r, l);
+        _iweight += tt->term()->iweight(r);
       }
     }
     _iweightcomp = 1;

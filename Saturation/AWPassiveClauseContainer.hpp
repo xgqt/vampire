@@ -74,7 +74,7 @@ public:
 
   void remove(Clause* cl) override;
 
-  void setInductionRestrictions(void* r, void* l) override {}
+  void setInductionRestrictions(void* r) override {}
 
   bool byWeight(int balance);
 
