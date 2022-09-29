@@ -129,6 +129,9 @@ void DemodulationSubtermIndexImpl<combinatorySupSupport>::handleClause(Clause* c
   TIME_TRACE("backward demodulation index maintenance");
 
   static DHSet<TermList> inserted;
+  if (c->isInductionClause()) {
+    return;
+  }
 
   unsigned cLen=c->length();
   for (unsigned i=0; i<cLen; i++) {
@@ -303,7 +306,7 @@ void RemodulationSubtermIndex::handleClause(Clause* c, bool adding)
       continue;
     }
     inserted.reset();
-    PointedTermIterator it(lit);
+    NonVariableNonTypeIterator it(lit);
     while (it.hasNext()) {
       TermList tl = it.next();
       if (!inserted.insert(tl)) {
@@ -359,11 +362,10 @@ void StructInductionTermIndex::handleClause(Clause* c, bool adding)
     return;
   }
   static DHSet<TermList> inserted;
-  PointerTermReplacement ptr;
   // Iterate through literals & check if the literal is suitable for induction
   for (unsigned i=0;i<c->length();i++) {
     inserted.reset();
-    Literal* lit = ptr.transform((*c)[i]);
+    Literal* lit = (*c)[i];
     if (!lit->ground()) {
       continue;
     }

@@ -357,6 +357,7 @@ public:
 
   unsigned numPositiveLiterals(); // number of positive literals in the clause
 
+  void markInductionClause();
   bool isInductionClause();
 
 protected:
@@ -372,11 +373,8 @@ protected:
   unsigned _extensionalityTag : 1;
   /** Clause is a splitting component. */
   unsigned _component : 1;
-  /** 0 not calculated,
-   *  1 calculated not induction clause,
-   *  2 not used
-   *  3 calculated induction clause */
-  unsigned _inductionClause : 2;
+  /** Clause is induction clause */
+  unsigned _inductionClause : 1;
 
   /** storage class */
   Store _store : 3;

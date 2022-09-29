@@ -31,55 +31,6 @@
 namespace Inferences
 {
 
-inline Term* getPointedTerm(Term* t) {
-  auto ptr = t->getPointedTerm();
-  if (!ptr) {
-    return t;
-  }
-#if VDEBUG
-  if (ptr != t) {
-    NonVariableIterator nvi(ptr);
-    while (nvi.hasNext()) {
-      auto st = nvi.next().term();
-      ASS_REP(!st->getPointedTerm(),t->toString());
-    }
-  }
-#endif
-  return ptr;
-}
-
-class PointedTermIterator
-  : public IteratorCore<TermList>
-{
-public:
-  PointedTermIterator(Literal* lit)
-  : _stack(8),
-    _added(0)
-  {
-    CALL("PointedTermIterator::PointedTermIterator");
-    _stack.push(getPointedTerm(lit));
-    PointedTermIterator::next();
-  }
-
-  bool hasNext() override { return !_stack.isEmpty(); }
-  TermList next() override;
-  void right();
-
-private:
-  Stack<Term*> _stack;
-  int _added;
-};
-
-class PointerTermReplacement : public TermTransformer {
-private:
-  TermList transformSubterm(TermList trm) override {
-    if (trm.isVar()) {
-      return trm;
-    }
-    return TermList(getPointedTerm(trm.term()));
-  }
-};
-
 using namespace Kernel;
 using namespace Indexing;
 using namespace Saturation;
@@ -133,51 +84,40 @@ inline bool hasTermToInductOn(Term* t, Literal* l) {
   return false;
 }
 
-class SingleOccurrenceReplacementIterator : public IteratorCore<Term*> {
+class SingleOccurrenceReplacementIterator : public IteratorCore<Literal*> {
 public:
   CLASS_NAME(SingleOccurrenceReplacementIterator);
   USE_ALLOCATOR(SingleOccurrenceReplacementIterator);
-  SingleOccurrenceReplacementIterator(Term* t, Term* o, TermList r)
-      : _t(t), _o(o), _r(r)
+  SingleOccurrenceReplacementIterator(Literal* lit, Term* o, TermList r)
+      : _lit(lit), _o(o), _r(r)
   {
-    ASS(!_o->getPointedTerm());
-    ASS(!_r.term()->getPointedTerm());
-    _occurrences = _t->countSubtermOccurrences(TermList(_o));
-    NonVariableIterator nvi(_t);
-    while (nvi.hasNext()) {
-      auto t = nvi.next().term();
-      auto ptr = getPointedTerm(t);
-      if (t != ptr) {
-        _occurrences += ptr->countSubtermOccurrences(TermList(_o));
-      }
-    }
+    _occurrences = _lit->countSubtermOccurrences(TermList(_o));
   }
 
   bool hasNext() override {
     return _iteration < _occurrences;
   }
-  Term* next() override;
+  Literal* next() override;
 
 private:
   unsigned _iteration = 0;
   unsigned _occurrences;
-  Term* _t;
+  Literal* _lit;
   Term* _o;
   TermList _r;
 
   class Replacer : public TermTransformer {
   public:
-    Replacer(Term* o, TermList r, unsigned i, bool replaceWithPointer = true)
-      : _o(o), _r(r), _i(i), _matchCount(0), _replaceWithPointer(replaceWithPointer) {}
+    Replacer(Term* o, TermList r, unsigned i)
+      : _o(o), _r(r), _i(i), _matchCount(0) {}
 
-private:
+  private:
     TermList transformSubterm(TermList trm) override;
 
     Term* _o;
     TermList _r;
     unsigned _i;
     unsigned _matchCount;
-    bool _replaceWithPointer;
   };
 };
 

@@ -627,9 +627,6 @@ vstring Term::headToString() const
         ASSERTION_VIOLATION;
     }
   } else {
-    if (!isLiteral() && !isSort() && getPointedTerm()) {
-      return "ca_"+getPointedTerm()->toString();
-    }
     unsigned proj;
     if (!isSort() && Theory::tuples()->findProjection(functor(), isLiteral(), proj)) {
       return "$proj(" + Int::toString(proj) + ", ";
@@ -959,30 +956,6 @@ Term* Term::createConstant(const vstring& name)
 
   unsigned symbolNumber = env.signature->addFunction(name,0);
   return createConstant(symbolNumber);
-}
-
-Term* Term::createPointerConstant(Term* ptr)
-{
-  CALL("Term::createPointerConstant");
-  ASS(!ptr->isLiteral());
-  ASS(ptr->shared());
-#if VDEBUG
-  NonVariableIterator nvi(ptr);
-  while (nvi.hasNext()) {
-    auto st = nvi.next().term();
-    ASS_REP(!st->getPointedTerm(),ptr->toString());
-  }
-#endif
-  TermList srt = env.signature->getFunction(ptr->functor())->fnType()->result();
-  auto name = "ca_" + Int::toString(ptr->getId());
-  bool added;
-  auto fn = env.signature->addFunction(name, 0, added);
-  if (added) {
-    env.signature->getFunction(fn)->setType(OperatorType::getConstantsType(srt));
-  }
-  auto c = createConstant(fn);
-  c->_ptr = ptr;
-  return c;
 }
 
 /** Create a new complex term, copy from @b t its function symbol and
@@ -1771,7 +1744,6 @@ Term::Term(const Term& t) throw()
     _hasInterpretedConstants(0),
     _isTwoVarEquality(0),
     _weight(0),
-    _ptr(nullptr),
     _vars(0)
 {
   CALL("Term::Term/1");
@@ -1806,7 +1778,6 @@ Term::Term() throw()
    _isTwoVarEquality(0),
    _weight(0),
    _maxRedLen(0),
-   _ptr(nullptr),
    _vars(0)
 {
   CALL("Term::Term/0");

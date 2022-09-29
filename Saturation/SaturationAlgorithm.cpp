@@ -1024,6 +1024,10 @@ bool SaturationAlgorithm::forwardSimplify(Clause* cl)
   CALL("SaturationAlgorithm::forwardSimplify");
   TIME_TRACE("forward simplification");
 
+  if (cl->isInductionClause()) {
+    return true;
+  }
+
   if (!_passive->fulfilsAgeLimit(cl) && !_passive->fulfilsWeightLimit(cl)) {
     RSTAT_CTR_INC("clauses discarded by weight limit in forward simplification");
     env.statistics->discardedNonRedundantClauses++;

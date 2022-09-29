@@ -31,32 +31,6 @@ namespace Inferences {
 using namespace Lib;
 using namespace Kernel;
 
-TermList PointedTermIterator::next()
-{
-  CALL("PointedTermIterator::next");
-
-  Term* t = _stack.pop();
-  _added = 0;
-  Term::Iterator ts(t);
-  for (TermList* ts = t->args();!ts->isEmpty();ts = ts->next()) {
-    if (ts->isTerm()) {
-      _stack.push(getPointedTerm(ts->term()));
-      _added++;
-    }
-  }
-  return TermList(t);
-}
-
-void PointedTermIterator::right()
-{
-  CALL("PointedTermIterator::right");
-
-  while (_added > 0) {
-    _added--;
-    _stack.pop();
-  }
-}
-
 TermList SingleOccurrenceReplacementIterator::Replacer::transformSubterm(TermList trm)
 {
   CALL("SingleOccurrenceReplacementIterator::Replacer::transformSubterm");
@@ -64,36 +38,18 @@ TermList SingleOccurrenceReplacementIterator::Replacer::transformSubterm(TermLis
   if (trm.isVar() || _matchCount > _i) {
     return trm;
   }
-  auto t = trm.term();
-  if (t == _o) {
-    if (_i == _matchCount++) {
-      if (_replaceWithPointer) {
-        PointerTermReplacement ptr;
-        return TermList(Term::createPointerConstant(ptr.transform(_r.term())));
-      } else {
-        return _r;
-      }
-    }
-  }
-  auto ptr = getPointedTerm(t);
-  if (ptr != t) {
-    auto occ = ptr->countSubtermOccurrences(TermList(_o));
-    if (_i < _matchCount + occ) {
-      Replacer inner(_o, _r, _i-_matchCount, false);
-      _matchCount+=occ;
-      return TermList(Term::createPointerConstant(inner.transform(TermList(ptr)).term()));
-    }
-    _matchCount+=occ;
+  if (trm.term() == _o && _i == _matchCount++) {
+    return _r;
   }
   return trm;
 }
 
-Term* SingleOccurrenceReplacementIterator::next()
+Literal* SingleOccurrenceReplacementIterator::next()
 {
   CALL("SingleOccurrenceReplacementIterator::next");
   ASS(hasNext());
   Replacer sor(_o, _r, _iteration++);
-  return sor.transform(_t);
+  return sor.transform(_lit);
 }
 
 void InductionRemodulation::attach(SaturationAlgorithm* salg)
@@ -146,7 +102,7 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
     res1 = pvi(iterTraits(premise->iterLits())
       .filter(&InductionHelper::isInductionLiteral)
       .flatMap([](Literal* lit) {
-        PointedTermIterator it(lit);
+        NonVariableNonTypeIterator it(lit);
         return pvi( pushPairIntoRightIterator(lit, getUniquePersistentIteratorFromPtr(&it)) );
       })
       .flatMap([this](pair<Literal*, TermList> arg) {
@@ -212,10 +168,11 @@ ClauseIterator InductionRemodulation::perform(
     }
   }
 
-  // cout << "performRemodulation with " << rwClause->toString() << " and " << eqClause->toString() << endl;
-  //   cout << "rwTerm " << rwTerm.toString() << " eqLHS " << eqLHS.toString() << endl;
-  //   // cout << "subst " << endl << subst->tryGetRobSubstitution()->toString() << endl;
-  //   cout << "eqIsResult " << eqIsResult << endl;
+  // cout << "performRemodulation with " << *rwClause << " and " << *eqClause << endl
+  //   << "rwLit " << *rwLit << " eqLit " << *eqLit << endl
+  //   << "rwTerm " << rwTerm << " eqLHS " << eqLHS << endl
+  //   // << "subst " << endl << subst->tryGetRobSubstitution()->toString() << endl
+  //   << "eqIsResult " << eqIsResult << endl;
 
   if (eqLHS.isVar()) {
     TermList eqLHSsort = SortHelper::getEqualityArgumentSort(eqLit);
@@ -227,8 +184,6 @@ ClauseIterator InductionRemodulation::perform(
 
   TermList tgtTerm = EqHelper::getOtherEqualitySide(eqLit, eqLHS);
   TermList tgtTermS = subst->apply(tgtTerm,eqIsResult);
-  // PointerTermReplacement tr;
-  // ASS_EQ(TermList(tr.transform(tgtTermS.term())), tgtTermS);
   Literal* rwLitS = subst->apply(rwLit,!eqIsResult);
   TermList rwTermS = subst->apply(rwTerm,!eqIsResult);
 
@@ -238,32 +193,8 @@ ClauseIterator InductionRemodulation::perform(
     return ClauseIterator::getEmpty();
   }
 
-  auto indLit = InductionHelper::isInductionLiteral(rwLit);
-  Term* rwSideS = rwLitS;
-  bool bothSides = true;
-  // ASS(indLit);
-  if (!indLit) {
-    ASS(rwLit->isEquality() && rwLit->isPositive());
-    auto t0 = *rwLitS->nthArgument(0);
-    auto t1 = *rwLitS->nthArgument(1);
-    auto comp = _salg->getOrdering().compare(t0,t1);
-    if (comp != Ordering::INCOMPARABLE) {
-      bothSides = false;
-      if (comp == Ordering::GREATER || comp == Ordering::GREATER_EQ) {
-        ASS(t0.isTerm());
-        rwSideS = t0.term();
-      } else {
-        ASS(t1.isTerm());
-        rwSideS = t1.term();
-      }
-    }
-  }
-
-  return pvi(iterTraits(vi(new SingleOccurrenceReplacementIterator(rwSideS, rwTermS.term(), TermList(tgtTermS.term()))))
-    .map([eqClause,rwClause,eqLit,rwLit,rwLitS,rwSideS,eqIsResult,subst,bothSides](Term* tgtSideS) -> Clause* {
-      Literal* tgtLitS = bothSides
-        ? static_cast<Literal*>(tgtSideS)
-        : EqHelper::replace(rwLitS, TermList(rwSideS), TermList(tgtSideS));
+  return pvi(iterTraits(vi(new SingleOccurrenceReplacementIterator(rwLitS, rwTermS.term(), TermList(tgtTermS.term()))))
+    .map([eqClause,rwClause,eqLit,rwLit,eqIsResult,subst](Literal* tgtLitS) -> Clause* {
       if(EqHelper::isEqTautology(tgtLitS)) {
         return nullptr;
       }
@@ -307,6 +238,7 @@ ClauseIterator InductionRemodulation::perform(
 
       env.statistics->inductionRemodulation++;
       // cout << "result " << *newCl << endl << endl;
+      newCl->markInductionClause();
       return newCl;
     }));
 }
