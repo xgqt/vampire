@@ -1025,6 +1025,7 @@ bool SaturationAlgorithm::forwardSimplify(Clause* cl)
   TIME_TRACE("forward simplification");
 
   if (cl->isInductionClause()) {
+    cl->incRefCnt();
     return true;
   }
 
