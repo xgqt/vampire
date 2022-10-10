@@ -530,7 +530,6 @@ set(VAMPIRE_SATURATION_SOURCES
     Saturation/InductionAWPassiveClauseContainer.cpp
     Saturation/LabelFinder.cpp
     Saturation/LRS.cpp
-    # Saturation/MiniSaturation.cpp
     Saturation/Otter.cpp
     Saturation/ProvingHelper.cpp
     Saturation/SaturationAlgorithm.cpp
@@ -545,7 +544,6 @@ set(VAMPIRE_SATURATION_SOURCES
     Saturation/InductionAWPassiveClauseContainer.hpp
     Saturation/LabelFinder.hpp
     Saturation/LRS.hpp
-    # Saturation/MiniSaturation.hpp
     Saturation/Otter.hpp
     Saturation/ProvingHelper.hpp
     Saturation/SaturationAlgorithm.hpp

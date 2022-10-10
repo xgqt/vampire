@@ -299,6 +299,7 @@ VINF_OBJ=Inferences/BackwardDemodulation.o\
          Inferences/TermAlgebraReasoning.o\
          Inferences/Induction.o\
          Inferences/InductionHelper.o\
+				 Inferences/InductiveReasoning/VacuousnessChecker.o\
          Inferences/URResolution.o\
          Inferences/CNFOnTheFly.o\
          Inferences/CasesSimp.o\
@@ -332,7 +333,6 @@ VST_OBJ= Saturation/AWPassiveClauseContainer.o\
          Saturation/ExtensionalityClauseContainer.o\
 	 Saturation/LabelFinder.o\
          Saturation/LRS.o\
-				 Saturation/MiniSaturation.o\
          Saturation/Otter.o\
          Saturation/ProvingHelper.o\
          Saturation/SaturationAlgorithm.o\

@@ -13,6 +13,7 @@
  */
 
 #include "Inferences/InductionHelper.hpp"
+#include "Inferences/InductiveReasoning/VacuousnessChecker.hpp"
 
 #include "Kernel/Clause.hpp"
 #include "Kernel/LiteralComparators.hpp"
@@ -438,26 +439,7 @@ void InductionLiteralIndex::handleClause(Clause* c, bool adding)
     if (lit->isEquality()) {
       continue;
     }
-    bool foundCon = false;
-    NonVariableNonTypeIterator nvi(lit);
-    while (nvi.hasNext()) {
-      auto t = nvi.next().term();
-      auto f = t->functor();
-      if (!env.signature->getFunction(f)->termAlgebraCons()) {
-        continue;
-      }
-      Set<unsigned> vars;
-      for (unsigned j = 0; j < t->arity(); j++) {
-        if (t->nthArgument(j)->isVar()) {
-          vars.insert(t->nthArgument(j)->var());
-        }
-      }
-      if (vars.size() == t->arity()) {
-        foundCon = true;
-      }
-      break;
-    }
-    if (!foundCon) { continue; }
+    if (!Inferences::InductiveReasoning::VacuousnessChecker::termAlgebraConsCheck(lit)) { continue; }
     handleLiteral(lit, c, adding);
   }
 }

@@ -71,43 +71,4 @@ InductionFormulaIndex::Entry* InductionFormulaIndex::find(const InductionContext
   return _map.findPtr(std::move(k));
 }
 
-void InductionFormulaIndex::makeVacuous(const InductionContext& context, Entry* e)
-{
-  CALL("InductionFormulaIndex::makeVacuous");
-  ASS(!context._cls.empty());
-  auto k = represent(context);
-  k.second.first = nullptr;
-  k.second.second = nullptr;
-  ASS_EQ(e, _map.findPtr(k));
-  e->_vacuous = true;
-  if (context._cls.size() == 1 && context._cls.begin()->second.size() == 1) {
-    TermReplacement tr(getPlaceholderForTerm(context._indTerm), TermList(0,false));
-    auto tlit = tr.transform(context._cls.begin()->second[0]);
-    _vacuousIndex.insert(tlit, nullptr);
-  }
-}
-
-void InductionFormulaIndex::makeNonVacuous(const InductionContext& context)
-{
-  CALL("InductionFormulaIndex::makeNonVacuous");
-  ASS(!context._cls.empty());
-  auto k = represent(context);
-  k.second.first = nullptr;
-  k.second.second = nullptr;
-  if (context._cls.size() == 1 && context._cls.begin()->second.size() == 1) {
-    TermReplacement tr(getPlaceholderForTerm(context._indTerm), TermList(0,false));
-    auto tlit = tr.transform(context._cls.begin()->second[0]);
-    _nonVacuousIndex.insert(tlit, nullptr);
-  }
-}
-
-bool InductionFormulaIndex::isVacuous(Literal* lit)
-{
-  CALL("InductionFormulaIndex::isVacuous");
-  // cout << "check vacuousness " << *lit << endl; 
-  auto it = _vacuousIndex.getInstances(lit, false, false);
-  return it.hasNext();
-}
-
-
 }

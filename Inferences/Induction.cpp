@@ -288,8 +288,7 @@ ClauseIterator Induction::generateClauses(Clause* premise)
   CALL("Induction::generateClauses");
 
   return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex), getOptions(),
-    _structInductionTermIndex, _formulaIndex, _restrictions, _salg->getProblem(),
-    _salg->getSplitter(), _skolemToConclusionMap, _vacuousnessChecker));
+    _structInductionTermIndex, _formulaIndex, _restrictions, _salg->getSplitter(), _vacuousnessChecker));
 }
 
 void InductionClauseIterator::processClause(Clause* premise)
@@ -679,21 +678,9 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       }
       InductionFormulaIndex::Entry* e;
       // generate formulas and add them to index if not done already
-      if (_formulaIndex.findOrInsert(ctx, e)) {
-        if (_vacuousnessChecker.checkForVacuousness(ctx, e)) {
-          generateStructuralFormulas(ctx, e);
-        } else {
-          _formulaIndex.makeVacuous(ctx,e);
-          env.statistics->vacuousInductionFormulaDiscardedStatically++;
-        }
+      if (_formulaIndex.findOrInsert(ctx, e) && _vacuousnessChecker.check(ctx, e)) {
+        generateStructuralFormulas(ctx, e);
       }
-      if (e->_vacuous) {
-        continue;
-      }
-      if (!_vacuousnessChecker.maybeDelayInduction(ctx, e)) {
-        continue;
-      }
-      e->_indTerms.insert(ctx._indTerm);
       // resolve the formulas with the premises
       for (auto& kv : e->get()) {
         resolveClauses(kv.first, ctx, kv.second);
@@ -761,7 +748,7 @@ void InductionClauseIterator::processIntegerComparison(Clause* premise, Literal*
   }
 }
 
-ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, TermStack& cases, const vmap<unsigned,LiteralStack>& hyps)
+ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, const vmap<unsigned,LiteralStack>& hyps)
 {
   CALL("InductionClauseIterator::produceClauses");
   TIME_TRACE("induction clause production");
@@ -770,11 +757,6 @@ ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, Inferen
   // cnf.setForInduction();
   Stack<Clause*> hyp_clauses;
   Inference inf = NonspecificInference0(UnitInputType::AXIOM,rule);
-  unsigned maxInductionDepth = 0;
-  for (const auto& kv : context._cls) {
-    maxInductionDepth = max(maxInductionDepth,kv.first->inference().inductionDepth());
-  }
-  inf.setInductionDepth(maxInductionDepth+1);
   FormulaUnit* fu = new FormulaUnit(hypothesis,inf);
   if(_opt.showInduction()){
     env.beginOutput();
@@ -790,12 +772,6 @@ ClauseStack InductionClauseIterator::produceClauses(Formula* hypothesis, Inferen
     ALWAYS(subst.findBinding(kv.first, t));
     ASS(t.isTerm());
     env.signature->getFunction(t.term()->functor())->markInductionSkolem();
-    for (auto cs : cases) {
-      auto ct = cs.term()->apply(subst);
-      if (ct->containsSubterm(t)) {
-        _skolemToConclusionMap.insert(t.term()->functor(), make_pair(context, ct));
-      }
-    }
     for (const auto& lit : kv.second) {
       auto tlit = lit->apply(subst);
       NonVariableNonTypeIterator nvi(tlit);
@@ -1061,6 +1037,7 @@ void InductionClauseIterator::resolveClauses(const ClauseStack& cls, const Induc
   CALL("InductionClauseIterator::resolveClauses");
   ASS(cls.isNonEmpty());
   bool generalized = false;
+  unsigned maxInductionDepth = 0;
   for (const auto& kv : context._cls) {
     // we have to check this due to delayed inductions
     if (_splitter && !_splitter->allSplitLevelsActive(kv.first->splits())) {
@@ -1069,14 +1046,14 @@ void InductionClauseIterator::resolveClauses(const ClauseStack& cls, const Induc
       // can be simply redone.
       return;
     }
-    for (const auto& lit : kv.second) {
-      if (lit->containsSubterm(TermList(context._indTerm))) {
-        generalized = true;
-        break;
+    maxInductionDepth = max(maxInductionDepth,kv.first->inference().inductionDepth());
+    if (!generalized) {
+      for (const auto& lit : kv.second) {
+        if (lit->containsSubterm(TermList(context._indTerm))) {
+          generalized = true;
+          break;
+        }
       }
-    }
-    if (generalized) {
-      break;
     }
   }
   if (generalized) {
@@ -1090,6 +1067,7 @@ void InductionClauseIterator::resolveClauses(const ClauseStack& cls, const Induc
   while(cit.hasNext()){
     IntUnionFind::ElementIterator eIt = cit.next();
     _clauses.push(resolveClausesHelper(context, cls, eIt, subst, generalized, applySubst));
+    _clauses.top()->inference().setInductionDepth(maxInductionDepth+1);
     if(_opt.showInduction()){
       env.beginOutput();
       env.out() << "[Induction] generate " << _clauses.top()->toString() << endl;
@@ -1208,8 +1186,7 @@ void InductionClauseIterator::performIntInduction(const InductionContext& contex
           : (increasing ? (hasBound2 ? InferenceRule::INT_FIN_UP_INDUCTION_AXIOM : InferenceRule::INT_INF_UP_INDUCTION_AXIOM)
                         : (hasBound2 ? InferenceRule::INT_FIN_DOWN_INDUCTION_AXIOM : InferenceRule::INT_INF_DOWN_INDUCTION_AXIOM));
 
-  TermStack cases;
-  auto cls = produceClauses(hyp, rule, context, cases, hyps);
+  auto cls = produceClauses(hyp, rule, context, hyps);
   e->add(std::move(cls), std::move(subst));
 }
 
@@ -1232,7 +1209,6 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
   unsigned var = 0;
   vmap<unsigned, LiteralStack> hyps;
 
-  TermStack cases;
   // first produce the formula
   for(unsigned i=0;i<ta->nConstructors();i++){
     TermAlgebraConstructor* con = ta->constructor(i);
@@ -1247,11 +1223,9 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
         }
         argTerms.push(x);
       }
-      auto t = TermList(Term::create(con->functor(),(unsigned)argTerms.size(), argTerms.begin()));
-      cases.push(t);
       // if hypothesis strengthening is on, this replaces the Skolems with fresh variables
       auto right = context.getFormulaWithSquashedSkolems(
-        t, true, var);
+        TermList(Term::create(con->functor(),(unsigned)argTerms.size(), argTerms.begin())), true, var);
       FormulaList* args = FormulaList::empty();
       Stack<TermList>::Iterator tvit(ta_vars);
       while(tvit.hasNext()){
@@ -1277,9 +1251,8 @@ void InductionClauseIterator::performStructInductionOne(const InductionContext& 
                             Formula::quantify(indPremise),
                             Formula::quantify(conclusion));
 
-  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, cases, hyps);
+  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, hyps);
   e->add(std::move(cls), std::move(subst));
-  e->_cases = cases;
 }
 
 /**
@@ -1357,8 +1330,7 @@ void InductionClauseIterator::performStructInductionTwo(const InductionContext& 
   FormulaList* orf = FormulaList::cons(exists,FormulaList::singleton(Formula::quantify(conclusion)));
   Formula* hypothesis = new JunctionFormula(Connective::OR,orf);
 
-  TermStack cases;
-  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, cases, hyps);
+  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, hyps);
   e->add(std::move(cls), std::move(subst));
 }
 
@@ -1466,8 +1438,7 @@ void InductionClauseIterator::performStructInductionThree(const InductionContext
   FormulaList* orf = FormulaList::cons(exists,FormulaList::singleton(Formula::quantify(conclusion)));
   Formula* hypothesis = new JunctionFormula(Connective::OR,orf);
 
-  TermStack cases;
-  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, cases, hyps);
+  auto cls = produceClauses(hypothesis, InferenceRule::STRUCT_INDUCTION_AXIOM, context, hyps);
   e->add(std::move(cls), std::move(subst));
 }
 

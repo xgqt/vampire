@@ -101,6 +101,7 @@ Statistics::Statistics()
     vacuousInductionFormulaDiscardedStaticallyMonotonicity(0),
     vacuousInductionFormulaDiscardedDynamically(0),
     vacuousInductionFormulaDiscardedDynamically2(0),
+    delayedInductions(0),
     delayedInductionApplications(0),
     inductionSkippedHeuristic1(0),
     argumentCongruence(0),
@@ -425,6 +426,7 @@ void Statistics::print(ostream& out)
   COND_OUT("VacuousInductionFormulaDiscardedStaticallyMonotonicity",vacuousInductionFormulaDiscardedStaticallyMonotonicity);
   COND_OUT("VacuousInductionFormulaDiscardedDynamically",vacuousInductionFormulaDiscardedDynamically);
   COND_OUT("VacuousInductionFormulaDiscardedDynamically2",vacuousInductionFormulaDiscardedDynamically2);
+  COND_OUT("DelayedInductions",delayedInductions);
   COND_OUT("DelayedInductionApplications",delayedInductionApplications);
   COND_OUT("InductionSkippedHeuristic1",inductionSkippedHeuristic1);
   COND_OUT("Argument congruence", argumentCongruence);

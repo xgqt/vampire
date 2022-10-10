@@ -194,7 +194,6 @@ private:
   InductionFormulaIndex _formulaIndex;
   VacuousnessChecker _vacuousnessChecker;
   CodeTreeTIS _restrictions;
-  DHMap<unsigned, pair<InductionContext,Term*>> _skolemToConclusionMap;
 };
 
 class InductionClauseIterator
@@ -202,11 +201,10 @@ class InductionClauseIterator
 public:
   // all the work happens in the constructor!
   InductionClauseIterator(Clause* premise, InductionHelper helper, const Options& opt,
-    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, CodeTreeTIS& restrictions, Problem& prb, Splitter* splitter,
-    DHMap<unsigned, pair<InductionContext,Term*>>& skolemToConclusionMap, VacuousnessChecker& vacuousnessChecker)
+    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex,
+    CodeTreeTIS& restrictions, Splitter* splitter, VacuousnessChecker& vacuousnessChecker)
       : _helper(helper), _opt(opt), _structInductionTermIndex(structInductionTermIndex), _formulaIndex(formulaIndex),
-      _restrictions(restrictions), _prb(prb), _splitter(splitter), _skolemToConclusionMap(skolemToConclusionMap),
-      _vacuousnessChecker(vacuousnessChecker)
+      _restrictions(restrictions), _splitter(splitter), _vacuousnessChecker(vacuousnessChecker)
   {
     processClause(premise);
   }
@@ -220,20 +218,20 @@ public:
     return _clauses.pop();
   }
   void resolveClauses(const ClauseStack& cls, const InductionContext& context, Substitution& subst, bool applySubst = false);
+  void generateStructuralFormulas(const InductionContext& context, InductionFormulaIndex::Entry* e);
 
 private:
   void processClause(Clause* premise);
   void processLiteral(Clause* premise, Literal* lit);
   void processIntegerComparison(Clause* premise, Literal* lit);
 
-  ClauseStack produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, TermStack& cases, const vmap<unsigned,LiteralStack>& hyps);
+  ClauseStack produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, const vmap<unsigned,LiteralStack>& hyps);
   void resolveClauses(InductionContext context, InductionFormulaIndex::Entry* e, const TermQueryResult* bound1, const TermQueryResult* bound2);
 
   void performFinIntInduction(const InductionContext& context, const TermQueryResult& lb, const TermQueryResult& ub);
   void performInfIntInduction(const InductionContext& context, bool increasing, const TermQueryResult& bound);
   void performIntInduction(const InductionContext& context, InductionFormulaIndex::Entry* e, bool increasing, const TermQueryResult& bound1, const TermQueryResult* optionalBound2);
 
-  void generateStructuralFormulas(const InductionContext& context, InductionFormulaIndex::Entry* e);
   void performStructInductionOne(const InductionContext& context, InductionFormulaIndex::Entry* e);
   void performStructInductionTwo(const InductionContext& context, InductionFormulaIndex::Entry* e);
   void performStructInductionThree(const InductionContext& context, InductionFormulaIndex::Entry* e);
@@ -246,9 +244,7 @@ private:
   TermIndex* _structInductionTermIndex;
   InductionFormulaIndex& _formulaIndex;
   CodeTreeTIS& _restrictions;
-  Problem& _prb;
   Splitter* _splitter;
-  DHMap<unsigned, pair<InductionContext,Term*>>& _skolemToConclusionMap;
   VacuousnessChecker& _vacuousnessChecker;
 };
 

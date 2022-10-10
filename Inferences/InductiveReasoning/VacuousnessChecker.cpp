@@ -96,7 +96,7 @@ bool VacuousnessChecker::maybeDelayInduction(const InductionContext& ctx, Induct
     e->_delayedApplications.push(ctx);
     return false;
   }
-  if (ctx._cls.size() != 1 || ctx._cls.begin()->second.size() != 1 || (!e->_delayed && e->_activatingClauses.size())) {
+  if (!e->_delayed && e->_activatingClauses.size()) {
     return true;
   }
   TermList sort = SortHelper::getResultSort(ctx._indTerm);
@@ -132,6 +132,8 @@ bool VacuousnessChecker::maybeDelayInduction(const InductionContext& ctx, Induct
   if (pos.isNonEmpty() && !tlit->isEquality()) {
     TIME_TRACE("forward delayed induction literal check");
     auto uit = getConcatenatedIterator(_literalIndex->getUnifications(tlit, true), _literalIndex->getUnifications(tlit, false));
+    // TODO consider only complmentary literals
+    // auto uit = _literalIndex->getUnifications(tlit, true);
     while (uit.hasNext() && pos.isNonEmpty()) {
       auto qr = uit.next();
       auto tt = qr.substitution->applyToQuery(x);
@@ -141,6 +143,7 @@ bool VacuousnessChecker::maybeDelayInduction(const InductionContext& ctx, Induct
   if (pos.isNonEmpty()) {
     e->_delayed = true;
     e->_delayedApplications.push(ctx);
+    env.statistics->delayedInductions++;
     env.statistics->delayedInductionApplications++;
     NonVariableNonTypeIterator it(tlit);
     while (it.hasNext()) {
@@ -182,6 +185,7 @@ void VacuousnessChecker::checkForDelayedInductions(Literal* lit, Clause* cl, Ind
     ASS(e);
     ASS(e->_delayed);
     ASS(e->_delayedApplications.isNonEmpty());
+    ASS(!e->_vacuous);
 
     Stack<unsigned> pos;
     ASS_EQ(e->_activatingClauses.size(), ta->nConstructors());
@@ -194,6 +198,9 @@ void VacuousnessChecker::checkForDelayedInductions(Literal* lit, Clause* cl, Ind
     if (pos.isNonEmpty()) {
       return;
     }
+    clIt.generateStructuralFormulas(dummy, e);
+    ASS_NEQ(0,env.statistics->delayedInductions);
+    env.statistics->delayedInductions--;
     TIME_TRACE("backward delayed induction resolution");
     while (e->_delayedApplications.isNonEmpty()) {
       auto ctx = e->_delayedApplications.pop();
@@ -212,6 +219,9 @@ void VacuousnessChecker::checkForDelayedInductions(Literal* lit, Clause* cl, Ind
       TIME_TRACE("backward delayed induction subterm loop");
       for (unsigned j=0; j<2; j++) {
         auto side = *lit->nthArgument(j);
+        if (side.isVar() || !termAlgebraConsCheck(side.term())) {
+          continue;
+        }
         auto qrit = _delayedIndex.getUnifications(side,true);
         while (qrit.hasNext()) {
           auto qr = qrit.next();
@@ -220,9 +230,11 @@ void VacuousnessChecker::checkForDelayedInductions(Literal* lit, Clause* cl, Ind
         }
       }
     }
-  } else {
+  } else if (termAlgebraConsCheck(lit)) {
     TIME_TRACE("backward delayed induction literal check");
     auto qrit = getConcatenatedIterator(_delayedLitIndex.getUnifications(lit, true, true), _delayedLitIndex.getUnifications(lit, false, true));
+    // TODO consider only complmentary literals
+    // auto qrit = _delayedLitIndex.getUnifications(lit, true, true);
     while (qrit.hasNext()) {
       auto qr = qrit.next();
       auto tt = qr.substitution->applyToResult(x);
@@ -340,138 +352,58 @@ bool VacuousnessChecker::checkForVacuousness(Literal* lit, Term* t)
 // returns true if the context is vacuous by these checks
 // TODO enable check for more complex conclusions
 // TODO add check that the induction term datatype contains at least two ctors
-bool VacuousnessChecker::checkForVacuousness(const InductionContext& ctx, InductionFormulaIndex::Entry* e)
+bool VacuousnessChecker::check(const InductionContext& ctx, InductionFormulaIndex::Entry* e)
 {
-  CALL("VacuousnessChecker::checkForVacuousness");
-  if (ctx._cls.size() == 1 && ctx._cls.begin()->second.size() == 1) {
-    // context is vacuous if all of these conditions hold:
-    // * context contains only one negative equality
-    // * only one side contains the induction term 
-    // * there is an occurrence of the induction term
-    //   which has only term algebra ctor/dtor superterms
-    auto lit = ctx._cls.begin()->second[0];
-    auto ph = getPlaceholderForTerm(ctx._indTerm);
-    TermReplacement tr(ph, TermList(0,false));
-    if (_formulaIndex.isVacuous(tr.transform(ctx._cls.begin()->second[0]))) {
-      env.statistics->vacuousInductionFormulaDiscardedDynamically2++;
-      _formulaIndex.makeVacuous(ctx, e);
-      return false;
-    }
-    if (!checkForVacuousness(lit, ph)) {
-      return false;
-    }
+  CALL("VacuousnessChecker::check");
+  // don't check any non-unit inductions for now
+  if (ctx._cls.size() != 1 || ctx._cls.begin()->second.size() != 1) {
+    return true;
   }
 
-  unsigned var = 0;
-  TermAlgebra* ta = env.signature->getTermAlgebraOfSort(env.signature->getFunction(ctx._indTerm->functor())->fnType()->result());
-  for(unsigned i=0;i<ta->nConstructors();i++){
-    TermAlgebraConstructor* con = ta->constructor(i);
-    if (con->recursive()) {
-      continue;
-    }
-    Stack<TermList> argTerms;
-    for(unsigned j=0;j<con->arity();j++){
-      argTerms.push(TermList(var++,false));
-    }
-    Formula* other = nullptr;
-    // other = ctx.getFormula(TermList(Term::create(con->functor(),(unsigned)argTerms.size(), argTerms.begin())), true);
-    // other = ctx.getFormula(TermList(0,false), true);
-    // if (other) {
-    //   initMiniSaturation();
-
-    //   auto u = new FormulaUnit(other, NonspecificInference0(UnitInputType::AXIOM, InferenceRule::NEGATED_CONJECTURE));
-    //   NewCNF cnf(0);
-    //   ClauseStack cls;
-    //   cnf.clausify(NNF::ennf(u), cls);
-    //   addClausesToMiniSaturation(cls);
-    //   if (!runMiniSaturation()) {
-    //     env.statistics->vacuousInductionFormulaDiscardedDynamically++;
-    //     Stack<InductionContext> todo;
-    //     todo.push(ctx);
-    //     while (todo.isNonEmpty()) {
-    //       auto tctx = todo.pop();
-    //       pair<InductionContext,Term*>* c = _skolemToConclusionMap.findPtr(tctx._indTerm->functor());
-    //       if (c) {
-    //         TermReplacement tr(tctx._indTerm, TermList(getPlaceholderForTerm(tctx._indTerm)));
-    //         auto f1 = tctx.getFormula(TermList(getPlaceholderForTerm(tctx._indTerm)), true);
-    //         auto f2 = c->first.getFormula(TermList(tr.transform(c->second)), true);
-    //         initMiniSaturation();
-    //         auto u1 = new FormulaUnit(new NegatedFormula(f1), NonspecificInference0(UnitInputType::AXIOM, InferenceRule::NEGATED_CONJECTURE));
-    //         auto u2 = new FormulaUnit(f2, NonspecificInference0(UnitInputType::AXIOM, InferenceRule::NEGATED_CONJECTURE));
-    //         NewCNF cnf(0);
-    //         ClauseStack cls;
-    //         cnf.clausify(NNF::ennf(u1), cls);
-    //         cnf.clausify(NNF::ennf(u2), cls);
-    //         addClausesToMiniSaturation(cls);
-    //         if (!runMiniSaturation()) {
-    //           env.statistics->vacuousInductionFormulaDiscardedDynamically2++;
-    //           InductionFormulaIndex::Entry* e;
-    //           if (!_formulaIndex.findOrInsert(c->first, e)) {
-    //             for (const auto& t : e->_indTerms) {
-    //               if (env.signature->getFunction(t->functor())->skolem()) {
-    //                 auto cc = c->first;
-    //                 cc._indTerm = t;
-    //                 todo.push(cc);
-    //               }
-    //             }
-    //             _formulaIndex.makeVacuous(c->first, e);
-    //           }
-    //         }
-    //       }
-    //     }
-    //     return false;
-    //   }
-    // }
+  // context is vacuous if all of these conditions hold:
+  // * context contains only one negative equality
+  // * only one side contains the induction term 
+  // * there is an occurrence of the induction term
+  //   which has only term algebra ctor/dtor superterms
+  auto lit = ctx._cls.begin()->second[0];
+  auto ph = getPlaceholderForTerm(ctx._indTerm);
+  TermReplacement tr(ph, TermList(0,false));
+  // if (_formulaIndex.isVacuous(tr.transform(ctx._cls.begin()->second[0]))) {
+  //   env.statistics->vacuousInductionFormulaDiscardedDynamically2++;
+  //   _formulaIndex.makeVacuous(ctx, e);
+  //   return false;
+  // }
+  if (!checkForVacuousness(lit, ph)) {
+    e->_vacuous = true;
+    env.statistics->vacuousInductionFormulaDiscardedStatically++;
+    return false;
   }
-  
-  return true;
+
+  return maybeDelayInduction(ctx, e);
 }
 
-// void VacuousnessChecker::initMiniSaturation()
-// {
-//   CALL("VacuousnessChecker::initMiniSaturation");
-//   auto clIt = iterTraits(_salg->getProblem().clauseIterator())
-//     .filter([](Clause* cl) {
-//       if (cl->inference().isPureTheoryDescendant()) {
-//         return false;
-//       }
-//       for (unsigned i = 0; i < cl->length(); i++) {
-//         if (InductionHelper::isInductionLiteral((*cl)[i])) {
-//           return false;
-//         }
-//       }
-//       return true;
-//     });
-//   auto clItRes = pvi(clIt);
-//   delete _ms;
-//   _ms = MiniSaturation::createFromOptions(_salg->getProblem(), _salg->getOptions());
-//   _ms->initMini(clItRes);
-// }
-
-// void VacuousnessChecker::addClausesToMiniSaturation(const ClauseStack& cls)
-// {
-//   CALL("InductionClauseIterator::addClausesToMiniSaturation");
-//   for (const auto& cl : cls) {
-//     _ms->addNewClause(cl);
-//   }
-// }
-
-// bool VacuousnessChecker::runMiniSaturation()
-// {
-//   for (unsigned i = 0; i < 10; i++) {
-//     try {
-//       _ms->doOneAlgorithmStep();
-//     } catch(MainLoop::RefutationFoundException& exp) {
-//       // cout << endl << "PROOF -------------- " << endl;
-//       // InferenceStore::instance()->outputProof(cout, exp.refutation);
-//       // cout << "END PROOF -------------- " << endl << endl;
-//       return false;
-//     } catch(ThrowableBase&) {
-//       return true;
-//     }
-//   }
-//   return true;
-// }
+bool VacuousnessChecker::termAlgebraConsCheck(Term* t)
+{
+  CALL("VacuousnessChecker::termAlgebraConsCheck");
+  NonVariableNonTypeIterator nvi(t);
+  while (nvi.hasNext()) {
+    auto t = nvi.next().term();
+    auto f = t->functor();
+    if (!env.signature->getFunction(f)->termAlgebraCons()) {
+      continue;
+    }
+    Set<unsigned> vars;
+    for (unsigned j = 0; j < t->arity(); j++) {
+      if (t->nthArgument(j)->isVar()) {
+        vars.insert(t->nthArgument(j)->var());
+      }
+    }
+    if (vars.size() == t->arity()) {
+      return true;
+    }
+  }
+  return false;
+}
 
 }
 
