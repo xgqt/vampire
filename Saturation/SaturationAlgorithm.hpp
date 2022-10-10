@@ -32,6 +32,7 @@
 #include "Inferences/InferenceEngine.hpp"
 #include "Inferences/Instantiation.hpp"
 #include "Inferences/TheoryInstAndSimp.hpp"
+#include "Inferences/Induction.hpp"
 
 #include "Saturation/ExtensionalityClauseContainer.hpp"
 

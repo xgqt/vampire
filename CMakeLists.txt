@@ -415,6 +415,7 @@ set(VAMPIRE_INFERENCE_SOURCES
     Inferences/HyperSuperposition.cpp
     Inferences/InnerRewriting.cpp
     Inferences/EquationalTautologyRemoval.cpp
+    Inferences/InductiveReasoning/VacuousnessChecker.cpp
     Inferences/Induction.cpp
     Inferences/InductionHelper.cpp
     Inferences/InferenceEngine.cpp
@@ -450,6 +451,8 @@ set(VAMPIRE_INFERENCE_SOURCES
     Inferences/HyperSuperposition.hpp
     Inferences/InnerRewriting.hpp
     Inferences/EquationalTautologyRemoval.hpp
+    Inferences/InductiveReasoning/VacuousnessChecker.hpp
+    Inferences/Induction.hpp
     Inferences/InductionHelper.hpp
     Inferences/InferenceEngine.hpp
     Inferences/Instantiation.hpp
@@ -527,7 +530,7 @@ set(VAMPIRE_SATURATION_SOURCES
     Saturation/InductionAWPassiveClauseContainer.cpp
     Saturation/LabelFinder.cpp
     Saturation/LRS.cpp
-    Saturation/MiniSaturation.cpp
+    # Saturation/MiniSaturation.cpp
     Saturation/Otter.cpp
     Saturation/ProvingHelper.cpp
     Saturation/SaturationAlgorithm.cpp
@@ -542,7 +545,7 @@ set(VAMPIRE_SATURATION_SOURCES
     Saturation/InductionAWPassiveClauseContainer.hpp
     Saturation/LabelFinder.hpp
     Saturation/LRS.hpp
-    Saturation/MiniSaturation.hpp
+    # Saturation/MiniSaturation.hpp
     Saturation/Otter.hpp
     Saturation/ProvingHelper.hpp
     Saturation/SaturationAlgorithm.hpp

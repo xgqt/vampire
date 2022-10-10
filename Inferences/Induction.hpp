@@ -20,8 +20,6 @@
 
 #include "Forwards.hpp"
 
-#include "Saturation/MiniSaturation.hpp"
-
 #include "Indexing/CodeTreeInterfaces.hpp"
 #include "Indexing/InductionFormulaIndex.hpp"
 #include "Indexing/LiteralIndex.hpp"
@@ -39,12 +37,14 @@
 
 #include "InductionHelper.hpp"
 #include "InferenceEngine.hpp"
+#include "InductiveReasoning/VacuousnessChecker.hpp"
 
 namespace Inferences
 {
 
 using namespace Kernel;
 using namespace Saturation;
+using namespace InductiveReasoning;
 
 Term* getPlaceholderForTerm(Term* t);
 
@@ -163,15 +163,18 @@ public:
   CLASS_NAME(Induction);
   USE_ALLOCATOR(Induction);
 
-  Induction(const Problem& prb) { preprocess(prb); }
-  Induction() = default; // for unit tests
+  Induction(const Problem& prb)
+    : _formulaIndex(),
+      _vacuousnessChecker(_formulaIndex)
+    { preprocess(prb); }
+  Induction()
+    : _formulaIndex(),
+      _vacuousnessChecker(_formulaIndex) {} // for unit tests
 
   void attach(SaturationAlgorithm* salg) override;
   void detach() override;
 
   ClauseIterator generateClauses(Clause* premise) override;
-
-  static bool checkForVacuousness(Literal* lit, Term* t);
 
   void preprocess(const Problem& prb);
 
@@ -189,10 +192,7 @@ private:
   TermIndex* _inductionTermIndex = nullptr;
   TermIndex* _structInductionTermIndex = nullptr;
   InductionFormulaIndex _formulaIndex;
-  TermSubstitutionTree _delayedIndex;
-  LiteralSubstitutionTree _delayedLitIndex;
-  InductionLHSIndex* _lhsIndex;
-  InductionLiteralIndex* _literalIndex;
+  VacuousnessChecker _vacuousnessChecker;
   CodeTreeTIS _restrictions;
   DHMap<unsigned, pair<InductionContext,Term*>> _skolemToConclusionMap;
 };
@@ -202,12 +202,11 @@ class InductionClauseIterator
 public:
   // all the work happens in the constructor!
   InductionClauseIterator(Clause* premise, InductionHelper helper, const Options& opt,
-    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, TermSubstitutionTree& delayedIndex,
-    LiteralSubstitutionTree& delayedLitIndex, CodeTreeTIS& restrictions, Problem& prb, Splitter* splitter,
-    DHMap<unsigned, pair<InductionContext,Term*>>& skolemToConclusionMap, InductionLHSIndex* lhsIndex, InductionLiteralIndex* literalIndex)
+    TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex, CodeTreeTIS& restrictions, Problem& prb, Splitter* splitter,
+    DHMap<unsigned, pair<InductionContext,Term*>>& skolemToConclusionMap, VacuousnessChecker& vacuousnessChecker)
       : _helper(helper), _opt(opt), _structInductionTermIndex(structInductionTermIndex), _formulaIndex(formulaIndex),
-      _delayedIndex(delayedIndex), _delayedLitIndex(delayedLitIndex), _lhsIndex(lhsIndex), _literalIndex(literalIndex),
-      _restrictions(restrictions), _ms(nullptr), _prb(prb), _splitter(splitter), _skolemToConclusionMap(skolemToConclusionMap)
+      _restrictions(restrictions), _prb(prb), _splitter(splitter), _skolemToConclusionMap(skolemToConclusionMap),
+      _vacuousnessChecker(vacuousnessChecker)
   {
     processClause(premise);
   }
@@ -220,6 +219,7 @@ public:
   inline OWN_ELEMENT_TYPE next() { 
     return _clauses.pop();
   }
+  void resolveClauses(const ClauseStack& cls, const InductionContext& context, Substitution& subst, bool applySubst = false);
 
 private:
   void processClause(Clause* premise);
@@ -228,38 +228,28 @@ private:
 
   ClauseStack produceClauses(Formula* hypothesis, InferenceRule rule, const InductionContext& context, TermStack& cases, const vmap<unsigned,LiteralStack>& hyps);
   void resolveClauses(InductionContext context, InductionFormulaIndex::Entry* e, const TermQueryResult* bound1, const TermQueryResult* bound2);
-  void resolveClauses(const ClauseStack& cls, const InductionContext& context, Substitution& subst, bool applySubst = false);
 
   void performFinIntInduction(const InductionContext& context, const TermQueryResult& lb, const TermQueryResult& ub);
   void performInfIntInduction(const InductionContext& context, bool increasing, const TermQueryResult& bound);
   void performIntInduction(const InductionContext& context, InductionFormulaIndex::Entry* e, bool increasing, const TermQueryResult& bound1, const TermQueryResult* optionalBound2);
 
+  void generateStructuralFormulas(const InductionContext& context, InductionFormulaIndex::Entry* e);
   void performStructInductionOne(const InductionContext& context, InductionFormulaIndex::Entry* e);
   void performStructInductionTwo(const InductionContext& context, InductionFormulaIndex::Entry* e);
   void performStructInductionThree(const InductionContext& context, InductionFormulaIndex::Entry* e);
 
   bool notDoneInt(InductionContext context, Literal* bound1, Literal* bound2, InductionFormulaIndex::Entry*& e);
-  bool maybeDelayInduction(const InductionContext& ctx, InductionFormulaIndex::Entry* e);
-  void checkForDelayedInductions(Literal* lit);
-  bool checkForVacuousness(const InductionContext& ctx);
-  void initMiniSaturation();
-  void addClausesToMiniSaturation(const ClauseStack& cls);
-  bool runMiniSaturation();
 
   Stack<Clause*> _clauses;
   InductionHelper _helper;
   const Options& _opt;
   TermIndex* _structInductionTermIndex;
   InductionFormulaIndex& _formulaIndex;
-  TermSubstitutionTree& _delayedIndex;
-  LiteralSubstitutionTree& _delayedLitIndex;
-  InductionLHSIndex* _lhsIndex;
-  InductionLiteralIndex* _literalIndex;
   CodeTreeTIS& _restrictions;
-  MiniSaturation* _ms;
   Problem& _prb;
   Splitter* _splitter;
   DHMap<unsigned, pair<InductionContext,Term*>>& _skolemToConclusionMap;
+  VacuousnessChecker& _vacuousnessChecker;
 };
 
 };

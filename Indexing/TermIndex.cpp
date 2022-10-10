@@ -123,33 +123,44 @@ void SuperpositionLHSIndex::handleClause(Clause* c, bool adding)
 void InductionLHSIndex::handleClause(Clause* c, bool adding)
 {
   CALL("InductionLHSIndex::handleClause");
+  TIME_TRACE("delayed induction lhs index maintenance");
 
   for (unsigned i=0; i<c->length(); i++) {
     Literal* lit=(*c)[i];
-    if (lit->isEquality()) {
-      if (lit->isNegative()) {
+    if (!lit->isEquality()) {
+      continue;
+    }
+    if (lit->isNegative()) {
+      continue;
+    }
+    for (unsigned j=0; j<2; j++) {
+      auto side = *lit->nthArgument(j);
+      if (side.isVar()) {
         continue;
       }
-      for (unsigned j=0; j<2; j++) {
-        auto side = *lit->nthArgument(j);
-        if (side.isVar()) {
+      bool foundCon = false;
+      NonVariableNonTypeIterator nvi(side.term(), true);
+      while (nvi.hasNext()) {
+        auto t = nvi.next().term();
+        auto f = t->functor();
+        if (!env.signature->getFunction(f)->termAlgebraCons()) {
           continue;
         }
-        bool foundCon = false;
-        NonVariableNonTypeIterator nvi(side.term(), true);
-        while (nvi.hasNext()) {
-          auto f = nvi.next().term()->functor();
-          if (env.signature->getFunction(f)->termAlgebraCons()) {
-            foundCon = true;
-            break;
+        Set<unsigned> vars;
+        for (unsigned j = 0; j < t->arity(); j++) {
+          if (t->nthArgument(j)->isVar()) {
+            vars.insert(t->nthArgument(j)->var());
           }
         }
-        if (!foundCon) { continue; }
-        if (adding) {
-          _is->insert(side, lit, c);
-        } else {
-          _is->remove(side, lit, c);
+        if (vars.size() == t->arity()) {
+          foundCon = true;
         }
+      }
+      if (!foundCon) { continue; }
+      if (adding) {
+        _is->insert(side, lit, c);
+      } else {
+        _is->remove(side, lit, c);
       }
     }
   }

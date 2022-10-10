@@ -431,6 +431,7 @@ void UnitIntegerComparisonLiteralIndex::handleClause(Clause* c, bool adding)
 void InductionLiteralIndex::handleClause(Clause* c, bool adding)
 {
   CALL("InductionLiteralIndex::handleClause");
+  TIME_TRACE("delayed induction literal index maintenance");
 
   for (unsigned i = 0; i < c->length(); i++) {
     Literal* lit = (*c)[i];
@@ -440,11 +441,21 @@ void InductionLiteralIndex::handleClause(Clause* c, bool adding)
     bool foundCon = false;
     NonVariableNonTypeIterator nvi(lit);
     while (nvi.hasNext()) {
-      auto f = nvi.next().term()->functor();
-      if (env.signature->getFunction(f)->termAlgebraCons()) {
-        foundCon = true;
-        break;
+      auto t = nvi.next().term();
+      auto f = t->functor();
+      if (!env.signature->getFunction(f)->termAlgebraCons()) {
+        continue;
       }
+      Set<unsigned> vars;
+      for (unsigned j = 0; j < t->arity(); j++) {
+        if (t->nthArgument(j)->isVar()) {
+          vars.insert(t->nthArgument(j)->var());
+        }
+      }
+      if (vars.size() == t->arity()) {
+        foundCon = true;
+      }
+      break;
     }
     if (!foundCon) { continue; }
     handleLiteral(lit, c, adding);

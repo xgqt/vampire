@@ -67,6 +67,7 @@ public:
     vset<Term*> _indTerms;
     Stack<Inferences::InductionContext> _delayedApplications;
     bool _delayed = false;
+    ClauseStack _activatingClauses;
   private:
     Stack<pair<ClauseStack,Substitution>> _st;
   };
