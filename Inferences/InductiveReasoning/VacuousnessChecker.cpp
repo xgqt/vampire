@@ -91,12 +91,13 @@ bool VacuousnessChecker::maybeDelayInduction(const InductionContext& ctx, Induct
 {
   CALL("VacuousnessChecker::maybeDelayInduction");
   TIME_TRACE("forward delayed induction");
+  // this induction is already delayed
   if (e->_delayed) {
-    env.statistics->delayedInductionApplications++;
-    e->_delayedApplications.push(ctx);
     return false;
   }
-  if (!e->_delayed && e->_activatingClauses.size()) {
+  // if not delayed but this field is initialized,
+  // then the induction was done delayed already
+  if (e->_activatingClauses.size()) {
     return true;
   }
   TermList sort = SortHelper::getResultSort(ctx._indTerm);
@@ -109,7 +110,6 @@ bool VacuousnessChecker::maybeDelayInduction(const InductionContext& ctx, Induct
     e->_activatingClauses.push(nullptr);
     pos.push(i);
   }
-  bool found = false;
   TermList x(0,false);
   TermReplacement tr(getPlaceholderForTerm(ctx._indTerm), x);
   auto tlit = tr.transform(ctx._cls.begin()->second[0]);
@@ -131,9 +131,9 @@ bool VacuousnessChecker::maybeDelayInduction(const InductionContext& ctx, Induct
   }
   if (pos.isNonEmpty() && !tlit->isEquality()) {
     TIME_TRACE("forward delayed induction literal check");
-    auto uit = getConcatenatedIterator(_literalIndex->getUnifications(tlit, true), _literalIndex->getUnifications(tlit, false));
+    // auto uit = getConcatenatedIterator(_literalIndex->getUnifications(tlit, true), _literalIndex->getUnifications(tlit, false));
     // TODO consider only complmentary literals
-    // auto uit = _literalIndex->getUnifications(tlit, true);
+    auto uit = _literalIndex->getUnifications(tlit, true);
     while (uit.hasNext() && pos.isNonEmpty()) {
       auto qr = uit.next();
       auto tt = qr.substitution->applyToQuery(x);
@@ -232,9 +232,9 @@ void VacuousnessChecker::checkForDelayedInductions(Literal* lit, Clause* cl, Ind
     }
   } else if (termAlgebraConsCheck(lit)) {
     TIME_TRACE("backward delayed induction literal check");
-    auto qrit = getConcatenatedIterator(_delayedLitIndex.getUnifications(lit, true, true), _delayedLitIndex.getUnifications(lit, false, true));
+    // auto qrit = getConcatenatedIterator(_delayedLitIndex.getUnifications(lit, true, true), _delayedLitIndex.getUnifications(lit, false, true));
     // TODO consider only complmentary literals
-    // auto qrit = _delayedLitIndex.getUnifications(lit, true, true);
+    auto qrit = _delayedLitIndex.getUnifications(lit, true, true);
     while (qrit.hasNext()) {
       auto qr = qrit.next();
       auto tt = qr.substitution->applyToResult(x);

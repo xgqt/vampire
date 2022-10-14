@@ -681,6 +681,11 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       if (_formulaIndex.findOrInsert(ctx, e) && _vacuousnessChecker.check(ctx, e)) {
         generateStructuralFormulas(ctx, e);
       }
+      if (e->_delayed) {
+        env.statistics->delayedInductionApplications++;
+        e->_delayedApplications.push(ctx);
+        continue;
+      }
       // resolve the formulas with the premises
       for (auto& kv : e->get()) {
         resolveClauses(kv.first, ctx, kv.second);
