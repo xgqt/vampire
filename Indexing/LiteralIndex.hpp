@@ -81,6 +81,11 @@ public:
   : LiteralIndex(is) {};
 protected:
   void handleClause(Clause* c, bool adding);
+  void onAddedToContainer(Clause* c) override
+  { handleClause(c, true); }
+
+  void onRemovedFromContainer(Clause* c) override
+  { handleClause(c, false); }
 };
 
 class FwSubsSimplifyingLiteralIndex

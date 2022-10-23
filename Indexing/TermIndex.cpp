@@ -129,9 +129,6 @@ void DemodulationSubtermIndexImpl<combinatorySupSupport>::handleClause(Clause* c
   TIME_TRACE("backward demodulation index maintenance");
 
   static DHSet<TermList> inserted;
-  if (c->isInductionClause()) {
-    return;
-  }
 
   unsigned cLen=c->length();
   for (unsigned i=0; i<cLen; i++) {

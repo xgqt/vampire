@@ -63,7 +63,6 @@
 #include "Inferences/Factoring.hpp"
 #include "Inferences/ForwardDemodulation.hpp"
 #include "Inferences/ForwardLiteralRewriting.hpp"
-#include "Inferences/ForwardSubsumptionAndResolution.hpp"
 #include "Inferences/ForwardSubsumptionDemodulation.hpp"
 #include "Inferences/GlobalSubsumption.hpp"
 #include "Inferences/HyperSuperposition.hpp"
@@ -1025,6 +1024,17 @@ bool SaturationAlgorithm::forwardSimplify(Clause* cl)
   TIME_TRACE("forward simplification");
 
   if (cl->isInductionClause()) {
+    Clause* replacement = 0;
+    ClauseIterator premises = ClauseIterator::getEmpty();
+
+    if (_fwSubsAndRes->perform(cl,replacement,premises)) {
+      if (replacement) {
+        addNewClause(replacement);
+      }
+      onClauseReduction(cl, &replacement, 1, premises);
+
+      return false;
+    }
     cl->incRefCnt();
     return true;
   }
@@ -1742,12 +1752,13 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   if (opt.forwardSubsumption()) {
     if (opt.forwardSubsumptionResolution()) {
       //res->addForwardSimplifierToFront(new CTFwSubsAndRes(true));
-      res->addForwardSimplifierToFront(new ForwardSubsumptionAndResolution(true));
+      res->_fwSubsAndRes = new ForwardSubsumptionAndResolution(true);
     }
     else {
       //res->addForwardSimplifierToFront(new CTFwSubsAndRes(false));
-      res->addForwardSimplifierToFront(new ForwardSubsumptionAndResolution(false));
+      res->_fwSubsAndRes = new ForwardSubsumptionAndResolution(false);
     }
+    res->addForwardSimplifierToFront(res->_fwSubsAndRes);
   }
   else if (opt.forwardSubsumptionResolution()) {
     USER_ERROR("Forward subsumption resolution requires forward subsumption to be enabled.");

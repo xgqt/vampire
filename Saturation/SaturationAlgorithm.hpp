@@ -32,6 +32,7 @@
 #include "Inferences/InferenceEngine.hpp"
 #include "Inferences/Instantiation.hpp"
 #include "Inferences/TheoryInstAndSimp.hpp"
+#include "Inferences/ForwardSubsumptionAndResolution.hpp"
 
 #include "Saturation/ExtensionalityClauseContainer.hpp"
 
@@ -212,6 +213,7 @@ protected:
   SymElOutput* _symEl;
   AnswerLiteralManager* _answerLiteralManager;
   Instantiation* _instantiation;
+  ForwardSubsumptionAndResolution* _fwSubsAndRes;
 
 
   SubscriptionData _passiveContRemovalSData;

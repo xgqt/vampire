@@ -291,6 +291,7 @@ ClauseIterator Induction::generateClauses(Clause* premise)
 
 bool InductionClauseIterator::isRedundant(Literal* lit)
 {
+  TIME_TRACE("induction redundancy check");
   if (!_opt.inductionRemodulationRedundancyCheck()) {
     return false;
   }
@@ -302,12 +303,7 @@ bool InductionClauseIterator::isRedundant(Literal* lit)
     TermList querySort = SortHelper::getTermSort(trm, lit);
 
     bool toplevelCheck=_opt.demodulationRedundancyCheck() && lit->isEquality() &&
-      (trm==*lit->nthArgument(0) || trm==*lit->nthArgument(1));
-
-    // encompassing demodulation is always fine into negative literals or into non-units
-    if (_opt.demodulationEncompassment()) {
-      toplevelCheck &= lit->isPositive();
-    }
+      (trm==*lit->nthArgument(0) || trm==*lit->nthArgument(1)) && lit->isPositive();
 
     TermQueryResultIterator git=_demodulationLhsIndex->getGeneralizations(trm, true);
     while(git.hasNext()) {
@@ -365,13 +361,10 @@ bool InductionClauseIterator::isRedundant(Literal* lit)
       if(toplevelCheck) {
         TermList other=EqHelper::getOtherEqualitySide(lit, trm);
         Ordering::Result tord=_ord.compare(rhsS, other);
-        if(tord!=Ordering::LESS && tord!=Ordering::LESS_EQ) {
-          if (_opt.demodulationEncompassment()) {
-            // last chance, if the matcher is not a renaming
-            if (qr.substitution->isRenamingOn(qr.term,true /* we talk of result term */)) {
-              continue;
-            }
-          }
+        if(tord!=Ordering::LESS && tord!=Ordering::LESS_EQ
+            && qr.substitution->isRenamingOn(qr.term,true /* is result? */))
+        {
+          continue;
         }
       }
       return true;

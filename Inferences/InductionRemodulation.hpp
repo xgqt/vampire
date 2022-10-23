@@ -64,11 +64,12 @@ inline bool canUseForRewrite(Clause* cl) {
   return cl->length() == 1 ||
     (env.options->inductionConsequenceGeneration() == Options::InductionConsequenceGeneration::ON &&
      isFormulaTransformation(cl->inference().rule())) ||
-    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_FORWARD_REWRITING ||
-    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_REMODULATION;
+    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_FORWARD_REWRITING/*  ||
+    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_REMODULATION */;
 }
 
 inline bool hasTermToInductOn(Term* t, Literal* l) {
+  return true;
   static const bool intInd = InductionHelper::isIntInductionOn();
   static const bool structInd = InductionHelper::isStructInductionOn();
   NonVariableIterator stit(t);

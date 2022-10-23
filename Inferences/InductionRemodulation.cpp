@@ -106,7 +106,7 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
         return pvi( pushPairIntoRightIterator(lit, getUniquePersistentIteratorFromPtr(&it)) );
       })
       .flatMap([this](pair<Literal*, TermList> arg) {
-        return pvi( pushPairIntoRightIterator(arg, _lhsIndex->getGeneralizations(arg.second, true)) );
+        return pvi( pushPairIntoRightIterator(arg, _lhsIndex->getUnifications(arg.second, true)) );
       })
       .flatMap([this, premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
         TermQueryResult& qr = arg.second;
@@ -122,7 +122,7 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
       .flatMap(EqHelper::LHSIteratorFn(_salg->getOrdering()))
       .flatMap(ReverseLHSIteratorFn(premise))
       .flatMap([this](pair<Literal*, TermList> arg) {
-        return pvi( pushPairIntoRightIterator(arg, _termIndex->getInstances(arg.second, true)) );
+        return pvi( pushPairIntoRightIterator(arg, _termIndex->getUnifications(arg.second, true)) );
       })
       .flatMap([this, premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
         TermQueryResult& qr = arg.second;
@@ -183,7 +183,7 @@ ClauseIterator InductionRemodulation::perform(
   }
 
   TermList tgtTerm = EqHelper::getOtherEqualitySide(eqLit, eqLHS);
-  TermList tgtTermS = eqIsResult ? subst->applyToBoundResult(tgtTerm) : subst->applyToBoundQuery(tgtTerm);
+  TermList tgtTermS = subst->applyTo(tgtTerm, eqIsResult);
   // ASS_REP(!eqIsResult || subst->isIdentityOnQueryWhenResultBound(), rwClause->toString());
   // ASS_REP(eqIsResult || subst->isIdentityOnResultWhenQueryBound(), rwClause->toString());
 
@@ -210,19 +210,20 @@ ClauseIterator InductionRemodulation::perform(
       for(unsigned i=0;i<rwLength;i++) {
         Literal* curr=(*rwClause)[i];
         if(curr!=rwLit) {
-          if (EqHelper::isEqTautology(curr)) {
+          Literal *currAfter = subst->applyTo(curr,eqIsResult);
+          if (EqHelper::isEqTautology(currAfter)) {
             newCl->destroy();
             return nullptr;
           }
 
-          (*newCl)[next++] = curr;
+          (*newCl)[next++] = currAfter;
         }
       }
 
       for (unsigned i = 0; i < eqLength; i++) {
         Literal *curr = (*eqClause)[i];
         if (curr != eqLit) {
-          Literal *currAfter = eqIsResult ? subst->applyToBoundResult(curr) : subst->applyToBoundQuery(curr);
+          Literal *currAfter = subst->applyTo(curr,eqIsResult);
 
           if (EqHelper::isEqTautology(currAfter)) {
             newCl->destroy();
