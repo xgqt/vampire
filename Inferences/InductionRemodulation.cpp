@@ -77,12 +77,9 @@ struct ReverseLHSIteratorFn {
   VirtualIterator<pair<Literal*, TermList>> operator()(pair<Literal*, TermList> arg)
   {
     CALL("ReverseLHSIteratorFn()");
+    ASS(arg.first->isPositive());
     auto rhs = EqHelper::getOtherEqualitySide(arg.first, arg.second);
-    if (!canUseForRewrite(arg.first, _cl) ||
-        !termHasAllVarsOfClause(rhs, _cl)) {
-      return VirtualIterator<pair<Literal*, TermList>>::getEmpty();
-    }
-    if (env.options->inductionRemodulationRedundancyCheck() && !hasTermToInductOn(arg.second.term(), arg.first)) {
+    if (!termHasAllVarsOfClause(rhs, _cl) || !hasTermToInductOn(arg.second.term(), arg.first)) {
       return VirtualIterator<pair<Literal*, TermList>>::getEmpty();
     }
     return pvi(getSingletonIterator(make_pair(arg.first,rhs)));
@@ -96,11 +93,13 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
   CALL("InductionRemodulation::generateClauses");
   ClauseIterator res1 = ClauseIterator::getEmpty();
 
-  if (InductionHelper::isInductionClause(premise))
+  if (InductionHelper::isInductionClause(premise) || canUseClauseForRewrite(premise))
   {
     // forward result
     res1 = pvi(iterTraits(premise->iterLits())
-      .filter(&InductionHelper::isInductionLiteral)
+      .filter([this,premise](Literal* lit) {
+        return shouldRewriteEquality(lit, premise, _salg->getOrdering()) || InductionHelper::isInductionLiteral(lit);
+      })
       .flatMap([](Literal* lit) {
         NonVariableNonTypeIterator it(lit);
         return pvi( pushPairIntoRightIterator(lit, getUniquePersistentIteratorFromPtr(&it)) );
@@ -117,7 +116,7 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
 
   // backward result
   ClauseIterator res2 = ClauseIterator::getEmpty();
-  if (canUseForRewrite(premise)) {
+  if (canUseClauseForRewrite(premise)) {
     res2 = pvi(iterTraits(premise->iterLits())
       .flatMap(EqHelper::LHSIteratorFn(_salg->getOrdering()))
       .flatMap(ReverseLHSIteratorFn(premise))
@@ -146,6 +145,27 @@ vset<unsigned> getSkolems(Literal* lit) {
     }
   }
   return res;
+}
+
+bool greaterSideRewritten(Literal* lit, Literal* orig, Ordering& ord) {
+  ASS_REP(lit->isEquality(), lit->toString());
+  ASS_REP(orig->isEquality(), orig->toString());
+  ASS_NEQ(lit,orig);
+  auto lhsNew = *lit->nthArgument(0);
+  auto rhsNew = *lit->nthArgument(1);
+  auto lhsOld = *orig->nthArgument(0);
+  auto rhsOld = *orig->nthArgument(1);
+  TermList rwSide;
+  TermList other;
+  if (lhsNew == lhsOld || rhsNew == lhsOld) {
+    rwSide = rhsOld;
+    other = lhsOld;
+  } else {
+    ASS(lhsNew == rhsOld || rhsNew == rhsOld);
+    rwSide = lhsOld;
+    other = rhsOld;
+  }
+  return ord.compare(rwSide, other) == Ordering::GREATER;
 }
 
 ClauseIterator InductionRemodulation::perform(
@@ -184,18 +204,21 @@ ClauseIterator InductionRemodulation::perform(
 
   TermList tgtTerm = EqHelper::getOtherEqualitySide(eqLit, eqLHS);
   TermList tgtTermS = subst->applyTo(tgtTerm, eqIsResult);
-  // ASS_REP(!eqIsResult || subst->isIdentityOnQueryWhenResultBound(), rwClause->toString());
-  // ASS_REP(eqIsResult || subst->isIdentityOnResultWhenQueryBound(), rwClause->toString());
+  TermList rwTermS = subst->applyTo(rwTerm, !eqIsResult);
+  Literal* rwLitS = subst->applyTo(rwLit, !eqIsResult);
 
-  auto comp = _salg->getOrdering().compare(tgtTermS,rwTerm);
+  auto comp = _salg->getOrdering().compare(tgtTermS,rwTermS);
   if (comp != Ordering::GREATER && comp != Ordering::GREATER_EQ) {
-    ASS_NEQ(comp, Ordering::INCOMPARABLE);
+    // ASS_NEQ(comp, Ordering::INCOMPARABLE);
     return ClauseIterator::getEmpty();
   }
 
-  return pvi(iterTraits(vi(new SingleOccurrenceReplacementIterator(rwLit, rwTerm.term(), TermList(tgtTermS.term()))))
-    .map([eqClause,rwClause,eqLit,rwLit,eqIsResult,subst](Literal* tgtLitS) -> Clause* {
+  return pvi(iterTraits(vi(new SingleOccurrenceReplacementIterator(rwLitS, rwTermS.term(), tgtTermS)))
+    .map([this,eqClause,rwClause,eqLit,rwLit,rwLitS,eqIsResult,subst](Literal* tgtLitS) -> Clause* {
       if(EqHelper::isEqTautology(tgtLitS)) {
+        return nullptr;
+      }
+      if (!InductionHelper::isInductionLiteral(rwLit) && !greaterSideRewritten(tgtLitS, rwLitS, _salg->getOrdering())) {
         return nullptr;
       }
 
@@ -210,7 +233,7 @@ ClauseIterator InductionRemodulation::perform(
       for(unsigned i=0;i<rwLength;i++) {
         Literal* curr=(*rwClause)[i];
         if(curr!=rwLit) {
-          Literal *currAfter = subst->applyTo(curr,eqIsResult);
+          Literal *currAfter = subst->applyTo(curr,!eqIsResult);
           if (EqHelper::isEqTautology(currAfter)) {
             newCl->destroy();
             return nullptr;

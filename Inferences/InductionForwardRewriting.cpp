@@ -36,10 +36,10 @@ ClauseIterator InductionForwardRewriting::generateClauses(Clause *premise)
   CALL("InductionForwardRewriting::generateClauses");
 
   ClauseIterator res = ClauseIterator::getEmpty();
-  if (InductionHelper::isInductionClause(premise) || canUseForRewrite(premise)) {
+  if (InductionHelper::isInductionClause(premise) || canUseClauseForRewrite(premise)) {
     res = pvi(iterTraits(premise->iterLits())
       .filter([premise](Literal* lit){
-        return canUseForRewrite(lit, premise) || InductionHelper::isInductionLiteral(lit);
+        return canUseClauseForRewrite(premise) || InductionHelper::isInductionLiteral(lit);
       })
       .flatMap([](Literal* lit){
         return pvi(pushPairIntoRightIterator(lit, getUniquePersistentIterator(vi(new NonVariableIterator(lit)))));
@@ -57,7 +57,7 @@ ClauseIterator InductionForwardRewriting::generateClauses(Clause *premise)
           qr.literal, qr.term, qr.substitution, true);
       }));
   }
-  if (canUseForRewrite(premise))
+  if (canUseClauseForRewrite(premise))
   {
     auto it = pvi(iterTraits(premise->iterLits())
       .flatMap([this](Literal* lit) {
@@ -98,19 +98,18 @@ Clause *InductionForwardRewriting::perform(
 
   if (SortHelper::getTermSort(rwTerm, rwLit) != SortHelper::getEqualityArgumentSort(eqLit)) {
     // sorts don't match
-    return 0;
+    return nullptr;
   }
 
   TermList tgtTerm = EqHelper::getOtherEqualitySide(eqLit, eqLHS);
-  // TermList tgtTermS = eqIsResult ? subst->applyToBoundResult(tgtTerm) : subst->applyToBoundQuery(tgtTerm);
   TermList tgtTermS = subst->apply(tgtTerm, eqIsResult);
   Literal* rwLitS = subst->apply(rwLit, !eqIsResult);
   TermList rwTermS = subst->apply(rwTerm, !eqIsResult);
 
   Ordering& ordering = _salg->getOrdering();
-  if(Ordering::isGorGEorE(ordering.compare(tgtTermS,rwTermS))) {
-    ASS_NEQ(ordering.compare(tgtTermS,rwTermS), Ordering::INCOMPARABLE);
-    return 0;
+  if (Ordering::isGorGEorE(ordering.compare(tgtTermS,rwTermS))) {
+    // ASS_NEQ(ordering.compare(tgtTermS,rwTermS), Ordering::INCOMPARABLE);
+    return nullptr;
   }
 
   // This inference is covered by superposition if:
@@ -145,7 +144,6 @@ Clause *InductionForwardRewriting::perform(
     }
   }
 
-  // Literal *tgtLitS = EqHelper::replace(rwLit, rwTerm, tgtTermS);
   Literal* tgtLitS = EqHelper::replace(rwLitS,rwTermS,tgtTermS);
   if (EqHelper::isEqTautology(tgtLitS)) {
     return 0;
@@ -164,7 +162,6 @@ Clause *InductionForwardRewriting::perform(
     Literal *curr = (*rwClause)[i];
     if (curr != rwLit) {
       Literal* currAfter = subst->apply(curr, !eqIsResult);
-      // curr = EqHelper::replace(curr, rwTerm, tgtTermS);
 
       if (doSimS) {
         currAfter = EqHelper::replace(currAfter,rwTermS,tgtTermS);
@@ -179,20 +176,17 @@ Clause *InductionForwardRewriting::perform(
     }
   }
 
-  {
-    for (unsigned i = 0; i < eqLength; i++) {
-      Literal *curr = (*eqClause)[i];
-      if (curr != eqLit) {
-        Literal* currAfter = subst->apply(curr, eqIsResult);
-        // Literal *currAfter = eqIsResult ? subst->applyToBoundResult(curr) : subst->applyToBoundQuery(curr);
+  for (unsigned i = 0; i < eqLength; i++) {
+    Literal *curr = (*eqClause)[i];
+    if (curr != eqLit) {
+      Literal* currAfter = subst->apply(curr, eqIsResult);
 
-        if (EqHelper::isEqTautology(currAfter)) {
-          res->destroy();
-          return 0;
-        }
-
-        (*res)[next++] = currAfter;
+      if (EqHelper::isEqTautology(currAfter)) {
+        res->destroy();
+        return 0;
       }
+
+      (*res)[next++] = currAfter;
     }
   }
   env.statistics->inductionForwardRewriting++;

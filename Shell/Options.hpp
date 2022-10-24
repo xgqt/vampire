@@ -258,11 +258,6 @@ public:
     INTERPRETED_CONSTANT,
     NO_SKOLEMS
   };
-  enum class InductionConsequenceGeneration : unsigned {
-    OFF,
-    UNIT_ONLY,
-    ON,
-  };
 
   enum class PredicateSineLevels : unsigned int {
     NO,   // no means 1) the reverse of "on", 2) use with caution, it is predicted to be the worse value
@@ -2354,8 +2349,7 @@ public:
   IntegerInductionLiteralStrictness integerInductionStrictnessComp() const {return _integerInductionStrictnessComp.actualValue; }
   IntegerInductionTermStrictness integerInductionStrictnessTerm() const {return _integerInductionStrictnessTerm.actualValue; }
   bool nonUnitInduction() const { return _nonUnitInduction.actualValue; }
-  InductionConsequenceGeneration inductionConsequenceGeneration() const { return _inductionConsequenceGeneration.actualValue; }
-  bool inductionRemodulationRedundancyCheck() const { return _inductionRemodulationRedundancyCheck.actualValue; }
+  bool inductionEquationalLemmaGeneration() const { return _inductionEquationalLemmaGeneration.actualValue; }
 
   float instGenBigRestartRatio() const { return _instGenBigRestartRatio.actualValue; }
   bool instGenPassiveReactivation() const { return _instGenPassiveReactivation.actualValue; }
@@ -2670,8 +2664,7 @@ private:
   ChoiceOptionValue<IntegerInductionLiteralStrictness> _integerInductionStrictnessComp;
   ChoiceOptionValue<IntegerInductionTermStrictness> _integerInductionStrictnessTerm;
   BoolOptionValue _nonUnitInduction;
-  ChoiceOptionValue<InductionConsequenceGeneration> _inductionConsequenceGeneration;
-  BoolOptionValue _inductionRemodulationRedundancyCheck;
+  BoolOptionValue _inductionEquationalLemmaGeneration;
 
   StringOptionValue _latexOutput;
   BoolOptionValue _latexUseDefaultSymbols;

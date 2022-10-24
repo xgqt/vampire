@@ -205,7 +205,7 @@ Index* IndexManager::create(IndexType t)
     break;
   case REMODULATION_SUBTERM_INDEX:
     tis=new TermSubstitutionTree();
-    res=new RemodulationSubtermIndex(tis);
+    res=new RemodulationSubtermIndex(tis, _alg->getOrdering());
     isGenerating = true;
     break;
   case REMODULATION_LHS_SUBST_TREE:

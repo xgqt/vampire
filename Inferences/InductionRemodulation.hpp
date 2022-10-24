@@ -35,41 +35,20 @@ using namespace Kernel;
 using namespace Indexing;
 using namespace Saturation;
 
-inline bool canUseForRewrite(Literal* lit, Clause* cl) {
-  if (lit->isNegative() || !lit->isEquality()) {
-    return false;
-  }
-  auto vit = cl->getVariableIterator();
-  while (vit.hasNext()) {
-    auto v = vit.next();
-    if (!lit->containsSubterm(TermList(v, false))) {
-      return false;
-    }
-  }
-  return true;
-}
-
 inline bool termHasAllVarsOfClause(TermList t, Clause* cl) {
-  auto vit = cl->getVariableIterator();
-  while (vit.hasNext()) {
-    auto v = vit.next();
-    if (!t.containsSubterm(TermList(v, false))) {
-      return false;
-    }
-  }
-  return true;
+  return iterTraits(cl->getVariableIterator())
+    .all([&t](unsigned v) {
+      return t.containsSubterm(TermList(v, false));
+    });
 }
 
-inline bool canUseForRewrite(Clause* cl) {
-  return cl->length() == 1 ||
-    (env.options->inductionConsequenceGeneration() == Options::InductionConsequenceGeneration::ON &&
-     isFormulaTransformation(cl->inference().rule())) ||
-    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_FORWARD_REWRITING/*  ||
-    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_REMODULATION */;
+inline bool canUseClauseForRewrite(Clause* cl) {
+  return cl->length() == 1 || isFormulaTransformation(cl->inference().rule()) ||
+    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_FORWARD_REWRITING ||
+    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_REMODULATION;
 }
 
 inline bool hasTermToInductOn(Term* t, Literal* l) {
-  return true;
   static const bool intInd = InductionHelper::isIntInductionOn();
   static const bool structInd = InductionHelper::isStructInductionOn();
   NonVariableIterator stit(t);
@@ -85,15 +64,19 @@ inline bool hasTermToInductOn(Term* t, Literal* l) {
   return false;
 }
 
+inline bool shouldRewriteEquality(Literal* lit, Clause* cl, Ordering& ord) {
+  return canUseClauseForRewrite(cl) && iterTraits(EqHelper::getLHSIterator(lit,ord))
+    .any([lit](TermList side) {
+      return side.isTerm() && !hasTermToInductOn(side.term(),lit);
+    });
+}
+
 class SingleOccurrenceReplacementIterator : public IteratorCore<Literal*> {
 public:
   CLASS_NAME(SingleOccurrenceReplacementIterator);
   USE_ALLOCATOR(SingleOccurrenceReplacementIterator);
   SingleOccurrenceReplacementIterator(Literal* lit, Term* o, TermList r)
-      : _lit(lit), _o(o), _r(r)
-  {
-    _occurrences = _lit->countSubtermOccurrences(TermList(_o));
-  }
+      : _lit(lit), _o(o), _r(r), _occurrences(_lit->countSubtermOccurrences(TermList(_o))) {}
 
   bool hasNext() override {
     return _iteration < _occurrences;
@@ -102,10 +85,10 @@ public:
 
 private:
   unsigned _iteration = 0;
-  unsigned _occurrences;
   Literal* _lit;
   Term* _o;
   TermList _r;
+  unsigned _occurrences;
 
   class Replacer : public TermTransformer {
   public:
@@ -128,9 +111,6 @@ class InductionRemodulation
 public:
   CLASS_NAME(InductionRemodulation);
   USE_ALLOCATOR(InductionRemodulation);
-
-  InductionRemodulation()
-    : _lhsIndex(), _termIndex() {}
 
   void attach(SaturationAlgorithm* salg) override;
   void detach() override;

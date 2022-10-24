@@ -1569,7 +1569,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   Induction* induction = nullptr;
   InductionRemodulation* inductionRemodulation = nullptr;
   if(opt.induction()!=Options::Induction::NONE){
-    if (env.options->inductionConsequenceGeneration()!=Options::InductionConsequenceGeneration::OFF) {
+    if (env.options->inductionEquationalLemmaGeneration()) {
       inductionRemodulation = new InductionRemodulation();
       gie->addFront(inductionRemodulation);
       gie->addFront(new InductionForwardRewriting());
@@ -1691,7 +1691,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   }
 #endif
 
-  if (env.options->inductionConsequenceGeneration()!=Options::InductionConsequenceGeneration::OFF) {
+  if (env.options->inductionEquationalLemmaGeneration()) {
     res->setGeneratingInferenceEngine(new InductionSGIWrapper(induction, inductionRemodulation, sgi));
   } else {
     res->setGeneratingInferenceEngine(sgi);

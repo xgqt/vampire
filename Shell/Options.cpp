@@ -1458,18 +1458,11 @@ void Options::init()
     _nonUnitInduction.reliesOn(_induction.is(notEqual(Induction::NONE)));
     _lookup.insert(&_nonUnitInduction);
 
-    _inductionConsequenceGeneration = ChoiceOptionValue<InductionConsequenceGeneration>("induction_consequence_generation","indcg",
-                                        InductionConsequenceGeneration::OFF, {"off", "unit_only", "on"});
-    _inductionConsequenceGeneration.description = "Generate consequences (without ordering constraints) for induction goals";
-    _inductionConsequenceGeneration.tag(OptionTag::INFERENCES);
-    _inductionConsequenceGeneration.reliesOn(_induction.is(notEqual(Induction::NONE)));
-    _lookup.insert(&_inductionConsequenceGeneration);
-
-    _inductionRemodulationRedundancyCheck = BoolOptionValue("induction_remodulation_redundancy_check","indrrc",true);
-    _inductionRemodulationRedundancyCheck.description = "Try to do only non-redundant inductions";
-    _inductionRemodulationRedundancyCheck.tag(OptionTag::INFERENCES);
-    _inductionRemodulationRedundancyCheck.reliesOn(_inductionConsequenceGeneration.is(notEqual(InductionConsequenceGeneration::OFF)));
-    _lookup.insert(&_inductionRemodulationRedundancyCheck);
+    _inductionEquationalLemmaGeneration = BoolOptionValue("induction_equational_lemma_generation","indelg",false);
+    _inductionEquationalLemmaGeneration.description = "Generate consequences (without ordering constraints) for induction goals";
+    _inductionEquationalLemmaGeneration.tag(OptionTag::INFERENCES);
+    _inductionEquationalLemmaGeneration.reliesOn(_induction.is(notEqual(Induction::NONE)));
+    _lookup.insert(&_inductionEquationalLemmaGeneration);
 
     _instantiation = ChoiceOptionValue<Instantiation>("instantiation","inst",Instantiation::OFF,{"off","on"});
     _instantiation.description = "Heuristically instantiate variables. Often wastes a lot of effort. Consider using thi instead.";

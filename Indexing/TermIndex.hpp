@@ -135,8 +135,8 @@ public:
   CLASS_NAME(RemodulationSubtermIndex);
   USE_ALLOCATOR(RemodulationSubtermIndex);
 
-  RemodulationSubtermIndex(TermIndexingStructure* is)
-  : TermIndex(is) {}
+  RemodulationSubtermIndex(TermIndexingStructure* is, Ordering& ord)
+  : TermIndex(is), _ord(ord) {}
 
   void onAddedToContainer(Clause* c) override
   { handleClause(c, true); }
@@ -146,6 +146,8 @@ public:
 
 protected:
   void handleClause(Clause* c, bool adding) override;
+
+  Ordering& _ord;
 };
 
 /**
@@ -159,7 +161,14 @@ public:
   USE_ALLOCATOR(RemodulationLHSIndex);
 
   RemodulationLHSIndex(TermIndexingStructure* is, Ordering& ord)
-  : TermIndex(is), _ord(ord) {};
+  : TermIndex(is), _ord(ord) {}
+
+  void onAddedToContainer(Clause* c) override
+  { handleClause(c, true); }
+
+  void onRemovedFromContainer(Clause* c) override
+  { handleClause(c, false); }
+
 protected:
   void handleClause(Clause* c, bool adding) override;
 private:

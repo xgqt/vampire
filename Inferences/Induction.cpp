@@ -292,9 +292,6 @@ ClauseIterator Induction::generateClauses(Clause* premise)
 bool InductionClauseIterator::isRedundant(Literal* lit)
 {
   TIME_TRACE("induction redundancy check");
-  if (!_opt.inductionRemodulationRedundancyCheck()) {
-    return false;
-  }
   // cout << "checking lit " << *lit << endl;
   NonVariableNonTypeIterator it(lit);
   while(it.hasNext()) {

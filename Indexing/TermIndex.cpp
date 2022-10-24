@@ -193,15 +193,12 @@ void RemodulationLHSIndex::handleClause(Clause* c, bool adding)
 
   TIME_TRACE("induction remodulation index maintenance");
 
-  if (!canUseForRewrite(c)) {
+  if (!canUseClauseForRewrite(c)) {
     return;
   }
 
   for (unsigned i = 0; i < c->length(); i++) {
     Literal* lit=(*c)[i];
-    if (!canUseForRewrite(lit, c)) {
-      continue;
-    }
     TermIterator lhsi=EqHelper::getLHSIterator(lit, _ord);
     while (lhsi.hasNext()) {
       auto lhs = lhsi.next();
@@ -210,7 +207,7 @@ void RemodulationLHSIndex::handleClause(Clause* c, bool adding)
       if (!termHasAllVarsOfClause(rhs, c)) {
         continue;
       }
-      if (env.options->inductionRemodulationRedundancyCheck() && !hasTermToInductOn(lhs.term(), lit)) {
+      if (!hasTermToInductOn(lhs.term(), lit)) {
         continue;
       }
       if (adding) {
@@ -229,15 +226,12 @@ void RewritingLHSIndex::handleClause(Clause* c, bool adding)
 
   TIME_TRACE("induction rewriting index maintenance");
 
-  if (!canUseForRewrite(c)) {
+  if (!canUseClauseForRewrite(c)) {
     return;
   }
 
   for (unsigned i = 0; i < c->length(); i++) {
     Literal* lit=(*c)[i];
-    if (!canUseForRewrite(lit, c)) {
-      continue;
-    }
     TermIterator lhsi=EqHelper::getLHSIterator(lit, _ord);
     while (lhsi.hasNext()) {
       auto lhs = lhsi.next();
@@ -260,19 +254,16 @@ void RewritingSubtermIndex::handleClause(Clause* c, bool adding)
 
   TIME_TRACE("induction rewriting index maintenance");
 
-  if (!canUseForRewrite(c) || InductionHelper::isInductionClause(c)) {
+  if (!canUseClauseForRewrite(c) && !InductionHelper::isInductionClause(c)) {
     return;
   }
 
-  unsigned ns = c->numSelected();
-
   for (unsigned i = 0; i < c->length(); i++) {
     Literal* lit=(*c)[i];
-    if (!canUseForRewrite(lit, c) && !InductionHelper::isInductionLiteral(lit)) {
+    if (!canUseClauseForRewrite(c) && !InductionHelper::isInductionLiteral(lit)) {
       continue;
     }
     NonVariableIterator it(lit);
-    // auto it = EqHelper::getSmallerOrBothSideSubtermIterator(lit,_ord,i<ns);
     while (it.hasNext()) {
       auto t = it.next();
       if (adding) {
@@ -291,7 +282,7 @@ void RemodulationSubtermIndex::handleClause(Clause* c, bool adding)
 
   TIME_TRACE("induction remodulation index maintenance");
 
-  if (!InductionHelper::isInductionClause(c)) {
+  if (!InductionHelper::isInductionClause(c) && !canUseClauseForRewrite(c)) {
     return;
   }
 
@@ -299,7 +290,7 @@ void RemodulationSubtermIndex::handleClause(Clause* c, bool adding)
 
   for (unsigned i=0;i<c->length();i++) {
     Literal* lit = (*c)[i];
-    if (!InductionHelper::isInductionLiteral(lit)) {
+    if (!InductionHelper::isInductionLiteral(lit) && !shouldRewriteEquality(lit,c,_ord)) {
       continue;
     }
     inserted.reset();
