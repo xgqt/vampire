@@ -336,7 +336,7 @@ void SMTLIB2::readBenchmark(LExprList* bench)
           USER_ERROR("rewrite not well-sorted: "+literal->toString());
 
         Literal *renamed = Renaming::normalize(literal);
-        Inferences::RewriteISE::registerTermRewrite((*renamed)[0], (*renamed)[1]);
+        Inferences::RewriteGIE::registerTermRewrite((*renamed)[0], (*renamed)[1]);
       }
       else {
         Formula *left = formula->left();
@@ -364,7 +364,7 @@ void SMTLIB2::readBenchmark(LExprList* bench)
         Renaming renaming;
         left_literal = renaming.apply(left_literal);
         right_literal = renaming.apply(right_literal);
-        Inferences::RewriteISE::registerLiteralRewrite(left_literal, right_literal);
+        Inferences::RewriteGIE::registerLiteralRewrite(left_literal, right_literal);
       }
       ibRdr.acceptEOL();
       continue;
