@@ -336,7 +336,7 @@ void SMTLIB2::readBenchmark(LExprList* bench)
           USER_ERROR("rewrite not well-sorted: "+literal->toString());
 
         Literal *renamed = Renaming::normalize(literal);
-        Inferences::RewriteGIE::registerTermRewrite((*renamed)[0], (*renamed)[1]);
+        Inferences::CCSA::registerTermRewrite((*renamed)[0], (*renamed)[1]);
       }
       else {
         Formula *left = formula->left();
@@ -364,7 +364,7 @@ void SMTLIB2::readBenchmark(LExprList* bench)
         Renaming renaming;
         left_literal = renaming.apply(left_literal);
         right_literal = renaming.apply(right_literal);
-        Inferences::RewriteGIE::registerLiteralRewrite(left_literal, right_literal);
+        Inferences::CCSA::registerLiteralRewrite(left_literal, right_literal);
       }
       ibRdr.acceptEOL();
       continue;
@@ -390,7 +390,7 @@ void SMTLIB2::readBenchmark(LExprList* bench)
           USER_ERROR("undeclared function: " + name);
 
         unsigned functor = function.first;
-        Inferences::SubtermISE::registerCommutes(relation, functor);
+        Inferences::CCSA::registerCommutes(relation, functor);
       }
       ibRdr.acceptEOL();
       continue;
@@ -2361,7 +2361,7 @@ bool SMTLIB2::parseAsBuiltinFormulaSymbol(const vstring& id, LExpr* exp)
       }
       TermList superterm_sort = _results.pop().asTerm(superterm);
 
-      _results.push(new AtomicFormula(Inferences::SubtermISE::createSubterm(
+      _results.push(new AtomicFormula(Inferences::CCSA::createSubterm(
         true,
         relation,
         subterm,

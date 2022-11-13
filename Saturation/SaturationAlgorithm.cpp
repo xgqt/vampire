@@ -1639,7 +1639,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
     }
   }
 
-  gie->addFront(new RewriteGIE());
+  gie->addFront(new CCSA::RewriteGIE());
 
   CompositeSGI* sgi = new CompositeSGI();
   sgi->push(gie);
@@ -1881,7 +1881,7 @@ ImmediateSimplificationEngine* SaturationAlgorithm::createISE(Problem& prb, cons
   }
   res->addFront(new DuplicateLiteralRemovalISE());
 
-  res->addFrontMany(new SubtermISE());
+  res->addFrontMany(new CCSA::SubtermISE());
 
   return res;
 }
