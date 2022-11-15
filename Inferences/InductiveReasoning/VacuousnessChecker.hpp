@@ -24,6 +24,8 @@
 #include "Indexing/TermSubstitutionTree.hpp"
 #include "Indexing/LiteralSubstitutionTree.hpp"
 
+using namespace Indexing;
+
 namespace Inferences
 {
 
@@ -36,29 +38,10 @@ namespace InductiveReasoning
 class VacuousnessChecker
 {
 public:
-  VacuousnessChecker(InductionFormulaIndex& formulaIndex)
-      : _salg(nullptr), _formulaIndex(formulaIndex), _delayedIndex(), _delayedLitIndex(),
-        _lhsIndex(nullptr), _literalIndex(nullptr) {}
-
-  void attach(SaturationAlgorithm* salg);
-  void detach();
-
-  void checkForDelayedInductions(Literal* lit, Clause* cl, InductionClauseIterator& clIt);
-  bool check(const InductionContext& ctx, InductionFormulaIndex::Entry* e);
-
-  static bool termAlgebraConsCheck(Term* t);
+  bool isVacuous(const InductionContext& ctx, InductionFormulaIndex::Entry* e);
 
 private:
-  bool maybeDelayInduction(const InductionContext& ctx, InductionFormulaIndex::Entry* e);
-  bool checkForVacuousness(Literal* lit, Term* t);
-
-  SaturationAlgorithm* _salg;
-  InductionFormulaIndex& _formulaIndex;
-  TermSubstitutionTree _delayedIndex;
-  LiteralSubstitutionTree _delayedLitIndex;
-  InductionLHSIndex* _lhsIndex;
-  InductionLiteralIndex* _literalIndex;
-  DHMap<Literal*,Stack<InductionFormulaKey>> _literalMap;
+  bool isVacuous(Literal* lit, Term* t);
 };
 
 }

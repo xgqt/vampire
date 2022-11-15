@@ -416,6 +416,7 @@ set(VAMPIRE_INFERENCE_SOURCES
     Inferences/InnerRewriting.cpp
     Inferences/EquationalTautologyRemoval.cpp
     Inferences/InductiveReasoning/VacuousnessChecker.cpp
+    Inferences/InductiveReasoning/InductionPostponement.cpp
     Inferences/Induction.cpp
     Inferences/InductionHelper.cpp
     Inferences/InferenceEngine.cpp
@@ -452,6 +453,7 @@ set(VAMPIRE_INFERENCE_SOURCES
     Inferences/InnerRewriting.hpp
     Inferences/EquationalTautologyRemoval.hpp
     Inferences/InductiveReasoning/VacuousnessChecker.hpp
+    Inferences/InductiveReasoning/InductionPostponement.hpp
     Inferences/Induction.hpp
     Inferences/InductionHelper.hpp
     Inferences/InferenceEngine.hpp

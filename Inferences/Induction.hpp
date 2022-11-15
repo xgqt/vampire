@@ -37,6 +37,7 @@
 
 #include "InductionHelper.hpp"
 #include "InferenceEngine.hpp"
+#include "InductiveReasoning/InductionPostponement.hpp"
 #include "InductiveReasoning/VacuousnessChecker.hpp"
 
 namespace Inferences
@@ -165,11 +166,13 @@ public:
 
   Induction(const Problem& prb)
     : _formulaIndex(),
-      _vacuousnessChecker(_formulaIndex)
+      _vacuousnessChecker(),
+      _postponement(_formulaIndex)
     { preprocess(prb); }
   Induction()
     : _formulaIndex(),
-      _vacuousnessChecker(_formulaIndex) {} // for unit tests
+      _vacuousnessChecker(),
+      _postponement(_formulaIndex) {} // for unit tests
 
   void attach(SaturationAlgorithm* salg) override;
   void detach() override;
@@ -193,6 +196,7 @@ private:
   TermIndex* _structInductionTermIndex = nullptr;
   InductionFormulaIndex _formulaIndex;
   VacuousnessChecker _vacuousnessChecker;
+  InductionPostponement _postponement;
   CodeTreeTIS _restrictions;
 };
 
@@ -202,9 +206,9 @@ public:
   // all the work happens in the constructor!
   InductionClauseIterator(Clause* premise, InductionHelper helper, const Options& opt,
     TermIndex* structInductionTermIndex, InductionFormulaIndex& formulaIndex,
-    CodeTreeTIS& restrictions, Splitter* splitter, VacuousnessChecker& vacuousnessChecker)
+    CodeTreeTIS& restrictions, Splitter* splitter, VacuousnessChecker& vacuousnessChecker, InductionPostponement& postponement)
       : _helper(helper), _opt(opt), _structInductionTermIndex(structInductionTermIndex), _formulaIndex(formulaIndex),
-      _restrictions(restrictions), _splitter(splitter), _vacuousnessChecker(vacuousnessChecker)
+      _restrictions(restrictions), _splitter(splitter), _vacuousnessChecker(vacuousnessChecker), _postponement(postponement)
   {
     processClause(premise);
   }
@@ -246,6 +250,7 @@ private:
   CodeTreeTIS& _restrictions;
   Splitter* _splitter;
   VacuousnessChecker& _vacuousnessChecker;
+  InductionPostponement& _postponement;
 };
 
 };

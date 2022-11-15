@@ -61,8 +61,8 @@ public:
       return _st;
     }
     bool _vacuous = false;
-    Stack<Inferences::InductionContext> _delayedApplications;
-    bool _delayed = false;
+    Stack<Inferences::InductionContext> _postponedApplications;
+    bool _postponed = false;
     ClauseStack _activatingClauses;
   private:
     Stack<pair<ClauseStack,Substitution>> _st;

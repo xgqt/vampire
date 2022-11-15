@@ -253,7 +253,7 @@ void Induction::attach(SaturationAlgorithm* salg) {
   CALL("Induction::attach");
 
   GeneratingInferenceEngine::attach(salg);
-  _vacuousnessChecker.attach(salg);
+  _postponement.attach(salg);
   if (InductionHelper::isIntInductionOneOn()) {
     _comparisonIndex = static_cast<LiteralIndex*>(_salg->getIndexManager()->request(UNIT_INT_COMPARISON_INDEX));
     _inductionTermIndex = static_cast<TermIndex*>(_salg->getIndexManager()->request(INDUCTION_TERM_INDEX));
@@ -279,7 +279,7 @@ void Induction::detach() {
     _inductionTermIndex = nullptr;
     _salg->getIndexManager()->release(INDUCTION_TERM_INDEX);
   }
-  _vacuousnessChecker.detach();
+  _postponement.detach();
   GeneratingInferenceEngine::detach();
 }
 
@@ -288,7 +288,7 @@ ClauseIterator Induction::generateClauses(Clause* premise)
   CALL("Induction::generateClauses");
 
   return pvi(InductionClauseIterator(premise, InductionHelper(_comparisonIndex, _inductionTermIndex), getOptions(),
-    _structInductionTermIndex, _formulaIndex, _restrictions, _salg->getSplitter(), _vacuousnessChecker));
+    _structInductionTermIndex, _formulaIndex, _restrictions, _salg->getSplitter(), _vacuousnessChecker, _postponement));
 }
 
 void InductionClauseIterator::processClause(Clause* premise)
@@ -301,7 +301,7 @@ void InductionClauseIterator::processClause(Clause* premise)
     for (unsigned i=0;i<premise->length();i++) {
       auto lit = (*premise)[i];
       processLiteral(premise,lit);
-      _vacuousnessChecker.checkForDelayedInductions(lit, premise, *this);
+      _postponement.checkForPostponedInductions(lit, premise, *this);
     }
   }
   if (InductionHelper::isIntInductionOneOn() && InductionHelper::isIntegerComparison(premise)) {
@@ -678,12 +678,15 @@ void InductionClauseIterator::processLiteral(Clause* premise, Literal* lit)
       }
       InductionFormulaIndex::Entry* e;
       // generate formulas and add them to index if not done already
-      if (_formulaIndex.findOrInsert(ctx, e) && _vacuousnessChecker.check(ctx, e)) {
+      if (_formulaIndex.findOrInsert(ctx, e)
+          && !_vacuousnessChecker.isVacuous(ctx, e)
+          && !_postponement.maybePostpone(ctx, e))
+      {
         generateStructuralFormulas(ctx, e);
       }
-      if (e->_delayed) {
-        env.statistics->delayedInductionApplications++;
-        e->_delayedApplications.push(ctx);
+      if (e->_postponed) {
+        env.statistics->postponedInductionApplications++;
+        e->_postponedApplications.push(ctx);
         continue;
       }
       // resolve the formulas with the premises
@@ -1044,7 +1047,7 @@ void InductionClauseIterator::resolveClauses(const ClauseStack& cls, const Induc
   bool generalized = false;
   unsigned maxInductionDepth = 0;
   for (const auto& kv : context._cls) {
-    // we have to check this due to delayed inductions
+    // we have to check this due to postponed inductions
     if (_splitter && !_splitter->allSplitLevelsActive(kv.first->splits())) {
       // This way this particular induction is never done, but if this
       // particular premise is given by AVATAR once again, the induction

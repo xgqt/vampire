@@ -16,7 +16,6 @@
 #include "Lib/DHMap.hpp"
 
 #include "Inferences/InductionHelper.hpp"
-#include "Inferences/InductiveReasoning/VacuousnessChecker.hpp"
 
 #include "Kernel/ApplicativeHelper.hpp"
 #include "Kernel/Clause.hpp"
@@ -121,29 +120,21 @@ void SuperpositionLHSIndex::handleClause(Clause* c, bool adding)
   }
 }
 
-void InductionLHSIndex::handleClause(Clause* c, bool adding)
+void GeneralLHSIndex::handleClause(Clause* c, bool adding)
 {
-  CALL("InductionLHSIndex::handleClause");
-  TIME_TRACE("delayed induction lhs index maintenance");
+  CALL("GeneralLHSIndex::handleClause");
 
   for (unsigned i=0; i<c->length(); i++) {
     Literal* lit=(*c)[i];
-    if (!lit->isEquality()) {
-      continue;
-    }
-    if (lit->isNegative()) {
+    if (!lit->isEquality() ||  lit->isNegative()) {
       continue;
     }
     for (unsigned j=0; j<2; j++) {
-      auto side = *lit->nthArgument(j);
-      if (side.isVar()) {
-        continue;
-      }
-      if (!InductiveReasoning::VacuousnessChecker::termAlgebraConsCheck(side.term())) { continue; }
+      auto lhs = *lit->nthArgument(j);
       if (adding) {
-        _is->insert(side, lit, c);
+        _is->insert(lhs, lit, c);
       } else {
-        _is->remove(side, lit, c);
+        _is->remove(lhs, lit, c);
       }
     }
   }

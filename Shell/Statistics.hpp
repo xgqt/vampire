@@ -158,8 +158,8 @@ public:
   unsigned vacuousInductionFormulaDiscardedStaticallyMonotonicity;
   unsigned vacuousInductionFormulaDiscardedDynamically;
   unsigned vacuousInductionFormulaDiscardedDynamically2;
-  unsigned delayedInductions;
-  unsigned delayedInductionApplications;
+  unsigned postponedInductions;
+  unsigned postponedInductionApplications;
   unsigned inductionSkippedHeuristic1;
   /** number of argument congruences */
   unsigned argumentCongruence;

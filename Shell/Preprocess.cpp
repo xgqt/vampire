@@ -326,6 +326,7 @@ void Preprocess::preprocess(Problem& prb)
     }
   }
 
+
   if (prb.mayHaveEquality() && _options.inequalitySplitting() != 0) {
     if (env.options->showPreprocessing())
       env.out() << "inequality splitting" << std::endl;

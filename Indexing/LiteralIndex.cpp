@@ -13,7 +13,6 @@
  */
 
 #include "Inferences/InductionHelper.hpp"
-#include "Inferences/InductiveReasoning/VacuousnessChecker.hpp"
 
 #include "Kernel/Clause.hpp"
 #include "Kernel/LiteralComparators.hpp"
@@ -426,21 +425,6 @@ void UnitIntegerComparisonLiteralIndex::handleClause(Clause* c, bool adding)
     _is->insert(lit, c);
   } else {
     _is->remove(lit, c);
-  }
-}
-
-void InductionLiteralIndex::handleClause(Clause* c, bool adding)
-{
-  CALL("InductionLiteralIndex::handleClause");
-  TIME_TRACE("delayed induction literal index maintenance");
-
-  for (unsigned i = 0; i < c->length(); i++) {
-    Literal* lit = (*c)[i];
-    if (lit->isEquality()) {
-      continue;
-    }
-    if (!Inferences::InductiveReasoning::VacuousnessChecker::termAlgebraConsCheck(lit)) { continue; }
-    handleLiteral(lit, c, adding);
   }
 }
 

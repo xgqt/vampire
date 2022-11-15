@@ -27,10 +27,9 @@
 #include "Kernel/RobSubstitution.hpp"
 #include "Kernel/TermIterators.hpp"
 
-#include "Saturation/SaturationAlgorithm.hpp"
-
 #include "VacuousnessChecker.hpp"
 #include "Inferences/Induction.hpp"
+#include "Shell/Statistics.hpp"
 
 using std::pair;
 using std::make_pair;
@@ -42,265 +41,6 @@ namespace InductiveReasoning
 {
 using namespace Kernel;
 using namespace Lib; 
-
-void VacuousnessChecker::attach(SaturationAlgorithm* salg)
-{
-  CALL("VacuousnessChecker::attach");
-
-  _salg = salg;
-  _lhsIndex = static_cast<InductionLHSIndex*>(salg->getIndexManager()->request(INDUCTION_LHS_INDEX));
-  _literalIndex = static_cast<InductionLiteralIndex*>(salg->getIndexManager()->request(INDUCTION_LITERAL_INDEX));
-}
-
-void VacuousnessChecker::detach()
-{
-  CALL("VacuousnessChecker::detach");
-
-  _salg->getIndexManager()->release(INDUCTION_LITERAL_INDEX);
-  _literalIndex = nullptr;
-  _salg->getIndexManager()->release(INDUCTION_LHS_INDEX);
-  _lhsIndex = nullptr;
-  _salg = nullptr;
-}
-
-inline void updatePositions(TermList tt, Stack<unsigned>& pos, TermAlgebra* ta, InductionFormulaIndex::Entry* e, Clause* cl) {
-  if (!tt.isTerm()) {
-    return;
-  }
-  for (unsigned i = 0; i < pos.size(); i++) {
-    if (tt.term()->functor() != ta->constructor(pos[i])->functor()) {
-      continue;
-    }
-    Set<unsigned> vars;
-    for (unsigned j = 0; j < tt.term()->arity(); j++) {
-      if (tt.term()->nthArgument(j)->isVar()) {
-        vars.insert(tt.term()->nthArgument(j)->var());
-      }
-    }
-    if (vars.size() == tt.term()->arity()) {
-      ASS_EQ(e->_activatingClauses[pos[i]], nullptr);
-      e->_activatingClauses[pos[i]] = cl;
-      swap(pos[i],pos.top());
-      pos.pop();
-      break;
-    }
-  }
-}
-
-bool VacuousnessChecker::maybeDelayInduction(const InductionContext& ctx, InductionFormulaIndex::Entry* e)
-{
-  CALL("VacuousnessChecker::maybeDelayInduction");
-  TIME_TRACE("forward delayed induction");
-  // this induction is already delayed
-  if (e->_delayed) {
-    return false;
-  }
-  // if not delayed but this field is initialized,
-  // then the induction was reactivated already
-  if (e->_activatingClauses.size()) {
-    return true;
-  }
-  TermList sort = SortHelper::getResultSort(ctx._indTerm);
-  if (!env.signature->isTermAlgebraSort(sort)) {
-    return true;
-  }
-  auto ta = env.signature->getTermAlgebraOfSort(sort);
-  Stack<unsigned> pos;
-  for (unsigned i = 0; i < ta->nConstructors(); i++) {
-    e->_activatingClauses.push(nullptr);
-    pos.push(i);
-  }
-  TermList x(0,false);
-  DHSet<Term*> tried;
-  TermReplacement tr(getPlaceholderForTerm(ctx._indTerm), x);
-  for (const auto& kv : ctx._cls) {
-    for (const auto& lit : kv.second) {
-      auto tlit = tr.transform(lit);
-      NonVariableNonTypeIterator it(tlit);
-      while (it.hasNext() && pos.isNonEmpty()) {
-        TIME_TRACE("forward delayed induction subterm loop");
-        auto t = it.next();
-        if (!t.containsSubterm(x) || !tried.insert(t.term())) {
-          it.right();
-          continue;
-        }
-        auto uit = _lhsIndex->getUnifications(t);
-        while (uit.hasNext() && pos.isNonEmpty()) {
-          auto qr = uit.next();
-          auto tt = qr.substitution->applyToQuery(x);
-          updatePositions(tt, pos, ta, e, qr.clause);
-        }
-      }
-      if (pos.isNonEmpty() && !tlit->isEquality()) {
-        TIME_TRACE("forward delayed induction literal check");
-        // auto uit = getConcatenatedIterator(_literalIndex->getUnifications(tlit, true), _literalIndex->getUnifications(tlit, false));
-        // TODO consider only complmentary literals
-        auto uit = _literalIndex->getUnifications(tlit, true);
-        while (uit.hasNext() && pos.isNonEmpty()) {
-          auto qr = uit.next();
-          auto tt = qr.substitution->applyToQuery(x);
-          updatePositions(tt, pos, ta, e, qr.clause);
-        }
-      }
-    }
-  }
-  if (pos.isNonEmpty()) {
-    e->_delayed = true;
-    e->_delayedApplications.push(ctx);
-    env.statistics->delayedInductions++;
-    env.statistics->delayedInductionApplications++;
-    for (const auto& kv : ctx._cls) {
-      for (const auto& lit : kv.second) {
-        Stack<InductionFormulaKey>* ks = nullptr;
-        if (_literalMap.getValuePtr(lit, ks)) {
-          auto tlit = tr.transform(lit);
-          NonVariableNonTypeIterator it(tlit);
-          while (it.hasNext()) {
-            auto t = it.next();
-            if (!t.containsSubterm(x)) {
-              it.right();
-              continue;
-            }
-            _delayedIndex.insert(t, tlit, nullptr);
-          }
-          _delayedLitIndex.insert(tlit, nullptr);
-        }
-        ASS(ks);
-        ks->push(InductionFormulaIndex::represent(ctx));
-      }
-    }
-    return false;
-  }
-  return true;
-}
-
-void VacuousnessChecker::checkForDelayedInductions(Literal* lit, Clause* cl, InductionClauseIterator& clIt)
-{
-  CALL("VacuousnessChecker::checkForDelayedInductions");
-  TIME_TRACE("backward delayed induction");
-  TermList x(0,false);
-  DHMap<InductionFormulaKey,Term*> toBeRemoved;
-  auto reactivate = [&toBeRemoved, this, cl, &clIt, &x](TermList t, Literal* lit){
-    TIME_TRACE("backward delayed induction reactivate");
-    if (!t.isTerm()) {
-      return;
-    }
-    TermList sort = SortHelper::getResultSort(t.term());
-    if (!env.signature->isTermAlgebraSort(sort)) {
-      return;
-    }
-    auto ta = env.signature->getTermAlgebraOfSort(sort);
-    Substitution subst;
-    subst.bind(x.var(), getPlaceholderForTerm(t.term()));
-    auto ks = _literalMap.findPtr(lit->apply(subst));
-    for (const auto& key : *ks) {
-      if (toBeRemoved.find(key)) {
-        continue;
-      }
-      auto e = _formulaIndex.findByKey(key);
-      ASS(e);
-      ASS(e->_delayed);
-      ASS(e->_delayedApplications.isNonEmpty());
-      ASS(!e->_vacuous);
-
-      Stack<unsigned> pos;
-      ASS_EQ(e->_activatingClauses.size(), ta->nConstructors());
-      for (unsigned i = 0; i < ta->nConstructors(); i++) {
-        if (!e->_activatingClauses[i]) {
-          pos.push(i);
-        }
-      }
-      updatePositions(t, pos, ta, e, cl);
-      if (pos.isNonEmpty()) {
-        continue;
-      }
-      // any of the delayed contexts suffices to generate the formulas
-      auto ph = getPlaceholderForTerm(e->_delayedApplications[0]._indTerm);
-      clIt.generateStructuralFormulas(e->_delayedApplications[0], e);
-      ASS_NEQ(0,env.statistics->delayedInductions);
-      env.statistics->delayedInductions--;
-      TIME_TRACE("backward delayed induction resolution");
-      while (e->_delayedApplications.isNonEmpty()) {
-        auto ctx = e->_delayedApplications.pop();
-        ASS_NEQ(0,env.statistics->delayedInductionApplications);
-        env.statistics->delayedInductionApplications--;
-        for (auto& kv : e->get()) {
-          clIt.resolveClauses(kv.first, ctx, kv.second);
-        }
-      }
-      e->_delayed = false;
-      toBeRemoved.insert(key,ph);
-    }
-  };
-
-  if (lit->isEquality()) {
-    if (lit->isPositive()) {
-      TIME_TRACE("backward delayed induction subterm loop");
-      for (unsigned j=0; j<2; j++) {
-        auto side = *lit->nthArgument(j);
-        if (side.isVar() || !termAlgebraConsCheck(side.term())) {
-          continue;
-        }
-        auto qrit = _delayedIndex.getUnifications(side,true);
-        while (qrit.hasNext()) {
-          auto qr = qrit.next();
-          auto tt = qr.substitution->applyToResult(x);
-          reactivate(tt, qr.literal);
-        }
-      }
-    }
-  } else if (termAlgebraConsCheck(lit)) {
-    TIME_TRACE("backward delayed induction literal check");
-    // auto qrit = getConcatenatedIterator(_delayedLitIndex.getUnifications(lit, true, true), _delayedLitIndex.getUnifications(lit, false, true));
-    // TODO consider only complmentary literals
-    auto qrit = _delayedLitIndex.getUnifications(lit, true, true);
-    while (qrit.hasNext()) {
-      auto qr = qrit.next();
-      auto tt = qr.substitution->applyToResult(x);
-      reactivate(tt, qr.literal);
-    }
-  }
-  decltype(toBeRemoved)::Iterator rit(toBeRemoved);
-  while (rit.hasNext()) {
-    InductionFormulaKey key;
-    Term* ph;
-    rit.next(key,ph);
-    for (const auto& lits : key.first) {
-      for (const auto& lit : lits) {
-        Stack<InductionFormulaKey>* ks = nullptr;
-        ALWAYS(!_literalMap.getValuePtr(lit, ks));
-        int i = -1;
-        for (unsigned j = 0; j < ks->size(); j++) {
-          if ((*ks)[j] == key) {
-            ASS_L(i,0);
-            i = j;
-#if !VDEBUG
-            break;
-#endif
-          }
-        }
-        ASS_GE(i,0);
-        swap((*ks)[i],ks->top());
-        ks->pop();
-        if (ks->isEmpty()) {
-          _literalMap.remove(lit);
-          TermReplacement tr(ph, x);
-          auto tlit = tr.transform(lit);
-          _delayedLitIndex.remove(tlit, nullptr);
-          NonVariableNonTypeIterator it(tlit);
-          while (it.hasNext()) {
-            auto t = it.next();
-            if (!t.containsSubterm(x)) {
-              it.right();
-              continue;
-            }
-            _delayedIndex.remove(t, tlit, nullptr);
-          }
-        }
-      }
-    }
-  }
-}
 
 bool onlyCtorsDownToTerm(Term* t, Term* st) {
   Stack<Term*> todo;
@@ -352,11 +92,11 @@ bool monotonicityCheck(Term* lhs, Term* rhs) {
   return true;
 }
 
-bool VacuousnessChecker::checkForVacuousness(Literal* lit, Term* t)
+bool VacuousnessChecker::isVacuous(Literal* lit, Term* t)
 {
   CALL("VacuousnessChecker::checkForVacuousness");
   if (!lit->isEquality() || lit->isPositive()) {
-    return true;
+    return false;
   }
   auto lhs = lit->nthArgument(0)->term();
   auto rhs = lit->nthArgument(1)->term();
@@ -374,38 +114,38 @@ bool VacuousnessChecker::checkForVacuousness(Literal* lit, Term* t)
         continue;
       }
       if (st.containsSubterm(TermList(t))) {
-        return true;
+        return false;
       }
     }
     env.statistics->vacuousInductionFormulaDiscardedStaticallyOneSide++;
-    return false;
+    return true;
   } else {
     if (lhs == t || rhs == t) {
       auto symb = env.signature->getFunction((lhs == t) ? rhs->functor() : lhs->functor());
       if (symb->termAlgebraCons()) {
         env.statistics->vacuousInductionFormulaDiscardedStaticallyMismatch++;
-        return false;
+        return true;
       }
     }
     if (monotonicityCheck(lhs, rhs)) {
       env.statistics->vacuousInductionFormulaDiscardedStaticallyMonotonicity++;
-      return false;
+      return true;
     }
   }
 
-  return true;
+  return false;
 }
 
 // returns true if the context is vacuous by these checks
 // TODO enable check for more complex conclusions
 // TODO add check that the induction term datatype contains at least two ctors
-bool VacuousnessChecker::check(const InductionContext& ctx, InductionFormulaIndex::Entry* e)
+bool VacuousnessChecker::isVacuous(const InductionContext& ctx, InductionFormulaIndex::Entry* e)
 {
-  CALL("VacuousnessChecker::check");
+  CALL("VacuousnessChecker::isVacuous");
 
   // don't check any non-unit inductions for now
   if (ctx._cls.size() != 1 || ctx._cls.begin()->second.size() != 1) {
-    return maybeDelayInduction(ctx, e);
+    return false;
   }
 
   // context is vacuous if all of these conditions hold:
@@ -415,41 +155,18 @@ bool VacuousnessChecker::check(const InductionContext& ctx, InductionFormulaInde
   //   which has only term algebra ctor/dtor superterms
   auto lit = ctx._cls.begin()->second[0];
   auto ph = getPlaceholderForTerm(ctx._indTerm);
-  TermReplacement tr(ph, TermList(0,false));
+  // TermReplacement tr(ph, TermList(0,false));
   // if (_formulaIndex.isVacuous(tr.transform(ctx._cls.begin()->second[0]))) {
   //   env.statistics->vacuousInductionFormulaDiscardedDynamically2++;
   //   _formulaIndex.makeVacuous(ctx, e);
   //   return false;
   // }
-  if (!checkForVacuousness(lit, ph)) {
+  if (isVacuous(lit, ph)) {
     e->_vacuous = true;
     env.statistics->vacuousInductionFormulaDiscardedStatically++;
-    return false;
+    return true;
   }
 
-  return maybeDelayInduction(ctx, e);
-}
-
-bool VacuousnessChecker::termAlgebraConsCheck(Term* t)
-{
-  CALL("VacuousnessChecker::termAlgebraConsCheck");
-  NonVariableNonTypeIterator nvi(t);
-  while (nvi.hasNext()) {
-    auto t = nvi.next().term();
-    auto f = t->functor();
-    if (!env.signature->getFunction(f)->termAlgebraCons()) {
-      continue;
-    }
-    Set<unsigned> vars;
-    for (unsigned j = 0; j < t->arity(); j++) {
-      if (t->nthArgument(j)->isVar()) {
-        vars.insert(t->nthArgument(j)->var());
-      }
-    }
-    if (vars.size() == t->arity()) {
-      return true;
-    }
-  }
   return false;
 }
 
