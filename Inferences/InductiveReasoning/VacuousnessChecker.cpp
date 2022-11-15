@@ -96,7 +96,7 @@ bool VacuousnessChecker::maybeDelayInduction(const InductionContext& ctx, Induct
     return false;
   }
   // if not delayed but this field is initialized,
-  // then the induction was done delayed already
+  // then the induction was reactivated already
   if (e->_activatingClauses.size()) {
     return true;
   }
@@ -111,33 +111,37 @@ bool VacuousnessChecker::maybeDelayInduction(const InductionContext& ctx, Induct
     pos.push(i);
   }
   TermList x(0,false);
-  TermReplacement tr(getPlaceholderForTerm(ctx._indTerm), x);
-  auto tlit = tr.transform(ctx._cls.begin()->second[0]);
-  NonVariableNonTypeIterator it(tlit);
   DHSet<Term*> tried;
-  while (it.hasNext() && pos.isNonEmpty()) {
-    TIME_TRACE("forward delayed induction subterm loop");
-    auto t = it.next();
-    if (!t.containsSubterm(x) || !tried.insert(t.term())) {
-      it.right();
-      continue;
-    }
-    auto uit = _lhsIndex->getUnifications(t);
-    while (uit.hasNext() && pos.isNonEmpty()) {
-      auto qr = uit.next();
-      auto tt = qr.substitution->applyToQuery(x);
-      updatePositions(tt, pos, ta, e, qr.clause);
-    }
-  }
-  if (pos.isNonEmpty() && !tlit->isEquality()) {
-    TIME_TRACE("forward delayed induction literal check");
-    // auto uit = getConcatenatedIterator(_literalIndex->getUnifications(tlit, true), _literalIndex->getUnifications(tlit, false));
-    // TODO consider only complmentary literals
-    auto uit = _literalIndex->getUnifications(tlit, true);
-    while (uit.hasNext() && pos.isNonEmpty()) {
-      auto qr = uit.next();
-      auto tt = qr.substitution->applyToQuery(x);
-      updatePositions(tt, pos, ta, e, qr.clause);
+  TermReplacement tr(getPlaceholderForTerm(ctx._indTerm), x);
+  for (const auto& kv : ctx._cls) {
+    for (const auto& lit : kv.second) {
+      auto tlit = tr.transform(lit);
+      NonVariableNonTypeIterator it(tlit);
+      while (it.hasNext() && pos.isNonEmpty()) {
+        TIME_TRACE("forward delayed induction subterm loop");
+        auto t = it.next();
+        if (!t.containsSubterm(x) || !tried.insert(t.term())) {
+          it.right();
+          continue;
+        }
+        auto uit = _lhsIndex->getUnifications(t);
+        while (uit.hasNext() && pos.isNonEmpty()) {
+          auto qr = uit.next();
+          auto tt = qr.substitution->applyToQuery(x);
+          updatePositions(tt, pos, ta, e, qr.clause);
+        }
+      }
+      if (pos.isNonEmpty() && !tlit->isEquality()) {
+        TIME_TRACE("forward delayed induction literal check");
+        // auto uit = getConcatenatedIterator(_literalIndex->getUnifications(tlit, true), _literalIndex->getUnifications(tlit, false));
+        // TODO consider only complmentary literals
+        auto uit = _literalIndex->getUnifications(tlit, true);
+        while (uit.hasNext() && pos.isNonEmpty()) {
+          auto qr = uit.next();
+          auto tt = qr.substitution->applyToQuery(x);
+          updatePositions(tt, pos, ta, e, qr.clause);
+        }
+      }
     }
   }
   if (pos.isNonEmpty()) {
@@ -145,16 +149,26 @@ bool VacuousnessChecker::maybeDelayInduction(const InductionContext& ctx, Induct
     e->_delayedApplications.push(ctx);
     env.statistics->delayedInductions++;
     env.statistics->delayedInductionApplications++;
-    NonVariableNonTypeIterator it(tlit);
-    while (it.hasNext()) {
-      auto t = it.next();
-      if (!t.containsSubterm(x)) {
-        it.right();
-        continue;
+    for (const auto& kv : ctx._cls) {
+      for (const auto& lit : kv.second) {
+        Stack<InductionFormulaKey>* ks = nullptr;
+        if (_literalMap.getValuePtr(lit, ks)) {
+          auto tlit = tr.transform(lit);
+          NonVariableNonTypeIterator it(tlit);
+          while (it.hasNext()) {
+            auto t = it.next();
+            if (!t.containsSubterm(x)) {
+              it.right();
+              continue;
+            }
+            _delayedIndex.insert(t, tlit, nullptr);
+          }
+          _delayedLitIndex.insert(tlit, nullptr);
+        }
+        ASS(ks);
+        ks->push(InductionFormulaIndex::represent(ctx));
       }
-      _delayedIndex.insert(t, tlit, nullptr);
     }
-    _delayedLitIndex.insert(tlit, nullptr);
     return false;
   }
   return true;
@@ -165,10 +179,10 @@ void VacuousnessChecker::checkForDelayedInductions(Literal* lit, Clause* cl, Ind
   CALL("VacuousnessChecker::checkForDelayedInductions");
   TIME_TRACE("backward delayed induction");
   TermList x(0,false);
-  vset<Literal*> toBeRemoved;
-  auto reactivate = [&toBeRemoved, this, cl, &clIt](TermList t, Literal* lit){
+  DHMap<InductionFormulaKey,Term*> toBeRemoved;
+  auto reactivate = [&toBeRemoved, this, cl, &clIt, &x](TermList t, Literal* lit){
     TIME_TRACE("backward delayed induction reactivate");
-    if (!t.isTerm() || toBeRemoved.count(lit)) {
+    if (!t.isTerm()) {
       return;
     }
     TermList sort = SortHelper::getResultSort(t.term());
@@ -176,42 +190,47 @@ void VacuousnessChecker::checkForDelayedInductions(Literal* lit, Clause* cl, Ind
       return;
     }
     auto ta = env.signature->getTermAlgebraOfSort(sort);
-    auto ph = getPlaceholderForTerm(t.term());
     Substitution subst;
-    subst.bind(0, ph);
-    // dummy context just to get the entry from the induction formula index
-    InductionContext dummy(ph, lit->apply(subst), nullptr);
-    InductionFormulaIndex::Entry* e = _formulaIndex.find(dummy);
-    ASS(e);
-    ASS(e->_delayed);
-    ASS(e->_delayedApplications.isNonEmpty());
-    ASS(!e->_vacuous);
+    subst.bind(x.var(), getPlaceholderForTerm(t.term()));
+    auto ks = _literalMap.findPtr(lit->apply(subst));
+    for (const auto& key : *ks) {
+      if (toBeRemoved.find(key)) {
+        continue;
+      }
+      auto e = _formulaIndex.findByKey(key);
+      ASS(e);
+      ASS(e->_delayed);
+      ASS(e->_delayedApplications.isNonEmpty());
+      ASS(!e->_vacuous);
 
-    Stack<unsigned> pos;
-    ASS_EQ(e->_activatingClauses.size(), ta->nConstructors());
-    for (unsigned i = 0; i < ta->nConstructors(); i++) {
-      if (!e->_activatingClauses[i]) {
-        pos.push(i);
+      Stack<unsigned> pos;
+      ASS_EQ(e->_activatingClauses.size(), ta->nConstructors());
+      for (unsigned i = 0; i < ta->nConstructors(); i++) {
+        if (!e->_activatingClauses[i]) {
+          pos.push(i);
+        }
       }
-    }
-    updatePositions(t, pos, ta, e, cl);
-    if (pos.isNonEmpty()) {
-      return;
-    }
-    clIt.generateStructuralFormulas(dummy, e);
-    ASS_NEQ(0,env.statistics->delayedInductions);
-    env.statistics->delayedInductions--;
-    TIME_TRACE("backward delayed induction resolution");
-    while (e->_delayedApplications.isNonEmpty()) {
-      auto ctx = e->_delayedApplications.pop();
-      ASS_NEQ(0,env.statistics->delayedInductionApplications);
-      env.statistics->delayedInductionApplications--;
-      for (auto& kv : e->get()) {
-        clIt.resolveClauses(kv.first, ctx, kv.second);
+      updatePositions(t, pos, ta, e, cl);
+      if (pos.isNonEmpty()) {
+        continue;
       }
+      // any of the delayed contexts suffices to generate the formulas
+      auto ph = getPlaceholderForTerm(e->_delayedApplications[0]._indTerm);
+      clIt.generateStructuralFormulas(e->_delayedApplications[0], e);
+      ASS_NEQ(0,env.statistics->delayedInductions);
+      env.statistics->delayedInductions--;
+      TIME_TRACE("backward delayed induction resolution");
+      while (e->_delayedApplications.isNonEmpty()) {
+        auto ctx = e->_delayedApplications.pop();
+        ASS_NEQ(0,env.statistics->delayedInductionApplications);
+        env.statistics->delayedInductionApplications--;
+        for (auto& kv : e->get()) {
+          clIt.resolveClauses(kv.first, ctx, kv.second);
+        }
+      }
+      e->_delayed = false;
+      toBeRemoved.insert(key,ph);
     }
-    e->_delayed = false;
-    toBeRemoved.insert(lit);
   };
 
   if (lit->isEquality()) {
@@ -241,16 +260,44 @@ void VacuousnessChecker::checkForDelayedInductions(Literal* lit, Clause* cl, Ind
       reactivate(tt, qr.literal);
     }
   }
-  for (const auto& lit : toBeRemoved) {
-    NonVariableNonTypeIterator it(lit);
-    _delayedLitIndex.remove(lit, nullptr);
-    while (it.hasNext()) {
-      auto t = it.next();
-      if (!t.containsSubterm(x)) {
-        it.right();
-        continue;
+  decltype(toBeRemoved)::Iterator rit(toBeRemoved);
+  while (rit.hasNext()) {
+    InductionFormulaKey key;
+    Term* ph;
+    rit.next(key,ph);
+    for (const auto& lits : key.first) {
+      for (const auto& lit : lits) {
+        Stack<InductionFormulaKey>* ks = nullptr;
+        ALWAYS(!_literalMap.getValuePtr(lit, ks));
+        int i = -1;
+        for (unsigned j = 0; j < ks->size(); j++) {
+          if ((*ks)[j] == key) {
+            ASS_L(i,0);
+            i = j;
+#if !VDEBUG
+            break;
+#endif
+          }
+        }
+        ASS_GE(i,0);
+        swap((*ks)[i],ks->top());
+        ks->pop();
+        if (ks->isEmpty()) {
+          _literalMap.remove(lit);
+          TermReplacement tr(ph, x);
+          auto tlit = tr.transform(lit);
+          _delayedLitIndex.remove(tlit, nullptr);
+          NonVariableNonTypeIterator it(tlit);
+          while (it.hasNext()) {
+            auto t = it.next();
+            if (!t.containsSubterm(x)) {
+              it.right();
+              continue;
+            }
+            _delayedIndex.remove(t, tlit, nullptr);
+          }
+        }
       }
-      _delayedIndex.remove(t, lit, nullptr);
     }
   }
 }
@@ -355,9 +402,10 @@ bool VacuousnessChecker::checkForVacuousness(Literal* lit, Term* t)
 bool VacuousnessChecker::check(const InductionContext& ctx, InductionFormulaIndex::Entry* e)
 {
   CALL("VacuousnessChecker::check");
+
   // don't check any non-unit inductions for now
   if (ctx._cls.size() != 1 || ctx._cls.begin()->second.size() != 1) {
-    return true;
+    return maybeDelayInduction(ctx, e);
   }
 
   // context is vacuous if all of these conditions hold:

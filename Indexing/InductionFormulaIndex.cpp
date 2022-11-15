@@ -22,13 +22,13 @@ namespace Indexing
 using namespace Lib;
 using namespace Inferences;
 
-Key InductionFormulaIndex::represent(const InductionContext& context)
+InductionFormulaKey InductionFormulaIndex::represent(const InductionContext& context)
 {
   // all literals are ground and they are unique for
   // a specific induction context, so we order them
   // and index the set of sets of literals
   // TODO: It might be good to specialize for unit literals/clauses/etc.
-  Key k;
+  InductionFormulaKey k;
   for (const auto& kv : context._cls) {
     LiteralStack lits = kv.second;
     sort(lits.begin(), lits.end());

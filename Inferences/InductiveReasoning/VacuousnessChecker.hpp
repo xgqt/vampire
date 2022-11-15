@@ -58,6 +58,7 @@ private:
   LiteralSubstitutionTree _delayedLitIndex;
   InductionLHSIndex* _lhsIndex;
   InductionLiteralIndex* _literalIndex;
+  DHMap<Literal*,Stack<InductionFormulaKey>> _literalMap;
 };
 
 }
