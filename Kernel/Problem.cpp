@@ -225,13 +225,6 @@ void Problem::addTrivialPredicate(unsigned pred, bool assignment)
   ALWAYS(_trivialPredicates.insert(pred, assignment));
 }
 
-void Problem::addBDDVarMeaning(unsigned var, BDDMeaningSpec spec) {
-  CALL("Problem::addBDDVarMeaning");
-  ASS(!spec.first || spec.first->ground());
-
-  ALWAYS(_bddVarSpecs.insert(var, spec));
-}
-
 /**
  * Register a function that has been eliminated from the problem
  *
@@ -487,28 +480,6 @@ bool Problem::higherOrder() const
 
   if(!_higherOrder.known()) { refreshProperty(); }
   return _higherOrder.value();
-}
-
-
-///////////////////////
-// utility functions
-//
-
-/**
- * Put predicate numbers present in the problem into @c acc
- *
- * The numbers added to acc are not unique.
- *
- */
-void Problem::collectPredicates(Stack<unsigned>& acc) const
-{
-  CALL("Problem::collectPredicates");
-
-  UnitList::Iterator uit(units());
-  while(uit.hasNext()) {
-    Unit* u = uit.next();
-    u->collectPredicates(acc);
-  }
 }
 
 #if VDEBUG
