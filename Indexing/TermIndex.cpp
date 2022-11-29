@@ -193,10 +193,6 @@ void RemodulationLHSIndex::handleClause(Clause* c, bool adding)
 
   TIME_TRACE("induction remodulation index maintenance");
 
-  if (!canUseClauseForRewrite(c)) {
-    return;
-  }
-
   for (unsigned i = 0; i < c->length(); i++) {
     Literal* lit=(*c)[i];
     TermIterator lhsi=EqHelper::getLHSIterator(lit, _ord);
@@ -226,10 +222,6 @@ void RewritingLHSIndex::handleClause(Clause* c, bool adding)
 
   TIME_TRACE("induction rewriting index maintenance");
 
-  if (!canUseClauseForRewrite(c)) {
-    return;
-  }
-
   for (unsigned i = 0; i < c->length(); i++) {
     Literal* lit=(*c)[i];
     TermIterator lhsi=EqHelper::getLHSIterator(lit, _ord);
@@ -254,13 +246,13 @@ void RewritingSubtermIndex::handleClause(Clause* c, bool adding)
 
   TIME_TRACE("induction rewriting index maintenance");
 
-  if (!canUseClauseForRewrite(c) && !InductionHelper::isInductionClause(c)) {
+  if (!InductionHelper::isInductionClause(c)) {
     return;
   }
 
   for (unsigned i = 0; i < c->length(); i++) {
     Literal* lit=(*c)[i];
-    if (!canUseClauseForRewrite(c) && !InductionHelper::isInductionLiteral(lit)) {
+    if (!InductionHelper::isInductionLiteral(lit)) {
       continue;
     }
     NonVariableIterator it(lit);
@@ -282,7 +274,7 @@ void RemodulationSubtermIndex::handleClause(Clause* c, bool adding)
 
   TIME_TRACE("induction remodulation index maintenance");
 
-  if (!InductionHelper::isInductionClause(c) && !canUseClauseForRewrite(c)) {
+  if (!InductionHelper::isInductionClause(c)) {
     return;
   }
 

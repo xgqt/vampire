@@ -20,6 +20,8 @@
 #include "Forwards.hpp"
 #include "InferenceEngine.hpp"
 
+#include "Indexing/LiteralIndex.hpp"
+
 namespace Inferences {
 
 using namespace Kernel;

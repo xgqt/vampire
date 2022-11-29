@@ -42,10 +42,9 @@ inline bool termHasAllVarsOfClause(TermList t, Clause* cl) {
     });
 }
 
-inline bool canUseClauseForRewrite(Clause* cl) {
-  return cl->length() == 1 || isFormulaTransformation(cl->inference().rule()) ||
-    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_FORWARD_REWRITING ||
-    cl->inference().rule() == Kernel::InferenceRule::INDUCTION_REMODULATION;
+inline bool termAlgebraFunctor(unsigned functor) {
+  auto sym = env.signature->getFunction(functor);
+  return sym->termAlgebraCons() || sym->termAlgebraDest();
 }
 
 inline bool hasTermToInductOn(Term* t, Literal* l) {
@@ -55,7 +54,7 @@ inline bool hasTermToInductOn(Term* t, Literal* l) {
   while (stit.hasNext()) {
     auto st = stit.next();
     if (InductionHelper::isInductionTermFunctor(st.term()->functor()) &&
-      ((structInd && InductionHelper::isStructInductionFunctor(st.term()->functor())) ||
+      ((structInd && !termAlgebraFunctor(st.term()->functor()) && InductionHelper::isStructInductionFunctor(st.term()->functor())) ||
        (intInd && InductionHelper::isIntInductionTermListInLiteral(st, l))))
     {
       return true;
@@ -65,7 +64,7 @@ inline bool hasTermToInductOn(Term* t, Literal* l) {
 }
 
 inline bool shouldRewriteEquality(Literal* lit, Clause* cl, Ordering& ord) {
-  return canUseClauseForRewrite(cl) && iterTraits(EqHelper::getLHSIterator(lit,ord))
+  return iterTraits(EqHelper::getLHSIterator(lit,ord))
     .any([lit](TermList side) {
       return side.isTerm() && !hasTermToInductOn(side.term(),lit);
     });
@@ -115,6 +114,7 @@ public:
   void attach(SaturationAlgorithm* salg) override;
   void detach() override;
   ClauseIterator generateClauses(Clause* premise) override;
+  void output();
 private:
   ClauseIterator perform(
     Clause* rwClause, Literal* rwLit, TermList rwTerm,
@@ -123,6 +123,7 @@ private:
 
   RemodulationLHSIndex* _lhsIndex;
   RemodulationSubtermIndex* _termIndex;
+  DHMap<Clause*, unsigned> _eqs;
 };
 
 class InductionSGIWrapper

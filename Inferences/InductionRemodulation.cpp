@@ -93,7 +93,7 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
   CALL("InductionRemodulation::generateClauses");
   ClauseIterator res1 = ClauseIterator::getEmpty();
 
-  if (InductionHelper::isInductionClause(premise) || canUseClauseForRewrite(premise))
+  if (InductionHelper::isInductionClause(premise))
   {
     // forward result
     res1 = pvi(iterTraits(premise->iterLits())
@@ -115,20 +115,17 @@ ClauseIterator InductionRemodulation::generateClauses(Clause* premise)
   }
 
   // backward result
-  ClauseIterator res2 = ClauseIterator::getEmpty();
-  if (canUseClauseForRewrite(premise)) {
-    res2 = pvi(iterTraits(premise->iterLits())
-      .flatMap(EqHelper::LHSIteratorFn(_salg->getOrdering()))
-      .flatMap(ReverseLHSIteratorFn(premise))
-      .flatMap([this](pair<Literal*, TermList> arg) {
-        return pvi( pushPairIntoRightIterator(arg, _termIndex->getUnifications(arg.second, true)) );
-      })
-      .flatMap([this, premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
-        TermQueryResult& qr = arg.second;
-        return perform(qr.clause, qr.literal, qr.term,
-          premise, arg.first.first, arg.first.second, qr.substitution, false);
-      }));
-  }
+  ClauseIterator res2 = pvi(iterTraits(premise->iterLits())
+    .flatMap(EqHelper::LHSIteratorFn(_salg->getOrdering()))
+    .flatMap(ReverseLHSIteratorFn(premise))
+    .flatMap([this](pair<Literal*, TermList> arg) {
+      return pvi( pushPairIntoRightIterator(arg, _termIndex->getUnifications(arg.second, true)) );
+    })
+    .flatMap([this, premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
+      TermQueryResult& qr = arg.second;
+      return perform(qr.clause, qr.literal, qr.term,
+        premise, arg.first.first, arg.first.second, qr.substitution, false);
+    }));
 
   return pvi(iterTraits(getConcatenatedIterator(res1,res2))
     .filter(NonzeroFn())
@@ -166,6 +163,20 @@ bool greaterSideRewritten(Literal* lit, Literal* orig, Ordering& ord) {
     other = rhsOld;
   }
   return ord.compare(rwSide, other) == Ordering::GREATER;
+}
+
+void InductionRemodulation::output()
+{
+  CALL("InductionRemodulation::output");
+  auto s = iterTraits(_eqs.items()).collect<Stack>();
+  std::sort(s.begin(),s.end(),[](pair<Clause*,unsigned> kv1, pair<Clause*,unsigned> kv2) {
+    return kv1.second < kv2.second;
+  });
+  cout << "eqs" << endl;
+  for (const auto& kv : s) {
+    cout << *kv.first << " " << kv.second << endl;
+  }
+  cout << "end " << endl << endl;
 }
 
 ClauseIterator InductionRemodulation::perform(
@@ -259,6 +270,12 @@ ClauseIterator InductionRemodulation::perform(
       ASS_EQ(next, newLength);
 
       env.statistics->inductionRemodulation++;
+      auto ptr = _eqs.findPtr(eqClause);
+      if (!ptr) {
+        _eqs.insert(eqClause, 1);
+      } else {
+        (*ptr)++;
+      }
       // cout << "result " << *newCl << endl << endl;
       newCl->markInductionClause();
       return newCl;

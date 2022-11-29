@@ -1247,7 +1247,11 @@ void SaturationAlgorithm::activate(Clause* cl)
       Shuffling::shuffle(cl);
     }
 
-    _selector->select(cl);
+    if (env.options->inductionEquationalLemmaGeneration()) {
+      cl->setSelected(cl->length());
+    } else {
+      _selector->select(cl);
+    }
   }
 
   ASS_EQ(cl->store(), Clause::SELECTED);

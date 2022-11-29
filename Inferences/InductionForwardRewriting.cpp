@@ -36,10 +36,10 @@ ClauseIterator InductionForwardRewriting::generateClauses(Clause *premise)
   CALL("InductionForwardRewriting::generateClauses");
 
   ClauseIterator res = ClauseIterator::getEmpty();
-  if (InductionHelper::isInductionClause(premise) || canUseClauseForRewrite(premise)) {
+  if (InductionHelper::isInductionClause(premise)) {
     res = pvi(iterTraits(premise->iterLits())
-      .filter([premise](Literal* lit){
-        return canUseClauseForRewrite(premise) || InductionHelper::isInductionLiteral(lit);
+      .filter([](Literal* lit){
+        return lit->ground();
       })
       .flatMap([](Literal* lit){
         return pvi(pushPairIntoRightIterator(lit, getUniquePersistentIterator(vi(new NonVariableIterator(lit)))));
@@ -57,29 +57,25 @@ ClauseIterator InductionForwardRewriting::generateClauses(Clause *premise)
           qr.literal, qr.term, qr.substitution, true);
       }));
   }
-  if (canUseClauseForRewrite(premise))
-  {
-    auto it = pvi(iterTraits(premise->iterLits())
-      .flatMap([this](Literal* lit) {
-        return pvi(pushPairIntoRightIterator(lit, EqHelper::getLHSIterator(lit, _salg->getOrdering())));
-      })
-      .filter([premise](pair<Literal*, TermList> arg) {
-        return termHasAllVarsOfClause(arg.second, premise);
-      })
-      .flatMap([this](pair<Literal*, TermList> arg) {
-        return pvi(pushPairIntoRightIterator(arg, _tindex->getUnifications(arg.second, true)));
-      })
-      .map([this,premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
-        TermQueryResult& qr = arg.second;
-        return perform(
-          qr.clause, qr.literal, qr.term, premise, arg.first.first,
-          arg.first.second, qr.substitution, false);
-      }));
+  auto it = pvi(iterTraits(premise->iterLits())
+    .flatMap([this](Literal* lit) {
+      return pvi(pushPairIntoRightIterator(lit, EqHelper::getLHSIterator(lit, _salg->getOrdering())));
+    })
+    .filter([premise](pair<Literal*, TermList> arg) {
+      return termHasAllVarsOfClause(arg.second, premise);
+    })
+    .flatMap([this](pair<Literal*, TermList> arg) {
+      return pvi(pushPairIntoRightIterator(arg, _tindex->getUnifications(arg.second, true)));
+    })
+    .map([this,premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
+      TermQueryResult& qr = arg.second;
+      return perform(
+        qr.clause, qr.literal, qr.term, premise, arg.first.first,
+        arg.first.second, qr.substitution, false);
+    }));
 
-    res = pvi(getConcatenatedIterator(res, it));
-  }
   // Remove null elements
-  return pvi(iterTraits(res)
+  return pvi(iterTraits(getConcatenatedIterator(res, it))
     .filter(NonzeroFn())
     .timeTraced("induction rewriting"));
 }
