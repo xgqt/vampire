@@ -17,6 +17,7 @@
 
 #include "Inferences/InductionHelper.hpp"
 #include "Inferences/InductionRemodulation.hpp"
+#include "Inferences/InductionForwardRewriting.hpp"
 
 #include "Kernel/ApplicativeHelper.hpp"
 #include "Kernel/Clause.hpp"
@@ -227,9 +228,9 @@ void RewritingLHSIndex::handleClause(Clause* c, bool adding)
     TermIterator lhsi=EqHelper::getLHSIterator(lit, _ord);
     while (lhsi.hasNext()) {
       auto lhs = lhsi.next();
-      if (!termHasAllVarsOfClause(lhs, c)) {
-        continue;
-      }
+      // if (!termHasAllVarsOfClause(lhs, c)) {
+      //   continue;
+      // }
       if (adding) {
         _is->insert(lhs, lit, c);
       }
@@ -246,26 +247,58 @@ void RewritingSubtermIndex::handleClause(Clause* c, bool adding)
 
   TIME_TRACE("induction rewriting index maintenance");
 
-  if (!InductionHelper::isInductionClause(c)) {
-    return;
+  // if (!InductionHelper::isInductionClause(c)) {
+  //   return;
+  // }
+  // auto lastRewritten = c->getLastRewrittenTerm();
+  // DHSet<Term*> done;
+  auto it = InductionForwardRewriting::getRewritingsIterator(_ord, c);
+  while (it.hasNext()) {
+    auto kv = it.next();
+    if (adding) {
+      _is->insert(kv.second, kv.first.first, c);
+    } else {
+      _is->remove(kv.second, kv.first.first, c);
+    }
   }
 
-  for (unsigned i = 0; i < c->length(); i++) {
-    Literal* lit=(*c)[i];
-    if (!InductionHelper::isInductionLiteral(lit)) {
-      continue;
-    }
-    NonVariableIterator it(lit);
-    while (it.hasNext()) {
-      auto t = it.next();
-      if (adding) {
-        _is->insert(t, lit, c);
-      }
-      else {
-        _is->remove(t, lit, c);
-      }
-    }
-  }
+  // for (unsigned i = 0; i < c->length(); i++) {
+  //   Literal* lit=(*c)[i];
+  //   for (unsigned j = 0; j < lit->arity(); j++) {
+  //     auto arg = *lit->nthArgument(j);
+  //     if (arg.isVar()) {
+  //       continue;
+  //     }
+  //     if (lastRewritten) {
+  //       auto comp = _ord.compare(TermList(lastRewritten), TermList(arg.term()));
+  //       // term is greater than the last rewritten
+  //       if (comp == Ordering::LESS || comp == Ordering::LESS_EQ) {
+  //         done.loadFromIterator(iterTraits(getUniquePersistentIterator(vi(new NonVariableNonTypeIterator(arg.term(),true))))
+  //           .map([](TermList t) {
+  //             return t.term();
+  //           }));
+  //         continue;
+  //       }
+  //     }
+  //   // if (!InductionHelper::isInductionLiteral(lit)) {
+  //   //   continue;
+  //   // }
+  //     NonVariableNonTypeIterator it(arg.term(),true);
+  //     while (it.hasNext()) {
+  //       auto t = it.next();
+  //       if (done.contains(t.term())) {
+  //         it.right();
+  //         continue;
+  //       }
+  //       if (adding) {
+  //         _is->insert(t, lit, c);
+  //       }
+  //       else {
+  //         _is->remove(t, lit, c);
+  //       }
+  //     }
+  //   }
+  // }
 }
 
 void RemodulationSubtermIndex::handleClause(Clause* c, bool adding)

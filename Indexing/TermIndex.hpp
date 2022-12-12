@@ -187,6 +187,21 @@ public:
 
   RewritingLHSIndex(TermIndexingStructure* is, Ordering& ord)
   : TermIndex(is), _ord(ord) {}
+
+  void onAddedToContainer(Clause* c) override
+  {
+    if (!c->isBackwardParamodulated()) {
+      handleClause(c, true);
+    }
+  }
+
+  void onRemovedFromContainer(Clause* c) override
+  {
+    if (!c->isBackwardParamodulated()) {
+      handleClause(c, false);
+    }
+  }
+
 protected:
   void handleClause(Clause* c, bool adding) override;
 private:
@@ -203,10 +218,27 @@ public:
   CLASS_NAME(RewritingSubtermIndex);
   USE_ALLOCATOR(RewritingSubtermIndex);
 
-  RewritingSubtermIndex(TermIndexingStructure* is)
-  : TermIndex(is) {}
+  RewritingSubtermIndex(TermIndexingStructure* is, Ordering& ord)
+  : TermIndex(is), _ord(ord) {}
+
+  void onAddedToContainer(Clause* c) override
+  {
+    if (!c->isBackwardParamodulated()) {
+      handleClause(c, true);
+    }
+  }
+
+  void onRemovedFromContainer(Clause* c) override
+  {
+    if (!c->isBackwardParamodulated()) {
+      handleClause(c, false);
+    }
+  }
+
 private:
   void handleClause(Clause* c, bool adding) override;
+
+  Ordering& _ord;
 };
 
 /**

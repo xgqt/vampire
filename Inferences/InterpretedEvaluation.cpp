@@ -134,6 +134,11 @@ Clause* InterpretedEvaluation::simplify(Clause* cl)
       (*res)[i] = newLits[i];
     }
 
+    if (cl->isForwardParamodulated()) {
+      res->markForwardParamodulated();
+      res->setLastRewrittenTerm(cl->getLastRewrittenTerm());
+    }
+
     env.statistics->evaluationCnt++;
     return res; 
 

@@ -46,15 +46,18 @@ public:
     GeneratingInferenceEngine::detach();
   }
   ClauseIterator generateClauses(Clause *premise) override;
+  static VirtualIterator<pair<pair<Literal*,Term*>,TermList>> getRewritingsIterator(Ordering& ord, Clause* premise);
+  void output();
 
 private:
   Clause *perform(
-    Clause *rwClause, Literal *rwLiteral, TermList rwTerm,
+    Clause *rwClause, Literal *rwLiteral, Term* rwLastRewritten, TermList rwTerm,
     Clause *eqClause, Literal *eqLiteral, TermList eqLHS,
     ResultSubstitutionSP subst, bool eqIsResult);
 
   RewritingLHSIndex* _index;
   RewritingSubtermIndex* _tindex;
+  DHMap<pair<Clause*,TermList>, unsigned> _eqs;
 };
 
 }; // namespace Inferences

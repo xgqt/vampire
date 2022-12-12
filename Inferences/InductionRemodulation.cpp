@@ -25,6 +25,7 @@
 #include "InductionHelper.hpp"
 
 #include "InductionRemodulation.hpp"
+#include "InductionForwardRewriting.hpp"
 
 namespace Inferences {
 
@@ -60,11 +61,15 @@ void InductionRemodulation::attach(SaturationAlgorithm* salg)
 	  _salg->getIndexManager()->request(REMODULATION_LHS_SUBST_TREE) );
   _termIndex=static_cast<RemodulationSubtermIndex*>(
 	  _salg->getIndexManager()->request(REMODULATION_SUBTERM_INDEX) );
+  _demLhsIndex=static_cast<DemodulationLHSIndex*>(
+	  _salg->getIndexManager()->request(DEMODULATION_LHS_SUBST_TREE) );
 }
 
 void InductionRemodulation::detach()
 {
   CALL("InductionRemodulation::detach");
+  _demLhsIndex = 0;
+  _salg->getIndexManager()->release(DEMODULATION_LHS_SUBST_TREE);
   _lhsIndex = 0;
   _salg->getIndexManager()->release(REMODULATION_LHS_SUBST_TREE);
   _termIndex = 0;
@@ -144,7 +149,7 @@ vset<unsigned> getSkolems(Literal* lit) {
   return res;
 }
 
-bool greaterSideRewritten(Literal* lit, Literal* orig, Ordering& ord) {
+TermList getSideRewritten(Literal* lit, Literal* orig) {
   ASS_REP(lit->isEquality(), lit->toString());
   ASS_REP(orig->isEquality(), orig->toString());
   ASS_NEQ(lit,orig);
@@ -155,14 +160,28 @@ bool greaterSideRewritten(Literal* lit, Literal* orig, Ordering& ord) {
   TermList rwSide;
   TermList other;
   if (lhsNew == lhsOld || rhsNew == lhsOld) {
-    rwSide = rhsOld;
-    other = lhsOld;
-  } else {
-    ASS(lhsNew == rhsOld || rhsNew == rhsOld);
-    rwSide = lhsOld;
-    other = rhsOld;
+    return rhsOld;
   }
-  return ord.compare(rwSide, other) == Ordering::GREATER;
+  ASS(lhsNew == rhsOld || rhsNew == rhsOld);
+  return lhsOld;
+}
+
+TermList getArgumentRewritten(Literal* lit, Literal* orig) {
+  ASS(!lit->isEquality());
+  ASS(!orig->isEquality());
+  ASS_NEQ(lit,orig);
+  ASS_EQ(lit->functor(),orig->functor());
+  for (unsigned i = 0; i < lit->arity(); i++) {
+    if (lit->nthArgument(i) != orig->nthArgument(i)) {
+      return *lit->nthArgument(i);
+    }
+  }
+  ASSERTION_VIOLATION;
+}
+
+bool greaterSideRewritten(Literal* lit, Literal* orig, Ordering& ord) {
+  auto rwSide = getSideRewritten(lit, orig);
+  return ord.compare(rwSide, EqHelper::getOtherEqualitySide(orig, rwSide)) == Ordering::GREATER;
 }
 
 void InductionRemodulation::output()
@@ -232,6 +251,24 @@ ClauseIterator InductionRemodulation::perform(
       if (!InductionHelper::isInductionLiteral(rwLit) && !greaterSideRewritten(tgtLitS, rwLitS, _salg->getOrdering())) {
         return nullptr;
       }
+      auto lastRewritten = rwClause->inference().rule() == InferenceRule::INDUCTION_REMODULATION ? rwClause->getLastRewrittenTerm() : nullptr;
+      static unsigned skipped = 0;
+      if (lastRewritten) {
+        // cout << *rwClause << *lastRewritten << endl;
+        // TODO the switch between forward and backward has to be signaled somehow
+        // ASS(rwClause->inference().rule() != InferenceRule::INDUCTION_FORWARD_REWRITING);
+        auto rwArg = rwLit->isEquality() ? getSideRewritten(tgtLitS, rwLitS) : getArgumentRewritten(tgtLitS, rwLitS);
+        auto lastRewrittenS = subst->applyTo(TermList(lastRewritten), eqIsResult);
+        auto comp = _salg->getOrdering().compare(lastRewrittenS, rwArg);
+        ASS_NEQ(comp, Ordering::Result::INCOMPARABLE); // terms are ground here
+        if (comp == Ordering::Result::LESS || comp == Ordering::Result::LESS_EQ) {
+          skipped++;
+          // if (skipped % 100 == 0) {
+          //   cout << "skipped " << skipped << endl;
+          // }
+          return nullptr;
+        }
+      }
 
       unsigned rwLength = rwClause->length();
       unsigned eqLength = eqClause->length();
@@ -277,9 +314,35 @@ ClauseIterator InductionRemodulation::perform(
         (*ptr)++;
       }
       // cout << "result " << *newCl << endl << endl;
-      newCl->markInductionClause();
+      newCl->markBackwardParamodulated();
+      Term* rewritten = (rwLitS->isEquality() ? getSideRewritten(tgtLitS, rwLitS) : getArgumentRewritten(tgtLitS, rwLitS)).term();
+      newCl->setLastRewrittenTerm(rewritten);
       return newCl;
     }));
+}
+
+SimplifyingGeneratingInference::ClauseGenerationResult InductionSGIWrapper::generateSimplify(Clause* premise)
+{
+  CALL("InductionSGIWrapper::generateSimplify");
+  static unsigned cnt = 0;
+  cnt++;
+  if (cnt % 1000 == 0) {
+    // _inductionRemodulation->output();
+    // _inductionForwardRewriting->output();
+  }
+  if (!premise->isBackwardParamodulated() && !premise->isForwardParamodulated()) {
+    return _generator->generateSimplify(premise);
+  }
+  ASS(!premise->isBackwardParamodulated() || !premise->isForwardParamodulated());
+  auto it = iterTraits(ClauseIterator::getEmpty());
+  if (premise->isForwardParamodulated()) {
+    it.concat(_inductionForwardRewriting->generateClauses(premise));
+  }
+  it.concat(_induction->generateClauses(premise), _inductionRemodulation->generateClauses(premise));
+  return ClauseGenerationResult {
+    .clauses = pvi(it),
+    .premiseRedundant = false,
+  };
 }
 
 }

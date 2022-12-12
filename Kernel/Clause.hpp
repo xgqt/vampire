@@ -357,8 +357,12 @@ public:
 
   unsigned numPositiveLiterals(); // number of positive literals in the clause
 
-  void markInductionClause();
-  bool isInductionClause();
+  void markBackwardParamodulated();
+  void markForwardParamodulated();
+  bool isBackwardParamodulated();
+  bool isForwardParamodulated();
+  void setLastRewrittenTerm(Term* t);
+  Term* getLastRewrittenTerm();
 
 protected:
   /** number of literals */
@@ -373,8 +377,10 @@ protected:
   unsigned _extensionalityTag : 1;
   /** Clause is a splitting component. */
   unsigned _component : 1;
-  /** Clause is induction clause */
-  unsigned _inductionClause : 1;
+  /** Clause is backward paramodulated clause */
+  unsigned _backwardParamodulated : 1;
+  unsigned _forwardParamodulated : 1;
+  Term* _lastRewritten;
 
   /** storage class */
   Store _store : 3;

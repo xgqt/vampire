@@ -130,13 +130,13 @@ protected:
 
   virtual void onAddedToContainer(Clause* c)
   {
-    if (!c->isInductionClause()) {
+    if (!c->isBackwardParamodulated() && !c->isForwardParamodulated()) {
       handleClause(c, true);
     }
   }
   virtual void onRemovedFromContainer(Clause* c)
   {
-    if (!c->isInductionClause()) {
+    if (!c->isBackwardParamodulated() && !c->isForwardParamodulated()) {
       handleClause(c, false);
     }
   }

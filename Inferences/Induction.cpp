@@ -367,6 +367,7 @@ bool InductionClauseIterator::isRedundant(Literal* lit)
       return true;
     }
   }
+  // cout << "not redundant " << *lit << endl;
   return false;
 }
 

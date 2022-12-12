@@ -244,6 +244,12 @@ bool ForwardDemodulationImpl<combinatorySupSupport>::perform(Clause* cl, Clause*
 
         premises = pvi( getSingletonIterator(qr.clause));
         replacement = res;
+        if (cl->isForwardParamodulated()) {
+          res->markForwardParamodulated();
+          // cout << "rewritten " << *cl->getLastRewrittenTerm() << " " << *cl << endl
+          //      << *res << endl;
+          res->setLastRewrittenTerm(cl->getLastRewrittenTerm());
+        }
         return true;
       }
     }

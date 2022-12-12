@@ -95,7 +95,9 @@ void SMTLIB2::readBenchmark(LExprList* bench)
     LOG2("readBenchmark ",lexp->toString(true));
 
     LispListReader ibRdr(lexp);
-
+if (ibRdr.tryAcceptAtom("non-erasing") || ibRdr.tryAcceptAtom("injective")) {
+      continue;
+    }
     if (ibRdr.tryAcceptAtom("set-logic")) {
       if (_logicSet) {
         USER_ERROR("set-logic can appear only once in a problem");

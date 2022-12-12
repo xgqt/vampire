@@ -1023,7 +1023,7 @@ bool SaturationAlgorithm::forwardSimplify(Clause* cl)
   CALL("SaturationAlgorithm::forwardSimplify");
   TIME_TRACE("forward simplification");
 
-  if (cl->isInductionClause()) {
+  if (cl->isBackwardParamodulated()/*  || cl->isForwardParamodulated() */) {
     Clause* replacement = 0;
     ClauseIterator premises = ClauseIterator::getEmpty();
 
@@ -1036,6 +1036,13 @@ bool SaturationAlgorithm::forwardSimplify(Clause* cl)
       return false;
     }
     cl->incRefCnt();
+    // static unsigned cnt = 0;
+    // if (cl->length() > 1) {
+    //   cnt++;
+    //   if (cnt % 100 == 0) {
+    //     cout << "!A CNT " << cnt << endl;
+    //   }
+    // }
     return true;
   }
 
@@ -1247,11 +1254,12 @@ void SaturationAlgorithm::activate(Clause* cl)
       Shuffling::shuffle(cl);
     }
 
-    if (env.options->inductionEquationalLemmaGeneration()) {
-      cl->setSelected(cl->length());
-    } else {
+    // if (env.options->inductionEquationalLemmaGeneration()) {
+    //   selectLiterals(cl);
+    //   // cl->setSelected(cl->length());
+    // } else {
       _selector->select(cl);
-    }
+    // }
   }
 
   ASS_EQ(cl->store(), Clause::SELECTED);
@@ -1316,6 +1324,19 @@ start:
 
   while (! _unprocessed->isEmpty()) {
     Clause* c = _unprocessed->pop();
+    // if (!c->isForwardParamodulated()) {
+    //   auto it = c->inference().iterator();
+    //   if (c->inference().hasNext(it)) {
+    //     auto u = c->inference().next(it);
+    //     if (u->isClause()) {
+    //       auto p = u->asClause();
+    //       if (p->isForwardParamodulated()) {
+    //         cout << *c << " " << *p << endl;
+    //         ASS_REP(false, c->toString() + " " + p->toString());
+    //       }
+    //     }
+    //   }
+    // }
     ASS(!isRefutation(c));
 
     if (forwardSimplify(c)) {
@@ -1572,11 +1593,13 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   //TODO here induction is last, is that right?
   Induction* induction = nullptr;
   InductionRemodulation* inductionRemodulation = nullptr;
+  InductionForwardRewriting* inductionForwardRewriting = nullptr;
   if(opt.induction()!=Options::Induction::NONE){
     if (env.options->inductionEquationalLemmaGeneration()) {
       inductionRemodulation = new InductionRemodulation();
+      inductionForwardRewriting = new InductionForwardRewriting();
       gie->addFront(inductionRemodulation);
-      gie->addFront(new InductionForwardRewriting());
+      gie->addFront(inductionForwardRewriting);
       gie->addFront(new InductionInjectivity());
     }
     induction = new Induction();
@@ -1696,7 +1719,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
 #endif
 
   if (env.options->inductionEquationalLemmaGeneration()) {
-    res->setGeneratingInferenceEngine(new InductionSGIWrapper(induction, inductionRemodulation, sgi));
+    res->setGeneratingInferenceEngine(new InductionSGIWrapper(induction, inductionRemodulation, inductionForwardRewriting, sgi));
   } else {
     res->setGeneratingInferenceEngine(sgi);
   }

@@ -66,7 +66,9 @@ Clause::Clause(unsigned length,const Inference& inf)
     _extensionality(false),
     _extensionalityTag(false),
     _component(false),
-    _inductionClause(0),
+    _backwardParamodulated(0),
+    _forwardParamodulated(0),
+    _lastRewritten(0),
     _store(NONE),
     _numSelected(0),
     _weight(0),
@@ -710,16 +712,40 @@ unsigned Clause::numPositiveLiterals()
   return count;
 }
 
-void Clause::markInductionClause()
+void Clause::markBackwardParamodulated()
 {
-  CALL("Clause::markInductionClause");
-  _inductionClause = 1;
+  CALL("Clause::markBackwardParamodulated");
+  _backwardParamodulated = 1;
 }
 
-bool Clause::isInductionClause()
+bool Clause::isBackwardParamodulated()
 {
-  CALL("Clause::isInductionClause");
-  return _inductionClause;
+  CALL("Clause::isBackwardParamodulated");
+  return _backwardParamodulated;
+}
+
+void Clause::markForwardParamodulated()
+{
+  CALL("Clause::markForwardParamodulated");
+  _forwardParamodulated = 1;
+}
+
+bool Clause::isForwardParamodulated()
+{
+  CALL("Clause::isForwardParamodulated");
+  return _forwardParamodulated;
+}
+
+void Clause::setLastRewrittenTerm(Term* t)
+{
+  CALL("Clause::setLastRewrittenTerm");
+  _lastRewritten = t;
+}
+
+Term* Clause::getLastRewrittenTerm()
+{
+  CALL("Clause::getLastRewrittenTerm");
+  return _lastRewritten;
 }
 
 /**

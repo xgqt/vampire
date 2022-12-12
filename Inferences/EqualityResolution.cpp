@@ -197,7 +197,7 @@ ClauseIterator EqualityResolution::generateClauses(Clause* premise)
   if(premise->isEmpty()) {
     return ClauseIterator::getEmpty();
   }
-  ASS(premise->numSelected()>0);
+  ASS_REP(premise->numSelected()>0,premise->toString());
 
   auto it1 = premise->getSelectedLiteralIterator();
 
