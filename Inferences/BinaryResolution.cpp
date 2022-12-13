@@ -263,6 +263,10 @@ Clause* BinaryResolution::generateClause(Clause* queryCl, Literal* queryLit, SLQ
       }
       ASS(next < newLength);
       (*res)[next] = newLit;
+      TermList t;
+      if (queryCl->getNonEqualityRewrittenTerm(curr, t)) {
+        res->setNonEqualityRewrittenTerm(newLit, qr.substitution->applyToQuery(t));
+      }
       next++;
     }
   }
@@ -301,6 +305,10 @@ Clause* BinaryResolution::generateClause(Clause* queryCl, Literal* queryLit, SLQ
       }
 
       (*res)[next] = newLit;
+      TermList t;
+      if (qr.clause->getNonEqualityRewrittenTerm(curr, t)) {
+        res->setNonEqualityRewrittenTerm(newLit, qr.substitution->applyToResult(t));
+      }
       next++;
     }
   }

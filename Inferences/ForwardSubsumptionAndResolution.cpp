@@ -172,6 +172,10 @@ Clause *ForwardSubsumptionAndResolution::generateSubsumptionResolutionClause(Cla
     ASS(curr != lit || !found);
     if (curr != lit || found) {
       (*res)[next++] = curr;
+      TermList t;
+      if (cl->getNonEqualityRewrittenTerm(curr, t)) {
+        res->setNonEqualityRewrittenTerm(curr, t);
+      }
     }
     else {
       found = true;

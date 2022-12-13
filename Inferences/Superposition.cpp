@@ -375,6 +375,23 @@ bool Superposition::earlyWeightLimitCheck(Clause* eqClause, Literal* eqLit,
   return true;
 }
 
+TermList getGreatestTopLevelRewrittenTermFromLiteral(Ordering& ord, Literal* lit, TermList rwTerm)
+{
+  ASS(!lit->isEquality());
+  TermList g;
+  g.makeEmpty();
+
+  for (unsigned i = 0; i < lit->arity(); i++) {
+    auto arg = *lit->nthArgument(i);
+    if (arg.containsSubterm(rwTerm)) {
+      if (g.isEmpty() || Ordering::isGorGEorE(ord.compare(arg, g))) {
+        g = arg;
+      }
+    }
+  }
+  return g;
+}
+
 /**
  * If superposition should be performed, return result of the superposition,
  * otherwise return 0.
@@ -494,6 +511,27 @@ Clause* Superposition::performSuperposition(
     }
   }
 
+  TermList g;
+  if (rwClause->getNonEqualityRewrittenTerm(rwLit, g) && !rwLitS->isEquality() && rwLitS->arity() > 1) {
+    auto t = getGreatestTopLevelRewrittenTermFromLiteral(ordering, rwLitS, rwTermS);
+    ASS(t.isNonEmpty());
+    // cout << g << endl;
+    // cout << *rwLit << " " << *rwClause << endl << endl;
+    // cout << subst->toString() << endl << endl;
+    auto gS = subst->apply(g, !eqIsResult);
+    auto comp = ordering.compare(t, gS);
+    // ASS_REP(ordering.compare(t, gS) != Ordering::Result::INCOMPARABLE, t.toString()+" "+gS.toString()+" "+rwLitS->toString());
+    if (comp == Ordering::Result::GREATER || comp == Ordering::Result::GREATER_EQ) {
+      // cout << t << " is greater than or equal to " << gS << endl;
+      // static unsigned skipped = 0;
+      // skipped++;
+      // if (skipped % 1000 == 0) {
+      //   cout << skipped << endl;
+      // }
+      return 0;
+    }
+  }
+
   Literal* tgtLitS = EqHelper::replace(rwLitS,rwTermS,tgtTermS);
 
   static bool doSimS = getOptions().simulatenousSuperposition();
@@ -560,6 +598,10 @@ Clause* Superposition::performSuperposition(
       if (doSimS) {
         currAfter = EqHelper::replace(currAfter,rwTermS,tgtTermS);
       }
+      TermList t;
+      if (rwClause->getNonEqualityRewrittenTerm(curr, t)) {
+        res->setNonEqualityRewrittenTerm(currAfter, subst->apply(t, !eqIsResult));
+      }
 
       if(EqHelper::isEqTautology(currAfter)) {
         goto construction_fail;
@@ -597,6 +639,10 @@ Clause* Superposition::performSuperposition(
       Literal* curr=(*eqClause)[i];
       if(curr!=eqLit) {
         Literal* currAfter = subst->apply(curr, eqIsResult);
+        TermList t;
+        if (eqClause->getNonEqualityRewrittenTerm(curr, t)) {
+          res->setNonEqualityRewrittenTerm(currAfter, subst->apply(t, eqIsResult));
+        }
 
         if(EqHelper::isEqTautology(currAfter)) {
           goto construction_fail;
@@ -682,6 +728,12 @@ Clause* Superposition::performSuperposition(
     } else {
       env.statistics->cBackwardSuperposition++;
     }
+  }
+
+  if (!rwLitS->isEquality() && rwLitS->arity() > 1) {
+    auto t = getGreatestTopLevelRewrittenTermFromLiteral(ordering, rwLitS, rwTermS);
+    ASS(t.isNonEmpty());
+    res->setNonEqualityRewrittenTerm(tgtLitS, t);
   }
 
 /*

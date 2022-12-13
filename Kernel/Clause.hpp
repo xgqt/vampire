@@ -357,6 +357,10 @@ public:
 
   unsigned numPositiveLiterals(); // number of positive literals in the clause
 
+  void setNonEqualityRewrittenTerm(Literal* lit, TermList t);
+  bool getNonEqualityRewrittenTerm(Literal* lit, TermList& res);
+  bool hasNonEqualityRewrittenTerms();
+
 protected:
   /** number of literals */
   unsigned _length : 20;
@@ -387,6 +391,7 @@ protected:
   unsigned _reductionTimestamp;
   /** a map that translates Literal* to its index in the clause */
   InverseLookup<Literal>* _literalPositions;
+  DHMap<Literal*,TermList> _nonEqualityLastRewrittenTerms;
 
   int _numActiveSplits;
 

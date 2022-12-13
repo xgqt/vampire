@@ -230,12 +230,19 @@ bool ForwardDemodulationImpl<combinatorySupSupport>::perform(Clause* cl, Clause*
         Clause* res = new(cLen) Clause(cLen,
           SimplifyingInference2(InferenceRule::FORWARD_DEMODULATION, cl, qr.clause));
         (*res)[0]=resLit;
+        TermList t;
+        if (cl->getNonEqualityRewrittenTerm(lit, t)) {
+          res->setNonEqualityRewrittenTerm(resLit, t);
+        }
 
         unsigned next=1;
         for(unsigned i=0;i<cLen;i++) {
           Literal* curr=(*cl)[i];
           if(curr!=lit) {
             (*res)[next++] = curr;
+            if (cl->getNonEqualityRewrittenTerm(curr, t)) {
+              res->setNonEqualityRewrittenTerm(curr, t);
+            }
           }
         }
         ASS_EQ(next,cLen);

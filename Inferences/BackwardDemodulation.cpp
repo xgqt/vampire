@@ -220,12 +220,19 @@ struct BackwardDemodulation::ResultFn
     Clause* res = new(cLen) Clause(cLen, SimplifyingInference2(InferenceRule::BACKWARD_DEMODULATION, qr.clause, _cl));
 
     (*res)[0]=resLit;
+    TermList t;
+    if (qr.clause->getNonEqualityRewrittenTerm(qr.literal, t)) {
+      res->setNonEqualityRewrittenTerm(resLit, t);
+    }
 
     unsigned next=1;
     for(unsigned i=0;i<cLen;i++) {
       Literal* curr=(*qr.clause)[i];
       if(curr!=qr.literal) {
         (*res)[next++] = curr;
+        if (qr.clause->getNonEqualityRewrittenTerm(curr, t)) {
+          res->setNonEqualityRewrittenTerm(curr, t);
+        }
       }
     }
     ASS_EQ(next,cLen);

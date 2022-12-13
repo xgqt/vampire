@@ -786,6 +786,24 @@ bool Clause::contains(Literal* lit)
   return false;
 }
 
+void Clause::setNonEqualityRewrittenTerm(Literal* lit, TermList t)
+{
+  CALL("Clause::setNonEqualityRewrittenTerm");
+  ALWAYS(_nonEqualityLastRewrittenTerms.insert(lit, t));
+}
+
+bool Clause::getNonEqualityRewrittenTerm(Literal* lit, TermList& res)
+{
+  CALL("Clause::getNonEqualityRewrittenTerm");
+  return _nonEqualityLastRewrittenTerms.find(lit, res);
+}
+
+bool Clause::hasNonEqualityRewrittenTerms()
+{
+  CALL("Clause::hasNonEqualityRewrittenTerms");
+  return !_nonEqualityLastRewrittenTerms.isEmpty();
+}
+
 std::ostream& operator<<(std::ostream& out, Clause::Store const& store) 
 {
   switch (store) {

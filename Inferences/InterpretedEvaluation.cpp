@@ -91,7 +91,7 @@ Clause* InterpretedEvaluation::simplify(Clause* cl)
     if(cl->isTheoryAxiom()) return cl;
 
 
-    static DArray<Literal*> newLits(32);
+    static DArray<pair<Literal*,TermList>> newLits(32);
     unsigned clen=cl->length();
     bool modified=false;
     newLits.ensure(clen);
@@ -102,8 +102,11 @@ Clause* InterpretedEvaluation::simplify(Clause* cl)
       Literal* res;
       bool constant, constTrue;
       bool litMod=simplifyLiteral(lit, constant, res, constTrue,sideConditions);
+      TermList t;
+      t.makeEmpty();
+      cl->getNonEqualityRewrittenTerm(lit,t);
       if(!litMod) {
-        newLits[next++]=lit;
+        newLits[next++]=make_pair(lit,t);
         continue;
       }
       modified=true;
@@ -117,7 +120,7 @@ Clause* InterpretedEvaluation::simplify(Clause* cl)
         }
       }
       
-      newLits[next++]=res;
+      newLits[next++]=make_pair(res,t);
     }
     if(!modified) {
       return cl;
@@ -126,12 +129,17 @@ Clause* InterpretedEvaluation::simplify(Clause* cl)
     ASS(sideConditions.isEmpty())
     Stack<Literal*>::Iterator side(sideConditions);
     newLits.expand(clen+sideConditions.length());
-    while(side.hasNext()){ newLits[next++]=side.next();}
+    TermList empty;
+    empty.makeEmpty();
+    while(side.hasNext()){ newLits[next++]=make_pair(side.next(),empty);}
     int newLength = next;
     Clause* res = new(newLength) Clause(newLength,SimplifyingInference1(InferenceRule::EVALUATION, cl));
 
     for(int i=0;i<newLength;i++) {
-      (*res)[i] = newLits[i];
+      (*res)[i] = newLits[i].first;
+      if (newLits[i].second.isNonEmpty()) {
+        res->setNonEqualityRewrittenTerm(newLits[i].first, newLits[i].second);
+      }
     }
 
     env.statistics->evaluationCnt++;
