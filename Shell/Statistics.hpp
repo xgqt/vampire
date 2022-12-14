@@ -128,7 +128,6 @@ public:
   unsigned forwardInductionForwardRewriting;
   unsigned backwardInductionForwardRewriting;
   unsigned inductionRemodulation;
-  unsigned inductionInjectivity;
   unsigned inductionRedundant;
   unsigned maxInductionDepth;
   unsigned structInduction;
