@@ -34,7 +34,7 @@
 #include "Shell/Rectify.hpp"
 
 #include "Induction.hpp"
-#include "InductionRemodulation.hpp"
+#include "InductionRewriting.hpp"
 
 using std::pair;
 using std::make_pair;

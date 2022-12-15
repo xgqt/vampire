@@ -130,13 +130,13 @@ protected:
 
   virtual void onAddedToContainer(Clause* c)
   {
-    if (!c->isBackwardParamodulated() && !c->isForwardParamodulated()) {
+    if (!c->getRewritingLowerBound() && !c->getRewritingUpperBound()) {
       handleClause(c, true);
     }
   }
   virtual void onRemovedFromContainer(Clause* c)
   {
-    if (!c->isBackwardParamodulated() && !c->isForwardParamodulated()) {
+    if (!c->getRewritingLowerBound() && !c->getRewritingUpperBound()) {
       handleClause(c, false);
     }
   }

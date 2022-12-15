@@ -425,10 +425,8 @@ Clause* DuplicateLiteralRemovalISE::simplify(Clause* c)
   }
 #endif
 
-  if (c->isForwardParamodulated()) {
-    d->markForwardParamodulated();
-    d->setLastRewrittenTerm(c->getLastRewrittenTerm());
-  }
+  d->setRewritingBound(c->getRewritingLowerBound(), true);
+  d->setRewritingBound(c->getRewritingUpperBound(), false);
 
   return d;
 }
@@ -538,10 +536,8 @@ Clause* TrivialInequalitiesRemovalISE::simplify(Clause* c)
   }
   env.statistics->trivialInequalities += found;
 
-  if (c->isForwardParamodulated()) {
-    d->markForwardParamodulated();
-    d->setLastRewrittenTerm(c->getLastRewrittenTerm());
-  }
+  d->setRewritingBound(c->getRewritingLowerBound(), true);
+  d->setRewritingBound(c->getRewritingUpperBound(), false);
 
   return d;
 }

@@ -83,8 +83,7 @@
 #include "Inferences/Instantiation.hpp"
 #include "Inferences/TheoryInstAndSimp.hpp"
 #include "Inferences/Induction.hpp"
-#include "Inferences/InductionForwardRewriting.hpp"
-#include "Inferences/InductionRemodulation.hpp"
+#include "Inferences/InductionRewriting.hpp"
 #include "Inferences/ArithmeticSubtermGeneralization.hpp"
 #include "Inferences/TautologyDeletionISE.hpp"
 #include "Inferences/CombinatorDemodISE.hpp"
@@ -1022,7 +1021,7 @@ bool SaturationAlgorithm::forwardSimplify(Clause* cl)
   CALL("SaturationAlgorithm::forwardSimplify");
   TIME_TRACE("forward simplification");
 
-  if (cl->isBackwardParamodulated()/*  || cl->isForwardParamodulated() */) {
+  if (cl->getRewritingLowerBound()/*  || cl->getRewritingUpperBound() */) {
     Clause* replacement = 0;
     ClauseIterator premises = ClauseIterator::getEmpty();
 
@@ -1253,12 +1252,7 @@ void SaturationAlgorithm::activate(Clause* cl)
       Shuffling::shuffle(cl);
     }
 
-    // if (env.options->inductionEquationalLemmaGeneration()) {
-    //   selectLiterals(cl);
-    //   // cl->setSelected(cl->length());
-    // } else {
-      _selector->select(cl);
-    // }
+    _selector->select(cl);
   }
 
   ASS_EQ(cl->store(), Clause::SELECTED);
@@ -1591,13 +1585,13 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
 
   //TODO here induction is last, is that right?
   Induction* induction = nullptr;
-  InductionRemodulation* inductionRemodulation = nullptr;
-  InductionForwardRewriting* inductionForwardRewriting = nullptr;
+  InductionRewriting* inductionBackwardRewriting = nullptr;
+  InductionRewriting* inductionForwardRewriting = nullptr;
   if(opt.induction()!=Options::Induction::NONE){
     if (env.options->inductionEquationalLemmaGeneration()) {
-      inductionRemodulation = new InductionRemodulation();
-      inductionForwardRewriting = new InductionForwardRewriting();
-      gie->addFront(inductionRemodulation);
+      inductionBackwardRewriting = new InductionRewriting(false);
+      inductionForwardRewriting = new InductionRewriting(true);
+      gie->addFront(inductionBackwardRewriting);
       gie->addFront(inductionForwardRewriting);
     }
     induction = new Induction();
@@ -1613,7 +1607,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   if (prb.hasEquality()) {
     gie->addFront(new EqualityFactoring());
     gie->addFront(new EqualityResolution());
-    if(env.options->superposition()){
+    if(env.options->superposition() && !env.options->inductionEquationalLemmaGeneration()){
       gie->addFront(new Superposition());
     }
   } else if(opt.unificationWithAbstraction()!=Options::UnificationWithAbstraction::OFF){
@@ -1717,7 +1711,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
 #endif
 
   if (env.options->inductionEquationalLemmaGeneration()) {
-    res->setGeneratingInferenceEngine(new InductionSGIWrapper(induction, inductionRemodulation, inductionForwardRewriting, sgi));
+    res->setGeneratingInferenceEngine(new InductionSGIWrapper(induction, inductionBackwardRewriting, inductionForwardRewriting, sgi));
   } else {
     res->setGeneratingInferenceEngine(sgi);
   }

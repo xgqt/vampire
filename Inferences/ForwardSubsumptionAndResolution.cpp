@@ -178,10 +178,7 @@ Clause *ForwardSubsumptionAndResolution::generateSubsumptionResolutionClause(Cla
     }
   }
 
-  if (cl->isForwardParamodulated()) {
-    res->markForwardParamodulated();
-    res->setLastRewrittenTerm(cl->getLastRewrittenTerm());
-  }
+  res->copyRewritingBounds(cl);
 
   return res;
 }

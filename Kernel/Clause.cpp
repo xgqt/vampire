@@ -66,9 +66,8 @@ Clause::Clause(unsigned length,const Inference& inf)
     _extensionality(false),
     _extensionalityTag(false),
     _component(false),
-    _backwardParamodulated(0),
-    _forwardParamodulated(0),
-    _lastRewritten(0),
+    _rewritingLowerBound(0),
+    _rewritingUpperBound(0),
     _store(NONE),
     _numSelected(0),
     _weight(0),
@@ -712,40 +711,33 @@ unsigned Clause::numPositiveLiterals()
   return count;
 }
 
-void Clause::markBackwardParamodulated()
+void Clause::setRewritingBound(Term* t, bool lower)
 {
-  CALL("Clause::markBackwardParamodulated");
-  _backwardParamodulated = 1;
+  CALL("Clause::setRewritingBound");
+  if (lower) {
+    _rewritingLowerBound = t;
+  } else {
+    _rewritingUpperBound = t;
+  }
 }
 
-bool Clause::isBackwardParamodulated()
+void Clause::copyRewritingBounds(Clause* c)
 {
-  CALL("Clause::isBackwardParamodulated");
-  return _backwardParamodulated;
+  CALL("Clause::copyRewritingBounds");
+  _rewritingLowerBound = c->_rewritingLowerBound;
+  _rewritingUpperBound = c->_rewritingUpperBound;
 }
 
-void Clause::markForwardParamodulated()
+Term* Clause::getRewritingLowerBound()
 {
-  CALL("Clause::markForwardParamodulated");
-  _forwardParamodulated = 1;
+  CALL("Clause::getRewritingLowerBound");
+  return _rewritingLowerBound;
 }
 
-bool Clause::isForwardParamodulated()
+Term* Clause::getRewritingUpperBound()
 {
-  CALL("Clause::isForwardParamodulated");
-  return _forwardParamodulated;
-}
-
-void Clause::setLastRewrittenTerm(Term* t)
-{
-  CALL("Clause::setLastRewrittenTerm");
-  _lastRewritten = t;
-}
-
-Term* Clause::getLastRewrittenTerm()
-{
-  CALL("Clause::getLastRewrittenTerm");
-  return _lastRewritten;
+  CALL("Clause::getRewritingUpperBound");
+  return _rewritingUpperBound;
 }
 
 /**

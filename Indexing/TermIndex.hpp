@@ -128,53 +128,6 @@ private:
   const Options& _opt;
 };
 
-class RemodulationSubtermIndex
-: public TermIndex
-{
-public:
-  CLASS_NAME(RemodulationSubtermIndex);
-  USE_ALLOCATOR(RemodulationSubtermIndex);
-
-  RemodulationSubtermIndex(TermIndexingStructure* is, Ordering& ord)
-  : TermIndex(is), _ord(ord) {}
-
-  void onAddedToContainer(Clause* c) override
-  { handleClause(c, true); }
-
-  void onRemovedFromContainer(Clause* c) override
-  { handleClause(c, false); }
-
-protected:
-  void handleClause(Clause* c, bool adding) override;
-
-  Ordering& _ord;
-};
-
-/**
-+ * Term index for remodulation (i.e. doing the reverse of demodulation)
-+ */
-class RemodulationLHSIndex
-: public TermIndex
-{
-public:
-  CLASS_NAME(RemodulationLHSIndex);
-  USE_ALLOCATOR(RemodulationLHSIndex);
-
-  RemodulationLHSIndex(TermIndexingStructure* is, Ordering& ord)
-  : TermIndex(is), _ord(ord) {}
-
-  void onAddedToContainer(Clause* c) override
-  { handleClause(c, true); }
-
-  void onRemovedFromContainer(Clause* c) override
-  { handleClause(c, false); }
-
-protected:
-  void handleClause(Clause* c, bool adding) override;
-private:
-  Ordering& _ord;
-};
-
 /**
  * Term index for general rewriting
  */
@@ -185,19 +138,19 @@ public:
   CLASS_NAME(RewritingLHSIndex);
   USE_ALLOCATOR(RewritingLHSIndex);
 
-  RewritingLHSIndex(TermIndexingStructure* is, Ordering& ord)
-  : TermIndex(is), _ord(ord) {}
+  RewritingLHSIndex(TermIndexingStructure* is, Ordering& ord, bool forward)
+  : TermIndex(is), _ord(ord), _forward(forward) {}
 
   void onAddedToContainer(Clause* c) override
   {
-    if (!c->isBackwardParamodulated()) {
+    if (!_forward || !c->getRewritingLowerBound()) {
       handleClause(c, true);
     }
   }
 
   void onRemovedFromContainer(Clause* c) override
   {
-    if (!c->isBackwardParamodulated()) {
+    if (!_forward || !c->getRewritingLowerBound()) {
       handleClause(c, false);
     }
   }
@@ -206,6 +159,7 @@ protected:
   void handleClause(Clause* c, bool adding) override;
 private:
   Ordering& _ord;
+  bool _forward;
 };
 
 /**
@@ -218,19 +172,19 @@ public:
   CLASS_NAME(RewritingSubtermIndex);
   USE_ALLOCATOR(RewritingSubtermIndex);
 
-  RewritingSubtermIndex(TermIndexingStructure* is, Ordering& ord)
-  : TermIndex(is), _ord(ord) {}
+  RewritingSubtermIndex(TermIndexingStructure* is, Ordering& ord, bool forward)
+  : TermIndex(is), _ord(ord), _forward(forward) {}
 
   void onAddedToContainer(Clause* c) override
   {
-    if (!c->isBackwardParamodulated()) {
+    if (!_forward || !c->getRewritingLowerBound()) {
       handleClause(c, true);
     }
   }
 
   void onRemovedFromContainer(Clause* c) override
   {
-    if (!c->isBackwardParamodulated()) {
+    if (!_forward || !c->getRewritingLowerBound()) {
       handleClause(c, false);
     }
   }
@@ -239,6 +193,7 @@ private:
   void handleClause(Clause* c, bool adding) override;
 
   Ordering& _ord;
+  bool _forward;
 };
 
 /**

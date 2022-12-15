@@ -130,10 +130,7 @@ namespace Inferences {
         if (lit->isPositive()) {
           // equality of the form f(x) = g(y), delete literal from clause
           Clause* res = removeLit(c, i, SimplifyingInference1(InferenceRule::TERM_ALGEBRA_DISTINCTNESS, c));
-          if (c->isForwardParamodulated()) {
-            res->markForwardParamodulated();
-            res->setLastRewrittenTerm(c->getLastRewrittenTerm());
-          }
+          res->copyRewritingBounds(c);
           env.statistics->taDistinctnessSimplifications++;
           return res;
         } else {
@@ -186,10 +183,7 @@ namespace Inferences {
       Clause * res = replaceLit(_clause, _lit, l, GeneratingInference1(InferenceRule::TERM_ALGEBRA_INJECTIVITY_GENERATING, _clause));
       _index++;
       env.statistics->taInjectivitySimplifications++;
-      if (_clause->isForwardParamodulated()) {
-        res->markForwardParamodulated();
-        res->setLastRewrittenTerm(_clause->getLastRewrittenTerm());
-      }
+      res->copyRewritingBounds(_clause);
       return res;
     }
   private:
@@ -246,10 +240,7 @@ namespace Inferences {
                                                     *lit->nthArgument(1)->term()->nthArgument(0),
                                                     type->arg(0));
           Clause* res = replaceLit(c, lit, newlit, SimplifyingInference1(InferenceRule::TERM_ALGEBRA_INJECTIVITY_SIMPLIFYING, c));
-          if (c->isForwardParamodulated()) {
-            res->markForwardParamodulated();
-            res->setLastRewrittenTerm(c->getLastRewrittenTerm());
-          }
+          res->copyRewritingBounds(c);
           env.statistics->taInjectivitySimplifications++;
           return res;
         }
@@ -315,10 +306,7 @@ namespace Inferences {
                                            type->arg(i));
           (*res)[oldLength + i - 1] = newLit;
         }
-        if (c->isForwardParamodulated()) {
-          res->markForwardParamodulated();
-          res->setLastRewrittenTerm(c->getLastRewrittenTerm());
-        }
+        res->copyRewritingBounds(c);
         env.statistics->taNegativeInjectivitySimplifications++;
 
         return res;

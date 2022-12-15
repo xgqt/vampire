@@ -8,8 +8,8 @@
  * and in the source directory
  */
 /**
- * @file InductionRemodulation.hpp
- * Defines class InductionRemodulation
+ * @file InductionRewriting.hpp
+ * Defines class InductionRewriting
  *
  */
 
@@ -34,18 +34,6 @@ namespace Inferences
 using namespace Kernel;
 using namespace Indexing;
 using namespace Saturation;
-
-inline void selectLiterals(Clause* c) {
-  unsigned sel = 0;
-  for (unsigned i = 0; i < c->length(); i++) {
-    auto& cur = (*c)[i];
-    if (cur->isEquality()) {
-      swap((*c)[sel],cur);
-      sel++;
-    }
-  }
-  c->setSelected(sel);
-}
 
 inline bool termHasAllVarsOfClause(TermList t, Clause* cl) {
   return iterTraits(cl->getVariableIterator())
@@ -116,30 +104,34 @@ private:
   };
 };
 
-class InductionRemodulation
+class InductionRewriting
 : public GeneratingInferenceEngine
 {
 public:
-  CLASS_NAME(InductionRemodulation);
-  USE_ALLOCATOR(InductionRemodulation);
+  CLASS_NAME(InductionRewriting);
+  USE_ALLOCATOR(InductionRewriting);
+
+  InductionRewriting(bool forward) : _forward(forward) {}
 
   void attach(SaturationAlgorithm* salg) override;
   void detach() override;
   ClauseIterator generateClauses(Clause* premise) override;
   void output();
+
+  static VirtualIterator<pair<Literal*,Term*>> getIterator(Ordering& ord, Clause* premise, bool forward);
+  static bool areEqualitySidesOriented(TermList lhs, TermList rhs, Ordering& ord, bool forward);
+
 private:
   ClauseIterator perform(
     Clause* rwClause, Literal* rwLit, TermList rwTerm,
     Clause* eqClause, Literal* eqLit, TermList eqLHS,
     ResultSubstitutionSP subst, bool eqIsResult);
 
-  RemodulationLHSIndex* _lhsIndex;
-  RemodulationSubtermIndex* _termIndex;
+  TermIndex* _lhsIndex;
+  TermIndex* _termIndex;
   DHMap<Clause*, unsigned> _eqs;
-  DemodulationLHSIndex* _demLhsIndex;
+  bool _forward;
 };
-
-class InductionForwardRewriting;
 
 class InductionSGIWrapper
 : public SimplifyingGeneratingInference
@@ -149,11 +141,10 @@ public:
   USE_ALLOCATOR(InductionSGIWrapper);
 
   InductionSGIWrapper(GeneratingInferenceEngine* induction,
-      InductionRemodulation* inductionRemodulation,
-      InductionForwardRewriting* inductionForwardRewriting,
+      InductionRewriting* fwRewriting,
+      InductionRewriting* bwRewriting,
       SimplifyingGeneratingInference* generator)
-    : _induction(induction), _inductionRemodulation(inductionRemodulation),
-      _inductionForwardRewriting(inductionForwardRewriting), _generator(generator) {}
+    : _induction(induction), _fwRewriting(fwRewriting), _bwRewriting(bwRewriting), _generator(generator) {}
 
   ClauseGenerationResult generateSimplify(Clause* premise) override;
 
@@ -167,8 +158,8 @@ public:
   }
 private:
   GeneratingInferenceEngine* _induction;
-  InductionRemodulation* _inductionRemodulation;
-  InductionForwardRewriting* _inductionForwardRewriting;
+  InductionRewriting* _fwRewriting;
+  InductionRewriting* _bwRewriting;
   ScopedPtr<SimplifyingGeneratingInference> _generator;
 };
 

@@ -357,12 +357,10 @@ public:
 
   unsigned numPositiveLiterals(); // number of positive literals in the clause
 
-  void markBackwardParamodulated();
-  void markForwardParamodulated();
-  bool isBackwardParamodulated();
-  bool isForwardParamodulated();
-  void setLastRewrittenTerm(Term* t);
-  Term* getLastRewrittenTerm();
+  void setRewritingBound(Term* t, bool lower);
+  void copyRewritingBounds(Clause* c);
+  Term* getRewritingLowerBound();
+  Term* getRewritingUpperBound();
 
 protected:
   /** number of literals */
@@ -377,10 +375,10 @@ protected:
   unsigned _extensionalityTag : 1;
   /** Clause is a splitting component. */
   unsigned _component : 1;
-  /** Clause is backward paramodulated clause */
-  unsigned _backwardParamodulated : 1;
-  unsigned _forwardParamodulated : 1;
-  Term* _lastRewritten;
+  /** Lower bound for rewriting (0 if no bound) */
+  Term* _rewritingLowerBound;
+  /** Upper bound for rewriting (0 if no bound) */
+  Term* _rewritingUpperBound;
 
   /** storage class */
   Store _store : 3;

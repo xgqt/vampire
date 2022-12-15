@@ -127,7 +127,8 @@ public:
   /** number of induction applications **/
   unsigned forwardInductionForwardRewriting;
   unsigned backwardInductionForwardRewriting;
-  unsigned inductionRemodulation;
+  unsigned forwardInductionBackwardRewriting;
+  unsigned backwardInductionBackwardRewriting;
   unsigned inductionRedundant;
   unsigned maxInductionDepth;
   unsigned structInduction;
