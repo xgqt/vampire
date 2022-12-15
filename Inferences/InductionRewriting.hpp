@@ -127,6 +127,11 @@ private:
     Clause* eqClause, Literal* eqLit, TermList eqLHS,
     ResultSubstitutionSP subst, bool eqIsResult);
 
+  bool filterByHeuristics(
+    Clause* rwClause, Literal* rwLit, TermList rwTerm,
+    Clause* eqClause, Literal* eqLit, TermList eqLHS,
+    ResultSubstitutionSP subst);
+
   TermIndex* _lhsIndex;
   TermIndex* _termIndex;
   DHMap<Clause*, unsigned> _eqs;

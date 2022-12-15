@@ -1607,7 +1607,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   if (prb.hasEquality()) {
     gie->addFront(new EqualityFactoring());
     gie->addFront(new EqualityResolution());
-    if(env.options->superposition() && !env.options->inductionEquationalLemmaGeneration()){
+    if(env.options->superposition()){
       gie->addFront(new Superposition());
     }
   } else if(opt.unificationWithAbstraction()!=Options::UnificationWithAbstraction::OFF){
