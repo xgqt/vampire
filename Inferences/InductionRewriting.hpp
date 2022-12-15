@@ -119,7 +119,7 @@ public:
 
 private:
   ClauseIterator perform(
-    Clause* rwClause, Literal* rwLit, TermList rwTerm,
+    Clause* rwClause, Literal* rwLit, Term* rwArg, TermList rwTerm,
     Clause* eqClause, Literal* eqLit, TermList eqLHS,
     ResultSubstitutionSP subst, bool eqIsResult);
 

@@ -105,6 +105,20 @@ public:
 
   DemodulationSubtermIndexImpl(TermIndexingStructure* is)
   : DemodulationSubtermIndex(is) {};
+
+  void onAddedToContainer(Clause* c) override
+  {
+    if (!c->getRewritingLowerBound()) {
+      handleClause(c, true);
+    }
+  }
+
+  void onRemovedFromContainer(Clause* c) override
+  {
+    if (!c->getRewritingLowerBound()) {
+      handleClause(c, false);
+    }
+  }
 protected:
   void handleClause(Clause* c, bool adding);
 };
