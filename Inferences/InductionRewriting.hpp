@@ -35,13 +35,6 @@ using namespace Kernel;
 using namespace Indexing;
 using namespace Saturation;
 
-inline bool termHasAllVarsOfClause(TermList t, Clause* cl) {
-  return iterTraits(cl->getVariableIterator())
-    .all([&t](unsigned v) {
-      return t.containsSubterm(TermList(v, false));
-    });
-}
-
 inline bool termAlgebraFunctor(unsigned functor) {
   auto sym = env.signature->getFunction(functor);
   return sym->termAlgebraCons() || sym->termAlgebraDest();
@@ -104,6 +97,9 @@ private:
   };
 };
 
+using LitArgPair = pair<Literal*,Term*>;
+using LitArgPairIter = VirtualIterator<LitArgPair>;
+
 class InductionRewriting
 : public GeneratingInferenceEngine
 {
@@ -118,8 +114,8 @@ public:
   ClauseIterator generateClauses(Clause* premise) override;
   void output();
 
-  static VirtualIterator<pair<Literal*,Term*>> getIterator(Ordering& ord, Clause* premise, bool forward);
-  static bool areEqualitySidesOriented(TermList lhs, TermList rhs, Ordering& ord, bool forward);
+  static LitArgPairIter getTermIterator(Clause* premise, const Options& opt, Ordering& ord, bool forward);
+  static LitArgPairIter getLHSIterator(Clause* premise, const Options& opt, Ordering& ord, bool forward);
 
 private:
   ClauseIterator perform(

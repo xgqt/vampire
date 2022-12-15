@@ -425,8 +425,7 @@ Clause* DuplicateLiteralRemovalISE::simplify(Clause* c)
   }
 #endif
 
-  d->setRewritingBound(c->getRewritingLowerBound(), true);
-  d->setRewritingBound(c->getRewritingUpperBound(), false);
+  d->copyRewritingBounds(c);
 
   return d;
 }
@@ -536,8 +535,7 @@ Clause* TrivialInequalitiesRemovalISE::simplify(Clause* c)
   }
   env.statistics->trivialInequalities += found;
 
-  d->setRewritingBound(c->getRewritingLowerBound(), true);
-  d->setRewritingBound(c->getRewritingUpperBound(), false);
+  d->copyRewritingBounds(c);
 
   return d;
 }

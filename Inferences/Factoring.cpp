@@ -65,7 +65,7 @@ public:
     Literal* l2 = (*_cl)[nums.second];
 
     //we assume there are no duplicate literals
-    ASS_REP(l1!=l2,_cl->toString());
+    ASS(l1!=l2);
     ASS_EQ(_subst->size(),0);
 
     if(l1->isEquality()) {

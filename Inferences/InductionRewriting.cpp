@@ -31,6 +31,8 @@ namespace Inferences {
 using namespace Lib;
 using namespace Kernel;
 
+// iterators and filters
+
 TermList SingleOccurrenceReplacementIterator::Replacer::transformSubterm(TermList trm)
 {
   CALL("SingleOccurrenceReplacementIterator::Replacer::transformSubterm");
@@ -51,6 +53,119 @@ Literal* SingleOccurrenceReplacementIterator::next()
   Replacer sor(_o, _r, _iteration++);
   return sor.transform(_lit);
 }
+
+
+bool isTermViolatingBound(Term* bound, Term* t, Ordering& ord, bool forward)
+{
+  CALL("isTermViolatingBound");
+  if (!bound) {
+    return false;
+  }
+  auto comp = ord.compare(TermList(bound), TermList(t));
+  if (forward) {
+    if (comp == Ordering::Result::GREATER || comp == Ordering::Result::GREATER_EQ) {
+      return true;
+    }
+  } else {
+    if (comp == Ordering::Result::LESS || comp == Ordering::Result::LESS_EQ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+LitArgPairIter getIterator(Ordering& ord, Clause* premise, bool forward)
+{
+  CALL("InductionRewriting::getIterator");
+  Term* bound;
+  if (forward) {
+    bound = premise->getRewritingUpperBound();
+  } else {
+    bound = premise->getRewritingLowerBound();
+  }
+  return pvi(iterTraits(premise->iterLits())
+    .flatMap([](Literal* lit) {
+      return pvi(pushPairIntoRightIterator(lit, termArgIter(lit)));
+    })
+    // filter out variables
+    .map([](pair<Literal*, TermList> kv) { return make_pair(kv.first, kv.second.isTerm() ? kv.second.term() : nullptr); })
+    .filter([](LitArgPair kv) { return kv.second!=nullptr; })
+    // filter out ones violating the bound
+    .filter([bound,&ord,forward](LitArgPair kv) {
+      return !isTermViolatingBound(bound, kv.second, ord, forward);
+    }));
+}
+
+bool isClauseRewritable(const Options& opt, Clause* premise, bool forward)
+{
+  CALL("InductionRewriting::isClauseRewritable");
+  if (!forward && !opt.nonUnitInduction() &&
+    (!InductionHelper::isInductionClause(premise) || !InductionHelper::isInductionLiteral((*premise)[0])))
+  {
+    return false;
+  }
+  return true;
+}
+
+bool areEqualitySidesOriented(TermList lhs, TermList rhs, Ordering& ord, bool forward)
+{
+  CALL("InductionRewriting::areTermsOriented");
+
+  auto comp = ord.compare(rhs,lhs);
+  if (forward && Ordering::isGorGEorE(comp)) {
+    return false;
+  }
+  if (!forward && !Ordering::isGorGEorE(comp)) {
+    return false;
+  }
+  return true;
+}
+
+bool canUseLHSForRewrite(LitArgPair kv, Clause* premise, bool forward)
+{
+  CALL("InductionRewriting::canUseLHSForRewrite");
+  // cannot yet handle new variables that pop up
+  if (iterTraits(premise->getVariableIterator())
+      .any([&kv](unsigned v) {
+        return !kv.second->containsSubterm(TermList(v, false));
+      }))
+  {
+    return false;
+  }
+  // lhs contains only things we cannot induct on
+  if (!forward && premise->length() == 1 && !hasTermToInductOn(kv.second, kv.first)) {
+    return false;
+  }
+  return true;
+}
+
+LitArgPairIter InductionRewriting::getTermIterator(Clause* premise, const Options& opt, Ordering& ord, bool forward)
+{
+  CALL("InductionRewriting::getTermIterator");
+  if (!isClauseRewritable(opt, premise, forward)) {
+    return LitArgPairIter::getEmpty();
+  }
+  return pvi(getIterator(ord, premise, forward));
+}
+
+LitArgPairIter InductionRewriting::getLHSIterator(Clause* premise, const Options& opt, Ordering& ord, bool forward)
+{
+  CALL("InductionRewriting::getLHSIterator");
+  return pvi(iterTraits(getIterator(ord, premise, forward))
+    .filter([&ord, forward](LitArgPair kv) {
+      auto lit = kv.first;
+      if (!lit->isEquality() || lit->isNegative()) {
+        return false;
+      }
+      TermList lhs(kv.second);
+      return areEqualitySidesOriented(lhs, EqHelper::getOtherEqualitySide(lit, lhs), ord, forward);
+    })
+    .filter([premise,forward](LitArgPair kv) {
+      return canUseLHSForRewrite(kv, premise, forward);
+    }));
+}
+
+// inference
 
 void InductionRewriting::attach(SaturationAlgorithm* salg)
 {
@@ -76,10 +191,11 @@ ClauseIterator InductionRewriting::generateClauses(Clause* premise)
 {
   CALL("InductionRewriting::generateClauses");
   auto& ord = _salg->getOrdering();
+  auto& opt = _salg->getOptions();
 
   // forward result
-  auto fwRes = iterTraits(getIterator(ord, premise, _forward))
-    .flatMap([](pair<Literal*,Term*> kv) {
+  auto fwRes = iterTraits(getTermIterator(premise, opt, ord, _forward))
+    .flatMap([](LitArgPair kv) {
       NonVariableNonTypeIterator it(kv.second, true);
       return pvi( pushPairIntoRightIterator(kv.first, getUniquePersistentIteratorFromPtr(&it)) );
     })
@@ -94,16 +210,8 @@ ClauseIterator InductionRewriting::generateClauses(Clause* premise)
     .timeTraced(_forward ? "forward induction forward rewriting" : "forward induction backward rewriting");
 
   // backward result
-  auto bwRes = iterTraits(getIterator(ord, premise, _forward))
-    .filter([&ord,this](pair<Literal*,Term*> kv) {
-      auto lit = kv.first;
-      if (!lit->isEquality() || lit->isNegative()) {
-        return false;
-      }
-      TermList lhs(kv.second);
-      return InductionRewriting::areEqualitySidesOriented(lhs, EqHelper::getOtherEqualitySide(lit, lhs), ord, _forward);
-    })
-    .flatMap([this](pair<Literal*, Term*> kv) {
+  auto bwRes = iterTraits(getLHSIterator(premise, opt, ord, _forward))
+    .flatMap([this](LitArgPair kv) {
       return pvi( pushPairIntoRightIterator(make_pair(kv.first, TermList(kv.second)), _termIndex->getUnifications(TermList(kv.second), true)) );
     })
     .flatMap([this, premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
@@ -113,9 +221,7 @@ ClauseIterator InductionRewriting::generateClauses(Clause* premise)
     })
     .timeTraced(_forward ? "backward induction forward rewriting" : "backward induction backward rewriting");
 
-  return pvi(fwRes.concat(bwRes)
-    .filter(NonzeroFn())
-    .timeTraced(_forward ? "induction forward rewriting" : "induction backward rewriting"));
+  return pvi(fwRes.concat(bwRes).filter(NonzeroFn()));
 }
 
 Term* getRewrittenTerm(Literal* oldLit, Literal* newLit) {
@@ -164,61 +270,6 @@ void InductionRewriting::output()
     cout << *kv.first << " " << kv.second << endl;
   }
   cout << "end " << endl << endl;
-}
-
-bool isTermViolatingBound(Term* bound, Term* t, Ordering& ord, bool forward)
-{
-  CALL("isTermViolatingBound");
-  if (!bound) {
-    return false;
-  }
-  auto comp = ord.compare(TermList(bound), TermList(t));
-  if (forward) {
-    if (comp == Ordering::Result::GREATER || comp == Ordering::Result::GREATER_EQ) {
-      return true;
-    }
-  } else {
-    if (comp == Ordering::Result::LESS || comp == Ordering::Result::LESS_EQ) {
-      return true;
-    }
-  }
-  return false;
-}
-
-VirtualIterator<pair<Literal*,Term*>> InductionRewriting::getIterator(Ordering& ord, Clause* premise, bool forward)
-{
-  CALL("InductionRewriting::getIterator");
-  Term* bound;
-  if (forward) {
-    bound = premise->getRewritingUpperBound();
-  } else {
-    bound = premise->getRewritingLowerBound();
-  }
-  return pvi(iterTraits(premise->iterLits())
-    .flatMap([](Literal* lit) {
-      return pvi(pushPairIntoRightIterator(lit, termArgIter(lit)));
-    })
-    // filter out variables
-    .map([](pair<Literal*, TermList> kv) { return make_pair(kv.first, kv.second.isTerm() ? kv.second.term() : nullptr); })
-    .filter([](pair<Literal*, Term*> kv) { return kv.second!=nullptr; })
-    // filter out ones violating the bound
-    .filter([bound,&ord,forward](pair<Literal*, Term*> kv) {
-      return !isTermViolatingBound(bound, kv.second, ord, forward);
-    }));
-}
-
-bool InductionRewriting::areEqualitySidesOriented(TermList lhs, TermList rhs, Ordering& ord, bool forward)
-{
-  CALL("InductionRewriting::areTermsOriented");
-
-  auto comp = ord.compare(rhs,lhs);
-  if (forward && Ordering::isGorGEorE(comp)) {
-    return false;
-  }
-  if (!forward && !Ordering::isGorGEorE(comp)) {
-    return false;
-  }
-  return true;
 }
 
 ClauseIterator InductionRewriting::perform(
@@ -374,10 +425,6 @@ bool InductionRewriting::filterByHeuristics(
     Clause* eqClause, Literal* eqLit, TermList eqLHS,
     ResultSubstitutionSP subst)
 {
-  if (!termHasAllVarsOfClause(eqLHS, eqClause)) {
-    return true;
-  }
-
   vset<unsigned> eqSkolems = getSkolems(eqLit);
   if (!eqSkolems.empty()) {
     vset<unsigned> rwSkolems = getSkolems(rwLit);

@@ -81,7 +81,7 @@ Ordering::Result LPO::compare(TermList tl1, TermList tl2) const
 Ordering::Result LPO::clpo(Term* t1, TermList tl2) const
 {
   CALL("LPO::clpo");
-  ASS_REP(t1->shared(),t1->toString());
+  ASS(t1->shared());
 
   if(tl2.isOrdinaryVar()) {
     return t1->containsSubterm(tl2) ? GREATER : INCOMPARABLE;

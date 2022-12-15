@@ -193,22 +193,16 @@ void RewritingLHSIndex::handleClause(Clause* c, bool adding)
 
   TIME_TRACE("induction rewriting index maintenance");
 
-  auto it = InductionRewriting::getIterator(_ord, c, _forward);
+  auto it = InductionRewriting::getLHSIterator(c, _opt, _ord, _forward);
   while (it.hasNext()) {
     auto kv = it.next();
     auto lit = kv.first;
-    if (!lit->isEquality() || lit->isNegative()) {
-      continue;
-    }
     TermList lhs(kv.second);
-    auto rhs = EqHelper::getOtherEqualitySide(lit, lhs);
-    if (InductionRewriting::areEqualitySidesOriented(lhs, rhs, _ord, _forward)) {
-      if (adding) {
-        _is->insert(lhs, lit, c);
-      }
-      else {
-        _is->remove(lhs, lit, c);
-      }
+    if (adding) {
+      _is->insert(lhs, lit, c);
+    }
+    else {
+      _is->remove(lhs, lit, c);
     }
   }
 }
@@ -219,7 +213,7 @@ void RewritingSubtermIndex::handleClause(Clause* c, bool adding)
 
   TIME_TRACE("induction rewriting index maintenance");
 
-  auto it = InductionRewriting::getIterator(_ord, c, _forward);
+  auto it = InductionRewriting::getTermIterator(c, _opt, _ord, _forward);
   while (it.hasNext()) {
     auto kv = it.next();
     NonVariableNonTypeIterator nvi(kv.second, true);

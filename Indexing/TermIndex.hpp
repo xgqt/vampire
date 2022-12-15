@@ -138,8 +138,8 @@ public:
   CLASS_NAME(RewritingLHSIndex);
   USE_ALLOCATOR(RewritingLHSIndex);
 
-  RewritingLHSIndex(TermIndexingStructure* is, Ordering& ord, bool forward)
-  : TermIndex(is), _ord(ord), _forward(forward) {}
+  RewritingLHSIndex(TermIndexingStructure* is, const Options& opt, Ordering& ord, bool forward)
+  : TermIndex(is), _opt(opt), _ord(ord), _forward(forward) {}
 
   void onAddedToContainer(Clause* c) override
   {
@@ -158,6 +158,7 @@ public:
 protected:
   void handleClause(Clause* c, bool adding) override;
 private:
+  const Options& _opt;
   Ordering& _ord;
   bool _forward;
 };
@@ -172,8 +173,8 @@ public:
   CLASS_NAME(RewritingSubtermIndex);
   USE_ALLOCATOR(RewritingSubtermIndex);
 
-  RewritingSubtermIndex(TermIndexingStructure* is, Ordering& ord, bool forward)
-  : TermIndex(is), _ord(ord), _forward(forward) {}
+  RewritingSubtermIndex(TermIndexingStructure* is, const Options& opt, Ordering& ord, bool forward)
+  : TermIndex(is), _opt(opt), _ord(ord), _forward(forward) {}
 
   void onAddedToContainer(Clause* c) override
   {
@@ -189,9 +190,10 @@ public:
     }
   }
 
-private:
+protected:
   void handleClause(Clause* c, bool adding) override;
-
+private:
+  const Options& _opt;
   Ordering& _ord;
   bool _forward;
 };

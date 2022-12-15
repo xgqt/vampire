@@ -205,22 +205,22 @@ Index* IndexManager::create(IndexType t)
     break;
   case FORWARD_REWRITING_SUBTERM_INDEX:
     tis=new TermSubstitutionTree();
-    res=new RewritingSubtermIndex(tis, _alg->getOrdering(), true);
+    res=new RewritingSubtermIndex(tis, _alg->getOptions(), _alg->getOrdering(), true);
     isGenerating = true;
     break;
   case FORWARD_REWRITING_LHS_INDEX:
     tis=new TermSubstitutionTree();
-    res=new RewritingLHSIndex(tis, _alg->getOrdering(), true);
+    res=new RewritingLHSIndex(tis, _alg->getOptions(), _alg->getOrdering(), true);
     isGenerating = true;
     break;
   case BACKWARD_REWRITING_SUBTERM_INDEX:
     tis=new TermSubstitutionTree();
-    res=new RewritingSubtermIndex(tis, _alg->getOrdering(), false);
+    res=new RewritingSubtermIndex(tis, _alg->getOptions(), _alg->getOrdering(), false);
     isGenerating = true;
     break;
   case BACKWARD_REWRITING_LHS_INDEX:
     tis=new TermSubstitutionTree();
-    res=new RewritingLHSIndex(tis, _alg->getOrdering(), false);
+    res=new RewritingLHSIndex(tis, _alg->getOptions(), _alg->getOrdering(), false);
     isGenerating = true;
     break;
 
