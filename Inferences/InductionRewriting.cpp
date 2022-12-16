@@ -249,10 +249,18 @@ ClauseIterator InductionRewriting::generateClauses(Clause* premise)
     .flatMap([this](LitArgPair kv) {
       return pvi( pushPairIntoRightIterator(make_pair(kv.first, TermList(kv.second)), _termIndex->getUnifications(TermList(kv.second), true)) );
     })
-    .flatMap([this, premise](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
+    .flatMap([](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
+      return pvi( pushPairIntoRightIterator(arg, termArgIter(arg.second.literal)) );
+    })
+    .map([](pair<pair<pair<Literal*, TermList>, TermQueryResult>, TermList> kv) { return make_pair(kv.first, kv.second.isTerm() ? kv.second.term() : nullptr); })
+    .filter([](pair<pair<pair<Literal*, TermList>, TermQueryResult>, Term*> kv) { return kv.second!=nullptr; })
+    .map([](pair<pair<pair<Literal*, TermList>, TermQueryResult>, Term*> arg) {
+      return make_pair(make_pair(make_pair(arg.first.first.first, arg.second), arg.first.first.second), arg.first.second);
+    })
+    .flatMap([this, premise](pair<pair<LitArgPair, TermList>, TermQueryResult> arg) {
       TermQueryResult& qr = arg.second;
-      return perform(qr.clause, qr.literal, nullptr, qr.term,
-        premise, arg.first.first, arg.first.second, qr.substitution, false);
+      return perform(qr.clause, qr.literal, arg.first.first.second, qr.term,
+        premise, arg.first.first.first, arg.first.second, qr.substitution, false);
     })
     .timeTraced(_forward ? "backward induction forward rewriting" : "backward induction backward rewriting");
 
@@ -327,6 +335,7 @@ ClauseIterator InductionRewriting::perform(
     return ClauseIterator::getEmpty();
   }
   ASS(eqLHS.isTerm());
+  ASS(rwArg);
 
   TermList tgtTerm = EqHelper::getOtherEqualitySide(eqLit, eqLHS);
   TermList tgtTermS = subst->applyTo(tgtTerm, eqIsResult);
@@ -358,16 +367,21 @@ ClauseIterator InductionRewriting::perform(
   }
 
   return pvi(iterTraits(vi(new SingleOccurrenceReplacementIterator(rwLitS, rwTermS.term(), tgtTermS)))
-    .map([this,eqClause,rwClause,eqLit,rwLit,rwLitS,eqIsResult,subst,boundS](Literal* tgtLitS) -> Clause* {
+    .map([this,eqClause,rwClause,eqLit,rwLit,rwLitS,rwArg,eqIsResult,subst,boundS](Literal* tgtLitS) -> Clause* {
       if (EqHelper::isEqTautology(tgtLitS)) {
         return nullptr;
       }
-      // if (!InductionHelper::isInductionLiteral(rwLit)) {
-      //   return nullptr;
-      // }
-      auto rwArg = getRewrittenTerm(rwLitS, tgtLitS);
-      // cout << "rwArg " << *rwArg << " tgtLitS " << *tgtLitS << " rwLitS " << *rwLitS << endl;
-      if (isTermViolatingBound(boundS, rwArg, _salg->getOrdering(), _forward)) {
+      auto newRwArg = getRewrittenTerm(rwLitS, tgtLitS);
+      if (rwArg && newRwArg != rwArg) {
+        // static unsigned wrongRw = 0;
+        // wrongRw++;
+        // if (!eqIsResult && wrongRw % 1000 == 0) {
+        //   cout << "wrongRw " << wrongRw << endl;
+        // }
+        return nullptr;
+      }
+      // cout << "rwArg " << *newRwArg << " tgtLitS " << *tgtLitS << " rwLitS " << *rwLitS << endl;
+      if (isTermViolatingBound(boundS, newRwArg, _salg->getOrdering(), _forward)) {
         // static unsigned skipped = 0;
         // skipped++;
         // if (skipped % 100 == 0) {
@@ -438,7 +452,7 @@ ClauseIterator InductionRewriting::perform(
         (*ptr)++;
       }
       // cout << "result " << *newCl << endl << endl;
-      newCl->setRewritingBound(rwArg, !_forward);
+      newCl->setRewritingBound(newRwArg, !_forward);
       return newCl;
     }));
 }
