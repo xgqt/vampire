@@ -115,7 +115,7 @@ NeuralPassiveClauseContainer::NeuralPassiveClauseContainer(bool isOutermost, con
   if (_temp == 0.0) {
     _queue = SmartPtr<AbstractClauseQueue>(new ShuffledScoreQueue(_scores));
   } else {
-    _queue = SmartPtr<AbstractClauseQueue>(new SoftmaxClauseQueue(_scores));
+    _queue = SmartPtr<AbstractClauseQueue>(new SoftmaxClauseQueue(_scores, opt.showPassiveTraffic()));
   }
 
   TimeCounter t(TC_DEEP_STUFF);
@@ -236,6 +236,7 @@ Clause* NeuralPassiveClauseContainer::popSelected()
   // cout << "About to pop" << endl;
   Clause* cl = _queue->pop();
   // cout << "Got " << cl->number() << endl;
+  // cout << "popped from " << _size << " got " << cl->toString() << endl;
   _size--;
 
   selectedEvent.fire(cl);
