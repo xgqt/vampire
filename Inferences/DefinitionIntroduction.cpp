@@ -119,6 +119,13 @@ void DefinitionIntroduction::introduceDefinitionFor(Term *t) {
 void DefinitionIntroduction::process(Term *t) {
   CALL("DefinitionIntroduction::process(Term *)");
 
+  // CCSA: we only care about Skolems
+  if(!env.signature->getFunction(t->functor())->skolem())
+    return;
+
+  if(t->allArgumentsAreVariables() && t->getDistinctVars() == t->arity())
+    return;
+
   unsigned functor = t->functor();
   Stack<Entry> &entries = _entries[functor];
 
@@ -154,14 +161,8 @@ void DefinitionIntroduction::process(Clause *cl) {
 
   for(unsigned i = 0; i < cl->length(); i++) {
     NonVariableNonTypeIterator it((*cl)[i]);
-    while(it.hasNext()) {
-      TermList next = it.next();
-      Term *t = next.term();
-      if(t->allArgumentsAreVariables() && t->getDistinctVars() == t->arity())
-        continue;
-
-      process(t);
-    }
+    while(it.hasNext())
+      process(it.next().term());
   }
 }
 
