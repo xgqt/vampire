@@ -232,6 +232,7 @@ struct BackwardDemodulation::ResultFn
 
     env.statistics->backwardDemodulations++;
     _removed->insert(qr.clause);
+    res->copyRewritingBounds(qr.clause);
     return BwSimplificationRecord(qr.clause,res);
   }
 private:

@@ -1034,13 +1034,6 @@ bool SaturationAlgorithm::forwardSimplify(Clause* cl)
       return false;
     }
     cl->incRefCnt();
-    // static unsigned cnt = 0;
-    // if (cl->length() > 1) {
-    //   cnt++;
-    //   if (cnt % 100 == 0) {
-    //     cout << "!A CNT " << cnt << endl;
-    //   }
-    // }
     return true;
   }
 
@@ -1317,15 +1310,19 @@ start:
 
   while (! _unprocessed->isEmpty()) {
     Clause* c = _unprocessed->pop();
-    // if (!c->isForwardParamodulated()) {
+    // if (!c->getRewritingLowerBound() && !c->getRewritingUpperBound()) {
     //   auto it = c->inference().iterator();
     //   if (c->inference().hasNext(it)) {
     //     auto u = c->inference().next(it);
     //     if (u->isClause()) {
     //       auto p = u->asClause();
-    //       if (p->isForwardParamodulated()) {
-    //         cout << *c << " " << *p << endl;
-    //         ASS_REP(false, c->toString() + " " + p->toString());
+    //       if (p->getRewritingLowerBound() || p->getRewritingUpperBound()) {
+    //         static vset<InferenceRule> rules{ InferenceRule::INDUCTION_HYPERRESOLUTION };
+    //         if (rules.insert(c->inference().rule()).second) {
+    //           cout << "inference not covered: " << ruleName(c->inference().rule()) << endl;
+    //         }
+    //         // cout << *c << " " << *p << endl;
+    //         // ASS_REP(false, c->toString() + " " + p->toString());
     //       }
     //     }
     //   }
