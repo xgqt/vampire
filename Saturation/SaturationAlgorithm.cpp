@@ -1708,7 +1708,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
 #endif
 
   if (env.options->inductionEquationalLemmaGeneration()) {
-    res->setGeneratingInferenceEngine(new InductionSGIWrapper(induction, inductionBackwardRewriting, inductionForwardRewriting, sgi));
+    res->setGeneratingInferenceEngine(new InductionSGIWrapper(induction, inductionForwardRewriting, inductionBackwardRewriting, sgi));
   } else {
     res->setGeneratingInferenceEngine(sgi);
   }

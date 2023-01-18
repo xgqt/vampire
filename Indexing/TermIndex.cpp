@@ -197,7 +197,7 @@ void RewritingLHSIndex::handleClause(Clause* c, bool adding)
   while (it.hasNext()) {
     auto kv = it.next();
     auto lit = kv.first;
-    TermList lhs(kv.second);
+    auto lhs = kv.second;
     if (adding) {
       _is->insert(lhs, lit, c);
     }
@@ -216,7 +216,10 @@ void RewritingSubtermIndex::handleClause(Clause* c, bool adding)
   auto it = InductionRewriting::getTermIterator(c, _opt, _ord, _forward);
   while (it.hasNext()) {
     auto kv = it.next();
-    NonVariableNonTypeIterator nvi(kv.second, true);
+    if (kv.second.isVar()) {
+      continue;
+    }
+    NonVariableNonTypeIterator nvi(kv.second.term(), true);
     while (nvi.hasNext()) {
       auto st = nvi.next();
       if (adding) {

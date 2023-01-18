@@ -97,7 +97,7 @@ private:
   };
 };
 
-using LitArgPair = pair<Literal*,Term*>;
+using LitArgPair = pair<Literal*,TermList>;
 using LitArgPairIter = VirtualIterator<LitArgPair>;
 
 class InductionRewriting
@@ -119,7 +119,7 @@ public:
 
 private:
   ClauseIterator perform(
-    Clause* rwClause, Literal* rwLit, Term* rwArg, TermList rwTerm,
+    Clause* rwClause, Literal* rwLit, TermList rwArg, TermList rwTerm,
     Clause* eqClause, Literal* eqLit, TermList eqLHS,
     ResultSubstitutionSP subst, bool eqIsResult);
 

@@ -14,6 +14,7 @@
 
 #include "Lib/Metaiterators.hpp"
 
+#include "Kernel/RobSubstitution.hpp"
 #include "Kernel/SortHelper.hpp"
 #include "Kernel/SubstHelper.hpp"
 #include "Kernel/TermIterators.hpp"
@@ -55,7 +56,7 @@ Literal* SingleOccurrenceReplacementIterator::next()
 }
 
 
-bool isTermViolatingBound(Term* bound, Term* t, Ordering& ord, bool forward)
+bool isTermViolatingBound(Term* bound, TermList t, Ordering& ord, bool forward)
 {
   CALL("isTermViolatingBound");
   if (!bound) {
@@ -63,11 +64,11 @@ bool isTermViolatingBound(Term* bound, Term* t, Ordering& ord, bool forward)
   }
   auto comp = ord.compare(TermList(bound), TermList(t));
   if (forward) {
-    if (comp == Ordering::Result::GREATER || comp == Ordering::Result::GREATER_EQ) {
+    if (comp == Ordering::Result::LESS || comp == Ordering::Result::LESS_EQ) {
       return true;
     }
   } else {
-    if (comp == Ordering::Result::LESS || comp == Ordering::Result::LESS_EQ) {
+    if (comp == Ordering::Result::GREATER || comp == Ordering::Result::GREATER_EQ) {
       return true;
     }
   }
@@ -87,9 +88,6 @@ LitArgPairIter getIterator(Ordering& ord, Clause* premise, bool forward)
     .flatMap([](Literal* lit) {
       return pvi(pushPairIntoRightIterator(lit, termArgIter(lit)));
     })
-    // filter out variables
-    .map([](pair<Literal*, TermList> kv) { return make_pair(kv.first, kv.second.isTerm() ? kv.second.term() : nullptr); })
-    .filter([](LitArgPair kv) { return kv.second!=nullptr; })
     // filter out ones violating the bound
     .filter([bound,&ord,forward](LitArgPair kv) {
       return !isTermViolatingBound(bound, kv.second, ord, forward);
@@ -140,7 +138,7 @@ bool canUseLHSForRewrite(LitArgPair kv, Clause* premise, bool forward)
   // cannot yet handle new variables that pop up
   if (iterTraits(premise->getVariableIterator())
       .any([&lhs](unsigned v) {
-        return !lhs->containsSubterm(TermList(v, false));
+        return !lhs.containsSubterm(TermList(v, false));
       }))
   {
     return false;
@@ -192,7 +190,7 @@ LitArgPairIter InductionRewriting::getLHSIterator(Clause* premise, const Options
       if (!lit->isEquality() || lit->isNegative()) {
         return false;
       }
-      TermList lhs(kv.second);
+      auto lhs = kv.second;
       return areEqualitySidesOriented(lhs, EqHelper::getOtherEqualitySide(lit, lhs), ord, forward);
     })
     .filter([premise,forward](LitArgPair kv) {
@@ -231,7 +229,10 @@ ClauseIterator InductionRewriting::generateClauses(Clause* premise)
   // forward result
   auto fwRes = iterTraits(getTermIterator(premise, opt, ord, _forward))
     .flatMap([](LitArgPair kv) {
-      NonVariableNonTypeIterator it(kv.second, true);
+      if (kv.second.isVar()) {
+        return VirtualIterator<pair<LitArgPair, TermList>>::getEmpty();
+      }
+      NonVariableNonTypeIterator it(kv.second.term(), true);
       return pvi( pushPairIntoRightIterator(kv, getUniquePersistentIteratorFromPtr(&it)) );
     })
     .flatMap([this](pair<LitArgPair, TermList> arg) {
@@ -252,9 +253,7 @@ ClauseIterator InductionRewriting::generateClauses(Clause* premise)
     .flatMap([](pair<pair<Literal*, TermList>, TermQueryResult> arg) {
       return pvi( pushPairIntoRightIterator(arg, termArgIter(arg.second.literal)) );
     })
-    .map([](pair<pair<pair<Literal*, TermList>, TermQueryResult>, TermList> kv) { return make_pair(kv.first, kv.second.isTerm() ? kv.second.term() : nullptr); })
-    .filter([](pair<pair<pair<Literal*, TermList>, TermQueryResult>, Term*> kv) { return kv.second!=nullptr; })
-    .map([](pair<pair<pair<Literal*, TermList>, TermQueryResult>, Term*> arg) {
+    .map([](pair<pair<pair<Literal*, TermList>, TermQueryResult>, TermList> arg) {
       return make_pair(make_pair(make_pair(arg.first.first.first, arg.second), arg.first.first.second), arg.first.second);
     })
     .flatMap([this, premise](pair<pair<LitArgPair, TermList>, TermQueryResult> arg) {
@@ -267,7 +266,7 @@ ClauseIterator InductionRewriting::generateClauses(Clause* premise)
   return pvi(fwRes.concat(bwRes).filter(NonzeroFn()));
 }
 
-Term* getRewrittenTerm(Literal* oldLit, Literal* newLit) {
+TermList getRewrittenTerm(Literal* oldLit, Literal* newLit) {
   // cout << *oldLit << " " << *newLit << endl;
   ASS_EQ(oldLit->functor(), newLit->functor());
   ASS_NEQ(newLit,oldLit);
@@ -277,19 +276,16 @@ Term* getRewrittenTerm(Literal* oldLit, Literal* newLit) {
     auto lhsOld = *oldLit->nthArgument(0);
     auto rhsOld = *oldLit->nthArgument(1);
     if (lhsNew == lhsOld || rhsNew == lhsOld) {
-      ASS(rhsOld.isTerm());
-      return rhsOld.term();
+      return rhsOld;
     }
-    ASS(lhsOld.isTerm());
     ASS(lhsNew == rhsOld || rhsNew == rhsOld);
-    return lhsOld.term();
+    return lhsOld;
   } else {
     for (unsigned i = 0; i < oldLit->arity(); i++) {
       auto oldArg = *oldLit->nthArgument(i);
       auto newArg = *newLit->nthArgument(i);
       if (oldArg != newArg) {
-        ASS(oldArg.isTerm());
-        return oldArg.term();
+        return oldArg;
       }
     }
     ASSERTION_VIOLATION;
@@ -316,7 +312,7 @@ void InductionRewriting::output()
 }
 
 ClauseIterator InductionRewriting::perform(
-    Clause* rwClause, Literal* rwLit, Term* rwArg, TermList rwTerm,
+    Clause* rwClause, Literal* rwLit, TermList rwArg, TermList rwTerm,
     Clause* eqClause, Literal* eqLit, TermList eqLHS,
     ResultSubstitutionSP subst, bool eqIsResult)
 {
@@ -325,23 +321,36 @@ ClauseIterator InductionRewriting::perform(
   ASS(rwClause->store()==Clause::ACTIVE);
   ASS(eqClause->store()==Clause::ACTIVE);
 
-  // cout << "performRemodulation with " << *rwClause << " and " << *eqClause << endl
+  // cout << "perform " << (_forward ? "forward" : "backward") << " rewriting with " << *rwClause << " and " << *eqClause << endl
   //   << "rwLit " << *rwLit << " eqLit " << *eqLit << endl
+  //   << "rwArg " << rwArg << endl
   //   << "rwTerm " << rwTerm << " eqLHS " << eqLHS << endl
   //   // << "subst " << endl << subst->tryGetRobSubstitution()->toString() << endl
   //   << "eqIsResult " << eqIsResult << endl << endl;
 
-  if (eqLHS.isVar() || rwTerm.isVar()) {
+  if (eqLHS.isVar()) {
+    //The case where eqLHS is a variable suffices because superposition
+    //is never carried out into variables. When unifying two terms
+    //sort unification is guaranteed
+    RobSubstitution* sub = subst->tryGetRobSubstitution();
+    ASS(sub);
+    TermList rwTermSort = SortHelper::getTermSort(rwTerm, rwLit);
+    if(!sub->unify(SortHelper::getEqualityArgumentSort(eqLit), eqIsResult, rwTermSort, !eqIsResult)){
+      //cannot perform superposition because sorts don't unify
+      return ClauseIterator::getEmpty();
+    }
+  }
+
+  if (rwArg.isVar() || rwTerm.isVar()) {
     return ClauseIterator::getEmpty();
   }
-  ASS(eqLHS.isTerm());
-  ASS(rwArg);
 
   TermList tgtTerm = EqHelper::getOtherEqualitySide(eqLit, eqLHS);
   TermList tgtTermS = subst->applyTo(tgtTerm, eqIsResult);
   TermList rwTermS = subst->applyTo(rwTerm, !eqIsResult);
+  TermList rwArgS = subst->applyTo(rwArg, !eqIsResult);
   Literal* rwLitS = subst->applyTo(rwLit, !eqIsResult);
-  if (tgtTermS.isVar()) {
+  if (!rwArgS.containsSubterm(rwTermS)) {
     return ClauseIterator::getEmpty();
   }
 
@@ -367,12 +376,12 @@ ClauseIterator InductionRewriting::perform(
   }
 
   return pvi(iterTraits(vi(new SingleOccurrenceReplacementIterator(rwLitS, rwTermS.term(), tgtTermS)))
-    .map([this,eqClause,rwClause,eqLit,rwLit,rwLitS,rwArg,eqIsResult,subst,boundS](Literal* tgtLitS) -> Clause* {
+    .map([this,eqClause,rwClause,eqLit,rwLit,rwLitS,rwArgS,eqIsResult,subst,boundS](Literal* tgtLitS) -> Clause* {
       if (EqHelper::isEqTautology(tgtLitS)) {
         return nullptr;
       }
       auto newRwArg = getRewrittenTerm(rwLitS, tgtLitS);
-      if (rwArg && newRwArg != rwArg) {
+      if (newRwArg != rwArgS) {
         // static unsigned wrongRw = 0;
         // wrongRw++;
         // if (!eqIsResult && wrongRw % 1000 == 0) {
@@ -452,7 +461,8 @@ ClauseIterator InductionRewriting::perform(
         (*ptr)++;
       }
       // cout << "result " << *newCl << endl << endl;
-      newCl->setRewritingBound(newRwArg, !_forward);
+      ASS(newRwArg.isTerm());
+      newCl->setRewritingBound(newRwArg.term(), !_forward);
       return newCl;
     }));
 }
@@ -474,6 +484,9 @@ bool InductionRewriting::filterByHeuristics(
     Clause* eqClause, Literal* eqLit, TermList eqLHS,
     ResultSubstitutionSP subst)
 {
+  if (eqLHS.isVar()) {
+    return true;
+  }
   vset<unsigned> eqSkolems = getSkolems(eqLit);
   if (!eqSkolems.empty()) {
     vset<unsigned> rwSkolems = getSkolems(rwLit);
