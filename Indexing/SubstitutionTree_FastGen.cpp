@@ -203,6 +203,9 @@ public:
   bool isIdentityOnQueryWhenResultBound() override
   { return true; }
 
+  bool doesBind(unsigned v) override
+  { return _resultNormalizer->contains(v); }
+
 #if VDEBUG
   virtual vstring toString() override
   { return _resultNormalizer->toString(); }

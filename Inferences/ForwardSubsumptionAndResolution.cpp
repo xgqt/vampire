@@ -183,7 +183,7 @@ Clause *ForwardSubsumptionAndResolution::generateSubsumptionResolutionClause(Cla
   return res;
 }
 
-bool checkForSubsumptionResolution(Clause *cl, ClauseMatches *cms, Literal *resLit)
+bool checkForSubsumptionResolution(Clause *cl, ClauseMatches *cms, Literal *resLit, Ordering* ord)
 {
   Clause *mcl = cms->_cl;
   unsigned mclen = mcl->length();
@@ -212,7 +212,7 @@ bool checkForSubsumptionResolution(Clause *cl, ClauseMatches *cms, Literal *resL
     }
   }
 
-  return MLMatcher::canBeMatched(mcl, cl, cms->_matches, resLit);
+  return MLMatcher::canBeMatched(mcl, cl, cms->_matches, resLit, ord);
 }
 
 bool ForwardSubsumptionAndResolution::perform(Clause *cl, Clause *&replacement, ClauseIterator &premises)
@@ -234,12 +234,39 @@ bool ForwardSubsumptionAndResolution::perform(Clause *cl, Clause *&replacement, 
 
   static CMStack cmStore(64);
   ASS(cmStore.isEmpty());
+  auto& ord = _salg->getOrdering();
 
   for (unsigned li = 0; li < clen; li++) {
-    SLQueryResultIterator rit = _unitIndex->getGeneralizations((*cl)[li], false, false);
+    SLQueryResultIterator rit = _unitIndex->getGeneralizations((*cl)[li], false, true);
     while (rit.hasNext()) {
-      Clause *premise = rit.next().clause;
+      auto qr = rit.next();
+      Clause *premise = qr.clause;
       if (ColorHelper::compatible(cl->color(), premise->color())) {
+        auto baseUpperBound = premise->getRewritingUpperBound();
+        if (baseUpperBound) {
+          auto instanceUpperBound = cl->getRewritingUpperBound();
+          if (!instanceUpperBound) {
+            continue;
+          }
+          auto vit = vi(new VariableIterator(baseUpperBound));
+          bool nope = false;
+          while (vit.hasNext()) {
+            auto v = vit.next();
+            if (!qr.substitution->doesBind(v.var())) {
+              // possibly losing inferences, so we don't match
+              nope = true;
+              break;
+            }
+          }
+          if (nope) {
+            continue;
+          }
+          auto baseUpperBoundS = qr.substitution->applyToBoundResult(TermList(baseUpperBound));
+          auto comp = ord.compare(baseUpperBoundS, TermList(instanceUpperBound));
+          if (comp == Ordering::Result::LESS || comp == Ordering::Result::LESS_EQ) {
+            continue;
+          }
+        }
         premises = pvi(getSingletonIterator(premise));
         env.statistics->forwardSubsumed++;
         result = true;
@@ -271,7 +298,7 @@ bool ForwardSubsumptionAndResolution::perform(Clause *cl, Clause *&replacement, 
           continue;
         }
 
-        if (MLMatcher::canBeMatched(mcl, cl, cms->_matches, 0) && ColorHelper::compatible(cl->color(), mcl->color())) {
+        if (MLMatcher::canBeMatched(mcl, cl, cms->_matches, 0, &ord) && ColorHelper::compatible(cl->color(), mcl->color())) {
           premises = pvi(getSingletonIterator(mcl));
           env.statistics->forwardSubsumed++;
           result = true;
@@ -309,7 +336,7 @@ bool ForwardSubsumptionAndResolution::perform(Clause *cl, Clause *&replacement, 
           ClauseMatches *cms = csit.next();
           for (unsigned li = 0; li < clen; li++) {
             Literal *resLit = (*cl)[li];
-            if (checkForSubsumptionResolution(cl, cms, resLit) && ColorHelper::compatible(cl->color(), cms->_cl->color())) {
+            if (checkForSubsumptionResolution(cl, cms, resLit, &ord) && ColorHelper::compatible(cl->color(), cms->_cl->color())) {
               resolutionClause = generateSubsumptionResolutionClause(cl, resLit, cms->_cl);
               env.statistics->forwardSubsumptionResolution++;
               premises = pvi(getSingletonIterator(cms->_cl));
@@ -349,7 +376,7 @@ bool ForwardSubsumptionAndResolution::perform(Clause *cl, Clause *&replacement, 
             cms->fillInMatches(&miniIndex);
           }
 
-          if (checkForSubsumptionResolution(cl, cms, resLit) && ColorHelper::compatible(cl->color(), cms->_cl->color())) {
+          if (checkForSubsumptionResolution(cl, cms, resLit, &ord) && ColorHelper::compatible(cl->color(), cms->_cl->color())) {
             resolutionClause = generateSubsumptionResolutionClause(cl, resLit, cms->_cl);
             env.statistics->forwardSubsumptionResolution++;
             premises = pvi(getSingletonIterator(cms->_cl));

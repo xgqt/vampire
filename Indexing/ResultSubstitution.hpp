@@ -57,6 +57,7 @@ public:
   virtual size_t getResultApplicationWeight(TermList t) { return 0; }
   /** if implementation cannot easily give result for this, zero is returned */
   virtual size_t getResultApplicationWeight(Literal* l) { return 0; }
+  virtual bool doesBind(unsigned v) { return false; }
 
   template<typename T>
   T apply(T t, bool result)

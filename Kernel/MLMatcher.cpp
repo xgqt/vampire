@@ -734,11 +734,42 @@ void MLMatcher::getBindings(vunordered_map<unsigned, TermList>& outBindings) con
   m_impl->getBindings(outBindings);
 }
 
-bool MLMatcher::canBeMatched(Literal** baseLits, unsigned baseLen, Clause* instance, LiteralList const* const* alts, Literal* resolvedLit, bool multiset)
+bool MLMatcher::canBeMatched(Literal** baseLits, unsigned baseLen, Clause* instance, LiteralList const* const* alts, Literal* resolvedLit, bool multiset, Term* baseUpperBound, Term* baseLowerBound, Ordering* ord)
 {
   static MLMatcher::Impl matcher;
   matcher.init(baseLits, baseLen, instance, alts, resolvedLit, multiset);
-  return matcher.nextMatch();
+  if (matcher.nextMatch()) {
+    if (!ord) {
+      return true;
+    }
+    auto instanceUpperBound = instance->getRewritingUpperBound();
+    // TODO do this for lower bounds
+    // auto instanceLowerBound = instance->getRewritingLowerBound();
+    if (!baseUpperBound) {
+      return true;
+    }
+    if (!instanceUpperBound) {
+      return false;
+    }
+    vunordered_map<unsigned, TermList> binder;
+    matcher.getBindings(binder);
+    Substitution subst;
+    auto vit = vi(new VariableIterator(baseUpperBound));
+    while (vit.hasNext()) {
+      auto v = vit.next();
+      if (!binder.count(v.var())) {
+        // possibly losing inferences, so we don't match
+        return false;
+      }
+    }
+    for (const auto& kv : binder) {
+      subst.bind(kv.first, kv.second);
+    }
+    auto baseUpperBoundS = baseUpperBound->apply(subst);
+    auto comp = ord->compare(TermList(baseUpperBoundS), TermList(instanceUpperBound));
+    return comp == Ordering::Result::GREATER || comp == Ordering::Result::GREATER_EQ || comp == Ordering::Result::EQUAL;
+  }
+  return false;
 }
 
 
