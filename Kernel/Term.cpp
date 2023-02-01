@@ -1743,6 +1743,7 @@ Term::Term(const Term& t) throw()
     _color(COLOR_TRANSPARENT),
     _hasInterpretedConstants(0),
     _isTwoVarEquality(0),
+    _forLemmaGeneration(0),
     _weight(0),
     _vars(0)
 {
@@ -1776,6 +1777,7 @@ Term::Term() throw()
    _color(COLOR_TRANSPARENT),
    _hasInterpretedConstants(0),
    _isTwoVarEquality(0),
+   _forLemmaGeneration(0),
    _weight(0),
    _maxRedLen(0),
    _vars(0)

@@ -39,7 +39,7 @@ public:
   /** New unit of a given kind */
   FormulaUnit(Formula* f,const Inference& inf)
     : Unit(FORMULA,inf),
-      _formula(f), _cachedColor(COLOR_INVALID), _cachedWeight(0)
+      _formula(f), _cachedColor(COLOR_INVALID), _cachedWeight(0), _isForLemmaGeneration(0)
   {}
 
   void destroy();
@@ -56,6 +56,8 @@ public:
 
   Color getColor();
   unsigned weight();
+  bool isForLemmaGeneration() { return _isForLemmaGeneration; }
+  void markForLemmaGeneration() { _isForLemmaGeneration = true; }
 
   CLASS_NAME(FormulaUnit);
   USE_ALLOCATOR(FormulaUnit);
@@ -66,6 +68,7 @@ protected:
 
   Color _cachedColor;
   unsigned _cachedWeight;
+  bool _isForLemmaGeneration;
 }; // class FormulaUnit
 
 

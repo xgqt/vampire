@@ -258,6 +258,11 @@ public:
     INTERPRETED_CONSTANT,
     NO_SKOLEMS
   };
+  enum class LemmaGeneration : unsigned int {
+    NONE,
+    MARKED,
+    ALL,
+  };
 
   enum class PredicateSineLevels : unsigned int {
     NO,   // no means 1) the reverse of "on", 2) use with caution, it is predicted to be the worse value
@@ -2349,7 +2354,7 @@ public:
   IntegerInductionLiteralStrictness integerInductionStrictnessComp() const {return _integerInductionStrictnessComp.actualValue; }
   IntegerInductionTermStrictness integerInductionStrictnessTerm() const {return _integerInductionStrictnessTerm.actualValue; }
   bool nonUnitInduction() const { return _nonUnitInduction.actualValue; }
-  bool inductionEquationalLemmaGeneration() const { return _inductionEquationalLemmaGeneration.actualValue; }
+  LemmaGeneration inductionEquationalLemmaGeneration() const { return _inductionEquationalLemmaGeneration.actualValue; }
 
   float instGenBigRestartRatio() const { return _instGenBigRestartRatio.actualValue; }
   bool instGenPassiveReactivation() const { return _instGenPassiveReactivation.actualValue; }
@@ -2664,7 +2669,7 @@ private:
   ChoiceOptionValue<IntegerInductionLiteralStrictness> _integerInductionStrictnessComp;
   ChoiceOptionValue<IntegerInductionTermStrictness> _integerInductionStrictnessTerm;
   BoolOptionValue _nonUnitInduction;
-  BoolOptionValue _inductionEquationalLemmaGeneration;
+  ChoiceOptionValue<LemmaGeneration> _inductionEquationalLemmaGeneration;
 
   StringOptionValue _latexOutput;
   BoolOptionValue _latexUseDefaultSymbols;

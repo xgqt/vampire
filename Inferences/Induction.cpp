@@ -968,6 +968,12 @@ Clause* resolveClausesHelper(const InductionContext& context, const Stack<Clause
     ASS_EQ(next-cnt,kv.first->length()-kv.second.size());
   }
   ASS_EQ(next,newLength);
+  for (unsigned i = 0; i < res->length(); i++) {
+    auto lit = (*res)[i];
+    if (lit->isEquality() && lit->isPositive()) {
+      lit->markForLemmaGeneration();
+    }
+  }
 
   return res;
 }

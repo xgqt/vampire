@@ -1585,7 +1585,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   InductionRewriting* inductionBackwardRewriting = nullptr;
   InductionRewriting* inductionForwardRewriting = nullptr;
   if(opt.induction()!=Options::Induction::NONE){
-    if (env.options->inductionEquationalLemmaGeneration()) {
+    if (env.options->inductionEquationalLemmaGeneration()!=Options::LemmaGeneration::NONE) {
       inductionBackwardRewriting = new InductionRewriting(false);
       inductionForwardRewriting = new InductionRewriting(true);
       gie->addFront(inductionBackwardRewriting);
@@ -1707,7 +1707,7 @@ SaturationAlgorithm* SaturationAlgorithm::createFromOptions(Problem& prb, const 
   }
 #endif
 
-  if (env.options->inductionEquationalLemmaGeneration()) {
+  if (env.options->inductionEquationalLemmaGeneration()!=Options::LemmaGeneration::NONE) {
     res->setGeneratingInferenceEngine(new InductionSGIWrapper(induction, inductionForwardRewriting, inductionBackwardRewriting, sgi));
   } else {
     res->setGeneratingInferenceEngine(sgi);

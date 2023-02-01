@@ -783,6 +783,7 @@ protected:
   unsigned _hasInterpretedConstants : 1;
   /** If true, the object is an equality literal between two variables */
   unsigned _isTwoVarEquality : 1;
+  unsigned _forLemmaGeneration : 1;
   /** Weight of the symbol */
   unsigned _weight;
   /** length of maximum reduction length */
@@ -1017,6 +1018,9 @@ public:
 
     _sort = sort;
   }
+
+  void markForLemmaGeneration() { _forLemmaGeneration = true; }
+  bool isForLemmaGeneration() { return _forLemmaGeneration; }
 
 //   /** Applied @b subst to the literal and return the result */
   Literal* apply(Substitution& subst);

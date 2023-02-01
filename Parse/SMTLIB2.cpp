@@ -265,6 +265,20 @@ if (ibRdr.tryAcceptAtom("non-erasing") || ibRdr.tryAcceptAtom("injective")) {
       continue;
     }
 
+    if (ibRdr.tryAcceptAtom("assert-lg")) {
+      if (!ibRdr.hasNext()) {
+        USER_ERROR("assert expects a body");
+      }
+      LExpr* body = ibRdr.readNext();
+      readAssert(body);
+      ASS(_formulas);
+      static_cast<FormulaUnit*>(_formulas->head())->markForLemmaGeneration();
+
+      ibRdr.acceptEOL();
+
+      continue;
+    }
+
     if (ibRdr.tryAcceptAtom("assert-not")) {
       if (!ibRdr.hasNext()) {
         USER_ERROR("assert-not expects a body");

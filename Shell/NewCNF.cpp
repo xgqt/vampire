@@ -1575,6 +1575,14 @@ void NewCNF::toClauses(SPGenClause gc, Stack<Clause*>& output)
       Clause* clause = toClause(genClause);
       LOG1(clause->toString());
       output.push(clause);
+      if (_beingClausified->isForLemmaGeneration()) {
+        for (unsigned i = 0; i < clause->length(); i++) {
+          auto lit = (*clause)[i];
+          if (lit->isEquality() && lit->isPositive()) {
+            lit->markForLemmaGeneration();
+          }
+        }
+      }
     } else {
       LOG2(genClause->toString(), "was removed as it contains a tautology");
     }

@@ -180,11 +180,14 @@ LitArgPairIter InductionRewriting::getTermIterator(Clause* premise, const Option
 
 LitArgPairIter InductionRewriting::getLHSIterator(Clause* premise, const Options& opt, Ordering& ord, bool forward)
 {
+  CALL("InductionRewriting::getLHSIterator");
   if (!canClauseRewrite(premise)) {
     return LitArgPairIter::getEmpty();
   }
-  CALL("InductionRewriting::getLHSIterator");
   return pvi(iterTraits(getIterator(ord, premise, forward))
+    .filter([&opt](LitArgPair kv) {
+      return opt.inductionEquationalLemmaGeneration()==Options::LemmaGeneration::ALL || kv.first->isForLemmaGeneration();
+    })
     .filter([&ord, forward](LitArgPair kv) {
       auto lit = kv.first;
       if (!lit->isEquality() || lit->isNegative()) {

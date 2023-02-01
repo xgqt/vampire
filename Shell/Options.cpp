@@ -1458,7 +1458,11 @@ void Options::init()
     _nonUnitInduction.reliesOn(_induction.is(notEqual(Induction::NONE)));
     _lookup.insert(&_nonUnitInduction);
 
-    _inductionEquationalLemmaGeneration = BoolOptionValue("induction_equational_lemma_generation","indelg",false);
+    _inductionEquationalLemmaGeneration = ChoiceOptionValue<LemmaGeneration>(
+      "induction_equational_lemma_generation",
+      "indelg",
+      LemmaGeneration::NONE,
+      { "none", "marked", "all" });
     _inductionEquationalLemmaGeneration.description = "Generate consequences (without ordering constraints) for induction goals";
     _inductionEquationalLemmaGeneration.tag(OptionTag::INFERENCES);
     _inductionEquationalLemmaGeneration.reliesOn(_induction.is(notEqual(Induction::NONE)));
